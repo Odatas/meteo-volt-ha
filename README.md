@@ -1,27 +1,131 @@
-# Meteo-Volt Home Assistant Integration
+# Meteo-Volt for Home Assistant
 
-This custom integration fetches prediction data from the Meteo-Volt API and provides three sensor entities for the quantiles:
-- Q10
-- Q50
-- Q90
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 
-The state of the sensor represents the predicted value for the current 15-minute slot. The full prediction timeseries (672 slots) is available as an attribute on each sensor.
+Home Assistant integration for the [Meteo-Volt](https://github.com/Odatas/meteo-volt-ha) electricity price prediction service. It polls the Meteo-Volt API once per hour and exposes the forecast as sensors, ready for charting and automations (e.g. charging an EV during the cheapest hours).
 
-## Installation via HACS
+> **First release — rudimentary.** Expect rough edges. The forecast horizon and model you receive are determined entirely by your API key's tier; there is no model or horizon selector in Home Assistant yet.
 
-1. Go to HACS -> Integrations.
-2. Click the three dots in the top right corner and select **Custom repositories**.
-3. Add the URL of this repository and select **Integration** as category.
-4. Click **Add**.
-5. Once added, you can find **Meteo-Volt** in HACS and click **Download**.
-6. Restart Home Assistant.
+## What it does
+
+Meteo-Volt predicts German day-ahead electricity prices in 15-minute slots, each with three quantiles:
+
+- `q10` — optimistic (low) estimate
+- `q50` — median (the main forecast)
+- `q90` — pessimistic (high) estimate
+
+The integration fetches the current forecast hourly and makes the full slot series available as an entity attribute for charting.
+
+## Requirements
+
+- A Meteo-Volt API token. The token's tier decides how far ahead the forecast reaches.
+- Home Assistant with HACS installed (for the recommended install path).
+
+## Installation
+
+### HACS (recommended)
+
+1. In HACS, go to **Integrations → ⋮ → Custom repositories**.
+2. Add `https://github.com/Odatas/meteo-volt-ha` with category **Integration**.
+3. Search for **Meteo-Volt** and install it.
+4. Restart Home Assistant.
+
+### Manual
+
+1. Copy the `meteo_volt` folder into `<config>/custom_components/`.
+2. Restart Home Assistant.
 
 ## Configuration
 
-1. Go to **Settings** -> **Devices & Services**.
-2. Click **Add Integration** in the bottom right corner.
-3. Search for **Meteo-Volt**.
-4. Enter your API token.
-5. Click **Submit**.
+Add the integration via **Settings → Devices & Services → Add Integration → Meteo-Volt**. You will be asked for:
 
-The integration will automatically update the data every hour.
+| Field | Required | Description |
+|---|---|---|
+| **API Token** | yes | Your Meteo-Volt API key. Validated against the API during setup. |
+| **Grid Fees** | no | A flat surcharge in EUR/kWh added to every forecast value (e.g. grid charges, taxes), so the forecast reflects your end price instead of the raw exchange price. Default `0.0`. |
+
+The token is used as the config entry's unique ID, so the same token cannot be added twice.
+
+## Entities
+
+The integration creates one device (**Meteo-Volt Dienst**) with the following sensors:
+
+| Sensor | State | Notes |
+|---|---|---|
+| **Q10** | number of slots | Forecast series in the `forecast` attribute. |
+| **Q50** | number of slots | Forecast series in the `forecast` attribute. |
+| **Q90** | number of slots | Forecast series in the `forecast` attribute. |
+| **Model** | model name | Which model produced the forecast (server-decided). |
+| **Snapshot Time** | timestamp | When the underlying weather snapshot was created. |
+| **Computed At** | timestamp | When the prediction was computed. |
+
+**Important:** the state of the Q10/Q50/Q90 sensors is the **number of slots** in the current forecast, not a price. The actual prices live in the `forecast` attribute:
+
+```yaml
+forecast:
+  - target_timestamp: "2026-06-10T08:00:00+00:00"
+    value: 0.0421   # q50 + grid_fees, in EUR/kWh
+  - target_timestamp: "2026-06-10T08:15:00+00:00"
+    value: 0.0398
+  # ...
+```
+
+`value` already includes the configured grid fee.
+
+## Usage examples
+
+### Chart the median forecast with ApexCharts
+
+Using [apexcharts-card](https://github.com/RomRider/apexcharts-card):
+
+```yaml
+type: custom:apexcharts-card
+header:
+  title: Electricity price forecast (median)
+graph_span: 7d
+series:
+  - entity: sensor.meteo_volt_q50
+    name: Median (q50)
+    data_generator: |
+      return entity.attributes.forecast.map(s => {
+        return [new Date(s.target_timestamp).getTime(), s.value];
+      });
+```
+
+Swap in `sensor.meteo_volt_q10` / `sensor.meteo_volt_q90` for the confidence band.
+
+### Template: cheapest upcoming slot
+
+A template sensor exposing the lowest-priced future slot from the median forecast:
+
+```yaml
+template:
+  - sensor:
+      - name: "Cheapest price today"
+        unit_of_measurement: "EUR/kWh"
+        state: >
+          {% set slots = state_attr('sensor.meteo_volt_q50', 'forecast') %}
+          {% if slots %}
+            {{ slots | map(attribute='value') | min }}
+          {% else %}
+            unknown
+          {% endif %}
+```
+
+Extend this to pick the cheapest N slots and trigger charging — the raw material (timestamp + value per slot) is all in the attribute.
+
+## Troubleshooting
+
+- **Setup fails with "invalid auth":** check the token. Note that in this early version a token error and an unreachable server both surface as an auth error.
+- **Sensors show `unknown` / no data:** the hourly poll may not have completed yet, or the API returned no slots. Check the Home Assistant logs for the `meteo_volt` logger.
+- **State shows a large number (e.g. 672):** that is expected — it's the slot count. Prices are in the `forecast` attribute (see above).
+
+## Technical notes
+
+- **Polling:** once per hour (`cloud_polling`). The server-side data itself refreshes independently; polling more often would not yield newer data.
+- **Units:** all prices are EUR/kWh.
+- **Timestamps:** slot timestamps are UTC (ISO 8601). Convert to local time in charts/templates as needed.
+
+## Disclaimer
+
+Meteo-Volt provides price *predictions*. They can be wrong, sometimes substantially, especially for extreme price events. Do not rely on them for decisions where an incorrect forecast would cause harm or significant cost. This integration is provided as-is, without warranty.

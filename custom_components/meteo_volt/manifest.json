@@ -1,13 +1,13 @@
 {
   "domain": "meteo_volt",
   "name": "Meteo-Volt",
-  "codeowners": [],
+  "codeowners": ["@Odatas"],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/TODO/meteo-volt-ha",
+  "documentation": "https://github.com/Odatas/meteo-volt-ha",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/TODO/meteo-volt-ha/issues",
+  "issue_tracker": "https://github.com/Odatas/meteo-volt-ha/issues",
   "requirements": [],
   "version": "1.0.0"
 }
