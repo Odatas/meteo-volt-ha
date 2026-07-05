@@ -1,0 +1,22 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Meteo-Volt Authentifizierung",
+        "description": "Bitte gib dein API Token und optionale Netzkosten/Abgaben ein, um dich mit Meteo-Volt zu verbinden.",
+        "data": {
+          "api_token": "API Token",
+          "grid_fees": "Netzkosten & Abgaben (EUR/kWh)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zur API fehlgeschlagen.",
+      "invalid_auth": "Ungültiges API Token.",
+      "unknown": "Ein unbekannter Fehler ist aufgetreten."
+    },
+    "abort": {
+      "already_configured": "Dieses API Token ist bereits konfiguriert."
+    }
+  }
+}
