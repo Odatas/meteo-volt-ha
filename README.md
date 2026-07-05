@@ -18,7 +18,7 @@ The integration fetches the current forecast hourly and makes the full slot seri
 
 ## Requirements
 
-- A Meteo-Volt API token. The token's tier decides how far ahead the forecast reaches.
+- A Meteo-Volt API token. The token's tier decides how far ahead the forecast reaches (free / paid / admin). You cannot change model or horizon from within Home Assistant.
 - Home Assistant with HACS installed (for the recommended install path).
 
 ## Installation
@@ -74,25 +74,65 @@ forecast:
 
 ## Usage examples
 
-### Chart the median forecast with ApexCharts
+### Chart the forecast band with ApexCharts
 
-Using [apexcharts-card](https://github.com/RomRider/apexcharts-card):
+Using [apexcharts-card](https://github.com/RomRider/apexcharts-card). Shows all three quantiles (Q10/Q50/Q90) in ct/kWh, with the outer bounds dimmed:
 
 ```yaml
 type: custom:apexcharts-card
 header:
-  title: Electricity price forecast (median)
+  show: true
+  title: Meteo-Volt Prognose
+  show_states: false
 graph_span: 7d
+span:
+  start: hour
+all_series_config:
+  unit: ct/kWh
+  show:
+    legend_value: false
+apex_config:
+  legend:
+    show: true
+  yaxis:
+    decimalsInFloat: 0
 series:
-  - entity: sensor.meteo_volt_q50
-    name: Median (q50)
+  - entity: sensor.meteo_volt_q10
+    name: Q10
+    type: line
+    curve: smooth
+    stroke_width: 2
+    opacity: 0.4
+    color: "#28a745"
     data_generator: |
-      return entity.attributes.forecast.map(s => {
-        return [new Date(s.target_timestamp).getTime(), s.value];
+      return entity.attributes.forecast.map((entry) => {
+        return [new Date(entry.target_timestamp).getTime(), entry.value * 100];
+      });
+  - entity: sensor.meteo_volt_q50
+    name: Q50
+    type: line
+    curve: smooth
+    stroke_width: 3
+    opacity: 1
+    color: "#007bff"
+    data_generator: |
+      return entity.attributes.forecast.map((entry) => {
+        return [new Date(entry.target_timestamp).getTime(), entry.value * 100];
+      });
+  - entity: sensor.meteo_volt_q90
+    name: Q90
+    type: line
+    curve: smooth
+    stroke_width: 2
+    opacity: 0.4
+    color: "#dc3545"
+    data_generator: |
+      return entity.attributes.forecast.map((entry) => {
+        return [new Date(entry.target_timestamp).getTime(), entry.value * 100];
       });
 ```
 
-Swap in `sensor.meteo_volt_q10` / `sensor.meteo_volt_q90` for the confidence band.
+> `graph_span: 7d` suits the paid tier. On the free tier the forecast is shorter (~2–3 days), so the axis will show empty space beyond the data — lower it to `3d` if you're on free.
 
 ### Template: cheapest upcoming slot
 
