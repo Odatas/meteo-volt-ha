@@ -2,9 +2,9 @@
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 
-Home Assistant integration for the [Meteo-Volt](https://github.com/Odatas/meteo-volt-ha) electricity price prediction service. It polls the Meteo-Volt API once per hour and exposes the forecast as sensors, ready for charting and automations (e.g. charging an EV during the cheapest hours).
+Home Assistant integration for the [Meteo-Volt](https://github.com/Odatas/meteo-volt-ha) electricity price prediction service. It polls the Meteo-Volt API once per hour and exposes the forecast as sensors, ready for charting and automations (e.g. charging an EV during the cheapest hours). Currently the API is in beta and there is no open way of reciving an api key.
 
-> **First release — rudimentary.** Expect rough edges. The forecast horizon and model you receive are determined entirely by your API key's tier; there is no model or horizon selector in Home Assistant yet.
+> **First release — rudimentary.** Expect rough edges. There is no prediction model selector in Home Assistant yet.
 
 ## What it does
 
@@ -18,7 +18,7 @@ The integration fetches the current forecast hourly and makes the full slot seri
 
 ## Requirements
 
-- A Meteo-Volt API token. The token's tier decides how far ahead the forecast reaches.
+- A Meteo-Volt API token.
 - Home Assistant with HACS installed (for the recommended install path).
 
 ## Installation
@@ -74,25 +74,65 @@ forecast:
 
 ## Usage examples
 
-### Chart the median forecast with ApexCharts
+### Chart the forecast band with ApexCharts
 
-Using [apexcharts-card](https://github.com/RomRider/apexcharts-card):
+Using [apexcharts-card](https://github.com/RomRider/apexcharts-card). Shows all three quantiles (Q10/Q50/Q90) in ct/kWh, with the outer bounds dimmed:
 
 ```yaml
 type: custom:apexcharts-card
 header:
-  title: Electricity price forecast (median)
+  show: true
+  title: Meteo-Volt Prognose
+  show_states: false
 graph_span: 7d
+span:
+  start: hour
+all_series_config:
+  unit: ct/kWh
+  show:
+    legend_value: false
+apex_config:
+  legend:
+    show: true
+  yaxis:
+    decimalsInFloat: 0
 series:
-  - entity: sensor.meteo_volt_q50
-    name: Median (q50)
+  - entity: sensor.meteo_volt_q10
+    name: Q10
+    type: line
+    curve: smooth
+    stroke_width: 2
+    opacity: 0.4
+    color: "#28a745"
     data_generator: |
-      return entity.attributes.forecast.map(s => {
-        return [new Date(s.target_timestamp).getTime(), s.value];
+      return entity.attributes.forecast.map((entry) => {
+        return [new Date(entry.target_timestamp).getTime(), entry.value * 100];
+      });
+  - entity: sensor.meteo_volt_q50
+    name: Q50
+    type: line
+    curve: smooth
+    stroke_width: 3
+    opacity: 1
+    color: "#007bff"
+    data_generator: |
+      return entity.attributes.forecast.map((entry) => {
+        return [new Date(entry.target_timestamp).getTime(), entry.value * 100];
+      });
+  - entity: sensor.meteo_volt_q90
+    name: Q90
+    type: line
+    curve: smooth
+    stroke_width: 2
+    opacity: 0.4
+    color: "#dc3545"
+    data_generator: |
+      return entity.attributes.forecast.map((entry) => {
+        return [new Date(entry.target_timestamp).getTime(), entry.value * 100];
       });
 ```
 
-Swap in `sensor.meteo_volt_q10` / `sensor.meteo_volt_q90` for the confidence band.
+> `graph_span: 7d` suits the paid tier. On the free tier the forecast is shorter (~2–3 days), so the axis will show empty space beyond the data — lower it to `3d` if you're on free.
 
 ### Template: cheapest upcoming slot
 
