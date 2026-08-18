@@ -72,6 +72,13 @@ class MeteoVoltBaseSensor(CoordinatorEntity, SensorEntity):
 class MeteoVoltForecastSensor(MeteoVoltBaseSensor):
     """Representation of a Meteo-Volt Forecast Sensor."""
 
+    # The forecast series is far larger than the recorder's 16384-byte limit for
+    # state attributes (measured: ~20 KB free, ~46 KB paid, ~91 KB admin).
+    # Without this, every update logs a warning and the attributes are dropped
+    # from the database anyway. They remain on the live state, which is all that
+    # charts and templates read.
+    _unrecorded_attributes = frozenset({"forecast"})
+
     def __init__(
         self,
         coordinator: MeteoVoltDataUpdateCoordinator,
