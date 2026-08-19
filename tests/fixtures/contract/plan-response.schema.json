@@ -1,0 +1,612 @@
+{
+  "x-meteo-volt-contract": {
+    "generated_by": "meteo-volt-brain/scripts/export_contract.py",
+    "do_not_edit": true,
+    "schema_version": 1,
+    "brain_commit": "5c85b49",
+    "sha256": "71fc4a7bc9b25d53c68a60071cc4e62125c56b1a2c7f8fa33f49e517e80e40f0"
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "Interval": {
+      "additionalProperties": false,
+      "description": "Abgeleitet aus den Slots. Bei Widerspruch gilt slots (R13).",
+      "properties": {
+        "station_id": {
+          "title": "Station Id",
+          "type": "string"
+        },
+        "from": {
+          "format": "date-time",
+          "title": "From",
+          "type": "string"
+        },
+        "to": {
+          "format": "date-time",
+          "title": "To",
+          "type": "string"
+        },
+        "kwh": {
+          "title": "Kwh",
+          "type": "number"
+        },
+        "cost_eur": {
+          "title": "Cost Eur",
+          "type": "number"
+        },
+        "avg_price_eur_kwh": {
+          "title": "Avg Price Eur Kwh",
+          "type": "number"
+        },
+        "soc_from_pct": {
+          "title": "Soc From Pct",
+          "type": "number"
+        },
+        "soc_to_pct": {
+          "title": "Soc To Pct",
+          "type": "number"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "avg_price_eur_kwh",
+        "cost_eur",
+        "from",
+        "kwh",
+        "reason",
+        "soc_from_pct",
+        "soc_to_pct",
+        "station_id",
+        "to"
+      ],
+      "title": "Interval",
+      "type": "object"
+    },
+    "PredictionStaleWarning": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "prediction_stale",
+          "default": "prediction_stale",
+          "title": "Type",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message",
+        "type"
+      ],
+      "title": "PredictionStaleWarning",
+      "type": "object"
+    },
+    "SiteLimitExceededWarning": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "site_limit_exceeded",
+          "default": "site_limit_exceeded",
+          "title": "Type",
+          "type": "string"
+        },
+        "peak_power_kw": {
+          "title": "Peak Power Kw",
+          "type": "number"
+        },
+        "limit_kw": {
+          "title": "Limit Kw",
+          "type": "number"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "limit_kw",
+        "message",
+        "peak_power_kw",
+        "type"
+      ],
+      "title": "SiteLimitExceededWarning",
+      "type": "object"
+    },
+    "SiteResult": {
+      "additionalProperties": false,
+      "properties": {
+        "peak_power_kw": {
+          "title": "Peak Power Kw",
+          "type": "number"
+        },
+        "total_kwh": {
+          "title": "Total Kwh",
+          "type": "number"
+        },
+        "total_cost_eur": {
+          "title": "Total Cost Eur",
+          "type": "number"
+        },
+        "total_cost_incl_fees_eur": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total Cost Incl Fees Eur"
+        },
+        "feasible": {
+          "title": "Feasible",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "feasible",
+        "peak_power_kw",
+        "total_cost_eur",
+        "total_kwh"
+      ],
+      "title": "SiteResult",
+      "type": "object"
+    },
+    "SlotOut": {
+      "additionalProperties": false,
+      "description": "Die Ausgabeeinheit (R13). Jeder Slot des Horizonts steht drin.",
+      "properties": {
+        "t": {
+          "format": "date-time",
+          "title": "T",
+          "type": "string"
+        },
+        "charge": {
+          "title": "Charge",
+          "type": "boolean"
+        },
+        "price": {
+          "title": "Price",
+          "type": "number"
+        },
+        "source": {
+          "enum": [
+            "epex",
+            "forecast"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "soc_end_pct": {
+          "title": "Soc End Pct",
+          "type": "number"
+        },
+        "station_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Station Id"
+        },
+        "kw": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kw"
+        },
+        "kwh": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kwh"
+        },
+        "kwh_battery": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kwh Battery"
+        },
+        "cost_eur": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cost Eur"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "charge",
+        "price",
+        "soc_end_pct",
+        "source",
+        "t"
+      ],
+      "title": "SlotOut",
+      "type": "object"
+    },
+    "SocStaleWarning": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "soc_stale",
+          "default": "soc_stale",
+          "title": "Type",
+          "type": "string"
+        },
+        "vehicle_id": {
+          "title": "Vehicle Id",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message",
+        "type",
+        "vehicle_id"
+      ],
+      "title": "SocStaleWarning",
+      "type": "object"
+    },
+    "StationOverbookedWarning": {
+      "additionalProperties": false,
+      "description": "G3: der Plan belegt eine Station mehrfach im selben Slot.",
+      "properties": {
+        "type": {
+          "const": "station_overbooked",
+          "default": "station_overbooked",
+          "title": "Type",
+          "type": "string"
+        },
+        "station_id": {
+          "title": "Station Id",
+          "type": "string"
+        },
+        "vehicle_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2,
+          "title": "Vehicle Ids",
+          "type": "array"
+        },
+        "overlapping_slots": {
+          "minimum": 1,
+          "title": "Overlapping Slots",
+          "type": "integer"
+        },
+        "first_overlap": {
+          "format": "date-time",
+          "title": "First Overlap",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "first_overlap",
+        "message",
+        "overlapping_slots",
+        "station_id",
+        "type",
+        "vehicle_ids"
+      ],
+      "title": "StationOverbookedWarning",
+      "type": "object"
+    },
+    "VehiclePlan": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "charge_now": {
+          "title": "Charge Now",
+          "type": "boolean"
+        },
+        "charge_now_kw": {
+          "title": "Charge Now Kw",
+          "type": "number"
+        },
+        "charge_now_station_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Charge Now Station Id"
+        },
+        "current_slot_end": {
+          "format": "date-time",
+          "title": "Current Slot End",
+          "type": "string"
+        },
+        "next_charge_start": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Charge Start"
+        },
+        "slots": {
+          "items": {
+            "$ref": "#/$defs/SlotOut"
+          },
+          "title": "Slots",
+          "type": "array"
+        },
+        "intervals": {
+          "items": {
+            "$ref": "#/$defs/Interval"
+          },
+          "title": "Intervals",
+          "type": "array"
+        },
+        "total_kwh": {
+          "title": "Total Kwh",
+          "type": "number"
+        },
+        "total_cost_eur": {
+          "title": "Total Cost Eur",
+          "type": "number"
+        },
+        "total_cost_incl_fees_eur": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total Cost Incl Fees Eur"
+        },
+        "soc_end_pct": {
+          "title": "Soc End Pct",
+          "type": "number"
+        },
+        "feasible": {
+          "title": "Feasible",
+          "type": "boolean"
+        },
+        "violations": {
+          "items": {
+            "$ref": "#/$defs/Violation"
+          },
+          "title": "Violations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "charge_now",
+        "charge_now_kw",
+        "charge_now_station_id",
+        "current_slot_end",
+        "feasible",
+        "id",
+        "intervals",
+        "next_charge_start",
+        "slots",
+        "soc_end_pct",
+        "total_cost_eur",
+        "total_kwh",
+        "violations"
+      ],
+      "title": "VehiclePlan",
+      "type": "object"
+    },
+    "Violation": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "target_unreachable",
+            "soc_floor_violated",
+            "no_slots_available",
+            "soc_above_max_at_start",
+            "not_connected"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "constraint_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Constraint Id"
+        },
+        "missing_kwh": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Missing Kwh"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message",
+        "type"
+      ],
+      "title": "Violation",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "computed_at": {
+      "format": "date-time",
+      "title": "Computed At",
+      "type": "string"
+    },
+    "model": {
+      "title": "Model",
+      "type": "string"
+    },
+    "risk": {
+      "enum": [
+        1,
+        2,
+        3
+      ],
+      "title": "Risk",
+      "type": "integer"
+    },
+    "horizon_end": {
+      "format": "date-time",
+      "title": "Horizon End",
+      "type": "string"
+    },
+    "prices_known_until": {
+      "format": "date-time",
+      "title": "Prices Known Until",
+      "type": "string"
+    },
+    "slot_minutes": {
+      "title": "Slot Minutes",
+      "type": "integer"
+    },
+    "site": {
+      "$ref": "#/$defs/SiteResult"
+    },
+    "vehicles": {
+      "items": {
+        "$ref": "#/$defs/VehiclePlan"
+      },
+      "title": "Vehicles",
+      "type": "array"
+    },
+    "actions_required": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Actions Required",
+      "type": "array"
+    },
+    "warnings": {
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "prediction_stale": "#/$defs/PredictionStaleWarning",
+            "site_limit_exceeded": "#/$defs/SiteLimitExceededWarning",
+            "soc_stale": "#/$defs/SocStaleWarning",
+            "station_overbooked": "#/$defs/StationOverbookedWarning"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/SocStaleWarning"
+          },
+          {
+            "$ref": "#/$defs/PredictionStaleWarning"
+          },
+          {
+            "$ref": "#/$defs/SiteLimitExceededWarning"
+          },
+          {
+            "$ref": "#/$defs/StationOverbookedWarning"
+          }
+        ]
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "actions_required",
+    "computed_at",
+    "horizon_end",
+    "model",
+    "prices_known_until",
+    "risk",
+    "schema_version",
+    "site",
+    "slot_minutes",
+    "vehicles",
+    "warnings"
+  ],
+  "title": "PlanResponse",
+  "type": "object"
+}

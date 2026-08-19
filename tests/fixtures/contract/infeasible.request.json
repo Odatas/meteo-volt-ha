@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "now": "2026-08-18T22:00:00+02:00",
+  "model": "wx_syslag_2023",
+  "risk": 2,
+  "timezone": "Europe/Berlin",
+  "site": {},
+  "stations": [
+    {
+      "id": "wb",
+      "max_power_kw": 11.0
+    }
+  ],
+  "vehicles": [
+    {
+      "id": "auto-a",
+      "capacity_kwh": 58.0,
+      "soc_pct": 47.0,
+      "max_charge_kw": 11.0,
+      "efficiency_curve": [
+        {
+          "kw": 11.0,
+          "eta": 0.94
+        }
+      ],
+      "soc_min_pct": 15.0,
+      "soc_max_pct": 80.0,
+      "consumption_kwh_per_100km": 19.5,
+      "connection": {
+        "station_id": "wb"
+      },
+      "consumption": {
+        "type": "none"
+      },
+      "constraints": [
+        {
+          "type": "target",
+          "id": "ms-1",
+          "deadline": "2026-08-19T00:00:00+02:00",
+          "target_soc_pct": 100.0,
+          "allow_above_max": true
+        }
+      ]
+    }
+  ],
+  "include_intervals": true
+}

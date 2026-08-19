@@ -1,0 +1,517 @@
+{
+  "x-meteo-volt-contract": {
+    "generated_by": "meteo-volt-brain/scripts/export_contract.py",
+    "do_not_edit": true,
+    "schema_version": 1,
+    "brain_commit": "5c85b49",
+    "sha256": "7f58e0ec6bc2304d413087d5c5ff83baa5e980b90b414286013f3b2116ecfcea"
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "Connection": {
+      "additionalProperties": false,
+      "properties": {
+        "station_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Station Id"
+        },
+        "since": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Since"
+        }
+      },
+      "title": "Connection",
+      "type": "object"
+    },
+    "ConsumptionEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "weekday": {
+          "maximum": 6,
+          "minimum": 0,
+          "title": "Weekday",
+          "type": "integer"
+        },
+        "time": {
+          "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+          "title": "Time",
+          "type": "string"
+        },
+        "km": {
+          "minimum": 0,
+          "title": "Km",
+          "type": "number"
+        }
+      },
+      "required": [
+        "weekday",
+        "time",
+        "km"
+      ],
+      "title": "ConsumptionEntry",
+      "type": "object"
+    },
+    "ConsumptionModel": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "none",
+            "daily",
+            "detailed"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "daily_km": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Daily Km"
+        },
+        "entries": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ConsumptionEntry"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entries"
+        },
+        "daily_floor_compensation": {
+          "default": true,
+          "title": "Daily Floor Compensation",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "ConsumptionModel",
+      "type": "object"
+    },
+    "EfficiencyPoint": {
+      "additionalProperties": false,
+      "properties": {
+        "kw": {
+          "exclusiveMinimum": 0,
+          "title": "Kw",
+          "type": "number"
+        },
+        "eta": {
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Eta",
+          "type": "number"
+        }
+      },
+      "required": [
+        "kw",
+        "eta"
+      ],
+      "title": "EfficiencyPoint",
+      "type": "object"
+    },
+    "Site": {
+      "additionalProperties": false,
+      "properties": {
+        "max_power_kw": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Power Kw"
+        },
+        "grid_fees_eur_kwh": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grid Fees Eur Kwh"
+        }
+      },
+      "title": "Site",
+      "type": "object"
+    },
+    "Station": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "max_power_kw": {
+          "exclusiveMinimum": 0,
+          "title": "Max Power Kw",
+          "type": "number"
+        },
+        "min_power_kw": {
+          "default": 1.4,
+          "exclusiveMinimum": 0,
+          "title": "Min Power Kw",
+          "type": "number"
+        },
+        "phases": {
+          "default": 3,
+          "enum": [
+            1,
+            3
+          ],
+          "title": "Phases",
+          "type": "integer"
+        },
+        "efficiency": {
+          "default": 0.99,
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Efficiency",
+          "type": "number"
+        },
+        "available": {
+          "default": true,
+          "title": "Available",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "max_power_kw"
+      ],
+      "title": "Station",
+      "type": "object"
+    },
+    "TargetConstraint": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "type": {
+          "const": "target",
+          "title": "Type",
+          "type": "string"
+        },
+        "deadline": {
+          "format": "date-time",
+          "title": "Deadline",
+          "type": "string"
+        },
+        "target_soc_pct": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Target Soc Pct",
+          "type": "number"
+        },
+        "earliest_start": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Earliest Start"
+        },
+        "allow_above_max": {
+          "default": false,
+          "title": "Allow Above Max",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "deadline",
+        "target_soc_pct"
+      ],
+      "title": "TargetConstraint",
+      "type": "object"
+    },
+    "UnavailableConstraint": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "type": {
+          "const": "unavailable",
+          "title": "Type",
+          "type": "string"
+        },
+        "from": {
+          "format": "date-time",
+          "title": "From",
+          "type": "string"
+        },
+        "to": {
+          "format": "date-time",
+          "title": "To",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "from",
+        "to"
+      ],
+      "title": "UnavailableConstraint",
+      "type": "object"
+    },
+    "VehicleProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "capacity_kwh": {
+          "exclusiveMinimum": 0,
+          "title": "Capacity Kwh",
+          "type": "number"
+        },
+        "soc_pct": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Soc Pct",
+          "type": "number"
+        },
+        "soc_measured_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Soc Measured At"
+        },
+        "max_charge_kw": {
+          "exclusiveMinimum": 0,
+          "title": "Max Charge Kw",
+          "type": "number"
+        },
+        "min_charge_kw": {
+          "default": 1.4,
+          "exclusiveMinimum": 0,
+          "title": "Min Charge Kw",
+          "type": "number"
+        },
+        "efficiency_curve": {
+          "items": {
+            "$ref": "#/$defs/EfficiencyPoint"
+          },
+          "minItems": 1,
+          "title": "Efficiency Curve",
+          "type": "array"
+        },
+        "soc_min_pct": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Soc Min Pct",
+          "type": "number"
+        },
+        "soc_max_pct": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Soc Max Pct",
+          "type": "number"
+        },
+        "consumption_kwh_per_100km": {
+          "exclusiveMinimum": 0,
+          "title": "Consumption Kwh Per 100Km",
+          "type": "number"
+        },
+        "connection": {
+          "$ref": "#/$defs/Connection"
+        },
+        "consumption": {
+          "$ref": "#/$defs/ConsumptionModel"
+        },
+        "constraints": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "target": "#/$defs/TargetConstraint",
+                "unavailable": "#/$defs/UnavailableConstraint"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/TargetConstraint"
+              },
+              {
+                "$ref": "#/$defs/UnavailableConstraint"
+              }
+            ]
+          },
+          "title": "Constraints",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "capacity_kwh",
+        "soc_pct",
+        "max_charge_kw",
+        "efficiency_curve",
+        "soc_min_pct",
+        "soc_max_pct",
+        "consumption_kwh_per_100km",
+        "consumption"
+      ],
+      "title": "VehicleProfile",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "now": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Now"
+    },
+    "model": {
+      "default": "default",
+      "title": "Model",
+      "type": "string"
+    },
+    "risk": {
+      "default": 2,
+      "enum": [
+        1,
+        2,
+        3
+      ],
+      "title": "Risk",
+      "type": "integer"
+    },
+    "timezone": {
+      "default": "Europe/Berlin",
+      "title": "Timezone",
+      "type": "string"
+    },
+    "site": {
+      "$ref": "#/$defs/Site"
+    },
+    "stations": {
+      "items": {
+        "$ref": "#/$defs/Station"
+      },
+      "minItems": 1,
+      "title": "Stations",
+      "type": "array"
+    },
+    "vehicles": {
+      "items": {
+        "$ref": "#/$defs/VehicleProfile"
+      },
+      "minItems": 1,
+      "title": "Vehicles",
+      "type": "array"
+    },
+    "include_intervals": {
+      "default": true,
+      "title": "Include Intervals",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "schema_version",
+    "stations",
+    "vehicles"
+  ],
+  "title": "PlanRequest",
+  "type": "object"
+}

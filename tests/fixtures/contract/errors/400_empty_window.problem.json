@@ -1,0 +1,13 @@
+{
+  "type": "https://api.meteo-volt.de/problems/invalid-request",
+  "title": "Invalid request",
+  "status": 400,
+  "detail": "1 Feld ist ungueltig",
+  "errors": [
+    {
+      "field": "vehicles[0].constraints[0]",
+      "problem": "value_error",
+      "expected": "Wert gemaess Schema"
+    }
+  ]
+}

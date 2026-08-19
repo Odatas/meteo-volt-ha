@@ -1,0 +1,78 @@
+{
+  "x-meteo-volt-contract": {
+    "generated_by": "meteo-volt-brain/scripts/export_contract.py",
+    "do_not_edit": true,
+    "schema_version": 1,
+    "brain_commit": "5c85b49",
+    "sha256": "6cafb096af12e10b08907bb9303fb6695a4fd09f73b6e70b416c7a825ce4032c"
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "FieldError": {
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "title": "Field",
+          "type": "string"
+        },
+        "problem": {
+          "title": "Problem",
+          "type": "string"
+        },
+        "expected": {
+          "title": "Expected",
+          "type": "string"
+        }
+      },
+      "required": [
+        "expected",
+        "field",
+        "problem"
+      ],
+      "title": "FieldError",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "type": {
+      "title": "Type",
+      "type": "string"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "status": {
+      "title": "Status",
+      "type": "integer"
+    },
+    "detail": {
+      "title": "Detail",
+      "type": "string"
+    },
+    "errors": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/FieldError"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Errors"
+    }
+  },
+  "required": [
+    "detail",
+    "status",
+    "title",
+    "type"
+  ],
+  "title": "ProblemDetails",
+  "type": "object"
+}

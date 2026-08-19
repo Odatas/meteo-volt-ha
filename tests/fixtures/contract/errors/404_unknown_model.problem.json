@@ -1,0 +1,13 @@
+{
+  "type": "https://api.meteo-volt.de/problems/unknown-model",
+  "title": "Unknown model",
+  "status": 404,
+  "detail": "Das angeforderte Modell ist nicht verfuegbar",
+  "errors": [
+    {
+      "field": "model",
+      "problem": "unknown_model",
+      "expected": "einer der freigegebenen Modellnamen"
+    }
+  ]
+}

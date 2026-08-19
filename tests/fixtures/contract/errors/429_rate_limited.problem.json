@@ -1,0 +1,6 @@
+{
+  "type": "https://api.meteo-volt.de/problems/rate-limited",
+  "title": "Too many requests",
+  "status": 429,
+  "detail": "Das Rate-Limit ist erschoepft; Retry-After beachten (R14)"
+}
