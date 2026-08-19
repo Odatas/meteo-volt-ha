@@ -62,3 +62,31 @@ def test_mock_can_answer_every_request():
     """Der Mock-Server aus C5 paart Request und Response ueber den Namen."""
     for name in _names():
         assert (CONTRACT / f"{name}.response.json").exists(), name
+
+
+def test_no_response_without_a_request():
+    """Gegenrichtung zu oben, und die wichtigere von beiden.
+
+    Saemtliche Tests hier leiten ihre Namensliste aus den *.request.json ab.
+    Eine Response ohne zugehoerigen Request wuerde deshalb von keinem einzigen
+    Test angefasst: nie gegen das Schema geprueft, nie als fehlend gemeldet.
+    Sie kaeme lautlos mit und wuerde erst auffallen, wenn jemand den
+    Mock-Server damit fuettert.
+    """
+    orphans = sorted(
+        p.name
+        for p in CONTRACT.glob("*.response.json")
+        if not (CONTRACT / f"{p.name.split('.')[0]}.request.json").exists()
+    )
+    assert not orphans, f"Response ohne Request: {orphans}"
+
+
+def test_every_error_case_has_both_halves():
+    """Gleiche Paarung eine Ebene tiefer, in beide Richtungen."""
+    errors = CONTRACT / "errors"
+    problems = {p.name.split(".")[0] for p in errors.glob("*.problem.json")}
+    requests = {p.name.split(".")[0] for p in errors.glob("*.request.json")}
+    assert problems == requests, (
+        f"nur .problem.json: {sorted(problems - requests)}; "
+        f"nur .request.json: {sorted(requests - problems)}"
+    )
