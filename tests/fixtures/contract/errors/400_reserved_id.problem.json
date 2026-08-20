@@ -6,8 +6,8 @@
   "errors": [
     {
       "field": "vehicles[0].constraints[0].id",
-      "problem": "value_error",
-      "expected": "Wert gemaess Schema"
+      "problem": "reserved_constraint_id",
+      "expected": "eine Constraint-id ausserhalb der reservierten: base"
     }
   ]
 }

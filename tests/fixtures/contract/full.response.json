@@ -19,7 +19,7 @@
       "charge_now_kw": 11.0,
       "charge_now_station_id": "wb",
       "current_slot_end": "2026-08-18T22:15:00+02:00",
-      "next_charge_start": "2026-08-18T22:00:00+02:00",
+      "next_charge_start": null,
       "slots": [
         {
           "t": "2026-08-18T22:00:00+02:00",
@@ -103,7 +103,7 @@
           "to": "2026-08-18T22:45:00+02:00",
           "kwh": 8.25,
           "cost_eur": 0.36,
-          "avg_price_eur_kwh": 0.0436,
+          "avg_price_eur_kwh": 0.0441,
           "soc_from_pct": 47.0,
           "soc_to_pct": 60.24,
           "reason": "ms-1"

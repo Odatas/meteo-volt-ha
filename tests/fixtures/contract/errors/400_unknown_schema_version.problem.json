@@ -6,8 +6,8 @@
   "errors": [
     {
       "field": "schema_version",
-      "problem": "value_error",
-      "expected": "Wert gemaess Schema"
+      "problem": "unsupported_schema_version",
+      "expected": "eine unterstuetzte schema_version: 1"
     }
   ]
 }

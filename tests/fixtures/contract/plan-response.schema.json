@@ -3,7 +3,7 @@
     "generated_by": "meteo-volt-brain/scripts/export_contract.py",
     "do_not_edit": true,
     "schema_version": 1,
-    "brain_commit": "8428f13",
+    "brain_commit": "ab7c4dc",
     "sha256": "71fc4a7bc9b25d53c68a60071cc4e62125c56b1a2c7f8fa33f49e517e80e40f0"
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",

@@ -6,8 +6,8 @@
   "errors": [
     {
       "field": "vehicles[0].constraints[0]",
-      "problem": "value_error",
-      "expected": "Wert gemaess Schema"
+      "problem": "empty_window",
+      "expected": "to nach from; [from, to) ist halboffen und darf nicht leer sein"
     }
   ]
 }

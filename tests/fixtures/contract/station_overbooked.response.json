@@ -19,7 +19,7 @@
       "charge_now_kw": 11.0,
       "charge_now_station_id": "wb",
       "current_slot_end": "2026-08-18T22:15:00+02:00",
-      "next_charge_start": "2026-08-18T22:00:00+02:00",
+      "next_charge_start": null,
       "slots": [
         {
           "t": "2026-08-18T22:00:00+02:00",
@@ -103,7 +103,7 @@
       "charge_now_kw": 11.0,
       "charge_now_station_id": "wb",
       "current_slot_end": "2026-08-18T22:15:00+02:00",
-      "next_charge_start": "2026-08-18T22:00:00+02:00",
+      "next_charge_start": null,
       "slots": [
         {
           "t": "2026-08-18T22:00:00+02:00",

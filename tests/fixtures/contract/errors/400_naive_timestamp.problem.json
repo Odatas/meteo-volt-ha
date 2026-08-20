@@ -6,7 +6,7 @@
   "errors": [
     {
       "field": "vehicles[0].constraints[0].deadline",
-      "problem": "timezone_aware",
+      "problem": "naive_timestamp",
       "expected": "ISO-8601 mit UTC-Offset, z. B. 2026-08-20T08:00:00+02:00"
     }
   ]
