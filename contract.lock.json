@@ -2,14 +2,14 @@
   "generated_by": "meteo-volt-brain/scripts/export_contract.py",
   "do_not_edit": true,
   "schema_version": 1,
-  "brain_commit": "5c85b49",
+  "brain_commit": "8428f13",
   "files": {
     "tests/fixtures/contract/drive_ready.request.json": {
-      "sha256": "f2a999d28a2bfb851471bab87620ad633fe91b7ce71726f7e936263ecf45f5d6",
+      "sha256": "517699a6bbc78b9bba28f3197fe50e770f738cab57c9544955124580be796ac1",
       "scope": "document"
     },
     "tests/fixtures/contract/drive_ready.response.json": {
-      "sha256": "c9ce616485e4983b081ef2ed45d73811e324eea0564b6844037eaa229a52cac4",
+      "sha256": "bd70dbaddaa9982f66e9379e7efc40b20f6ec9d12c058db8694452ed056705ae",
       "scope": "document"
     },
     "tests/fixtures/contract/errors/400_empty_window.problem.json": {
@@ -17,7 +17,7 @@
       "scope": "document"
     },
     "tests/fixtures/contract/errors/400_empty_window.request.json": {
-      "sha256": "fced9c4596f037ad5eb229262b0a6ec7f052476f81b57ecefee4d874dfe369c6",
+      "sha256": "a1a28ebed07cc49ea9685028536a5c67c925cc3e82cefc53c6110e67877012ec",
       "scope": "document"
     },
     "tests/fixtures/contract/errors/400_naive_timestamp.problem.json": {
@@ -25,7 +25,7 @@
       "scope": "document"
     },
     "tests/fixtures/contract/errors/400_naive_timestamp.request.json": {
-      "sha256": "9dbc136b379c28dc8861b3d0200aea09321266f540442be3cfe565d4c38155a8",
+      "sha256": "2cf0262c8671886fd5f29b36ad0a47fbd4b4386feaeee12674d054d3ae233fd3",
       "scope": "document"
     },
     "tests/fixtures/contract/errors/400_reserved_id.problem.json": {
@@ -33,7 +33,7 @@
       "scope": "document"
     },
     "tests/fixtures/contract/errors/400_reserved_id.request.json": {
-      "sha256": "1d4bf0d79ac1a8ab1c1624b399569940e61a1310a55e55ad09f6cdd8b7beb494",
+      "sha256": "2a431183db0a1275c8e5b5ab13c2c4c1295ebeda58b34280321d41e2cb03e808",
       "scope": "document"
     },
     "tests/fixtures/contract/errors/400_unknown_schema_version.problem.json": {
@@ -41,7 +41,7 @@
       "scope": "document"
     },
     "tests/fixtures/contract/errors/400_unknown_schema_version.request.json": {
-      "sha256": "c9bbc41c7d04a71fa4b2e070d8434dcba4184665a41a6bee998e3a12caea8bc2",
+      "sha256": "80303b5fe05b6f3119011f6309059cbed6a88e20e8478c19f091f683b50bb979",
       "scope": "document"
     },
     "tests/fixtures/contract/errors/404_unknown_model.problem.json": {
@@ -49,7 +49,7 @@
       "scope": "document"
     },
     "tests/fixtures/contract/errors/404_unknown_model.request.json": {
-      "sha256": "0809861177f574fefdb3877a83c05d9f228dcaf9f9e4b27e5aad6181f9b7692a",
+      "sha256": "b27496379da40d72fa493043b9758e9b40457631b4d69804d56139b5e5d924c9",
       "scope": "document"
     },
     "tests/fixtures/contract/errors/429_rate_limited.problem.json": {
@@ -57,7 +57,7 @@
       "scope": "document"
     },
     "tests/fixtures/contract/errors/429_rate_limited.request.json": {
-      "sha256": "d910ddf60b0c38daad2dbb10343f56893e308ea2f1d1390303c8a993625abcd0",
+      "sha256": "2e17517f327662791393173a7bfed2caef6d04514534edbd3c7035f9db3f11de",
       "scope": "document"
     },
     "tests/fixtures/contract/errors/503_no_snapshot.problem.json": {
@@ -65,39 +65,39 @@
       "scope": "document"
     },
     "tests/fixtures/contract/errors/503_no_snapshot.request.json": {
-      "sha256": "d910ddf60b0c38daad2dbb10343f56893e308ea2f1d1390303c8a993625abcd0",
+      "sha256": "2e17517f327662791393173a7bfed2caef6d04514534edbd3c7035f9db3f11de",
       "scope": "document"
     },
     "tests/fixtures/contract/full.request.json": {
-      "sha256": "a423aa15b6d1f4c5015858a533758faf0dea35879234171475bc83868c108385",
+      "sha256": "b0aba60bb0bf95201ac344c37cbe5aad145a9395a5fc59d1614bb3e3e65f3709",
       "scope": "document"
     },
     "tests/fixtures/contract/full.response.json": {
-      "sha256": "0b5207ba53071e5eff616b60843845e15397858e67c4e800d435d0bc7410d74c",
+      "sha256": "dbbed689c714dd04c2f8f143775850799ef178dd345e5da5acb1b71eefb211e8",
       "scope": "document"
     },
     "tests/fixtures/contract/grid_fees.request.json": {
-      "sha256": "7c12daa6fe0d50dddd8891d337f5df8d888cc0ceb085882f0cad334ebe753802",
+      "sha256": "236b02f6d0a6387177c4c597d9dfba283228071f5c962ec03c8b0a10d7da2908",
       "scope": "document"
     },
     "tests/fixtures/contract/grid_fees.response.json": {
-      "sha256": "3f7e297930cdf97ace394a2f89bd9cfd21a653c2c2f7bcddb3d4d97dfe68d04f",
+      "sha256": "89c93ee219c546938e07f2641c537450cfc58ef2cd0d52f2d942a954818fb904",
       "scope": "document"
     },
     "tests/fixtures/contract/infeasible.request.json": {
-      "sha256": "f80bc35bd292e4091460c631a77e4f5917dcb776c3454ad9c1ee87aa8baebebb",
+      "sha256": "f068943828c517d484fd567cf9f32ae00251928e71a080b76cb31f6083a27b3e",
       "scope": "document"
     },
     "tests/fixtures/contract/infeasible.response.json": {
-      "sha256": "594c95345df9d2b9507bc25456580c07901639e306be662b47d3bf7baf0626e2",
+      "sha256": "aaf6d3c7760b39160685c816a8a76e7555d5711e4563ad6061b81255a0f3a773",
       "scope": "document"
     },
     "tests/fixtures/contract/minimal.request.json": {
-      "sha256": "d910ddf60b0c38daad2dbb10343f56893e308ea2f1d1390303c8a993625abcd0",
+      "sha256": "2e17517f327662791393173a7bfed2caef6d04514534edbd3c7035f9db3f11de",
       "scope": "document"
     },
     "tests/fixtures/contract/minimal.response.json": {
-      "sha256": "dd79163bbb51c0de4b90c6f4afd422648283e49d6a642b43c5ad412936c3bbef",
+      "sha256": "fde3e1a7a677d59508c75d6b9c761bcc77fbd542570ff23b3717f4d1182abb0c",
       "scope": "document"
     },
     "tests/fixtures/contract/plan-error.schema.json": {
@@ -113,27 +113,27 @@
       "scope": "document"
     },
     "tests/fixtures/contract/rounding.request.json": {
-      "sha256": "d910ddf60b0c38daad2dbb10343f56893e308ea2f1d1390303c8a993625abcd0",
+      "sha256": "2e17517f327662791393173a7bfed2caef6d04514534edbd3c7035f9db3f11de",
       "scope": "document"
     },
     "tests/fixtures/contract/rounding.response.json": {
-      "sha256": "4d6cef11b51ff365cac7ca1f02e58a7caf454ad3f13eebd17ff21d690e41e225",
+      "sha256": "0894dd3191de000840ccb5c8db7cad541d0358aa52fea1673adb61c57ec95bdd",
       "scope": "document"
     },
     "tests/fixtures/contract/station_overbooked.request.json": {
-      "sha256": "f32936468139581ba42a811f1542585f2e12022511e89d7aea62c5be0c5becde",
+      "sha256": "fd85e8dfb9df297faa7f080ff977d320325d90b97e7fcffc62adf9be01b35549",
       "scope": "document"
     },
     "tests/fixtures/contract/station_overbooked.response.json": {
-      "sha256": "019fca0449a88c6c7cdde957eb22159551d02ad641152ad9775731c06388e086",
+      "sha256": "62e02e97ceafc7054ca6b44a8ce0aefdb42b9b85af4aa0a7bd544ac1b3bb3a07",
       "scope": "document"
     },
     "tests/fixtures/contract/unavailable.request.json": {
-      "sha256": "8b0ed4e5e4d4b0a97715c71b48e980b9958ec9257cf7ba48c54cdfb5441b7687",
+      "sha256": "3205327bbe361c18374040db856a6d312b5ed2644882670db1db30cd6b3967cb",
       "scope": "document"
     },
     "tests/fixtures/contract/unavailable.response.json": {
-      "sha256": "be5474c491470d5968453b30c9e2457bf5cddf87c7aaed4b4a8ddffd74f24d17",
+      "sha256": "e96fa88ad24fa059916ccf1e341feea78cd35ca979319f986e00d3c6c3d3bea6",
       "scope": "document"
     }
   }
