@@ -11,7 +11,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
 
-from .const import DOMAIN, CONF_API_TOKEN, CONF_GRID_FEES
+from .const import DOMAIN, CONF_API_TOKEN, CONF_GRID_FEES, API_URL
+from .overrides import load_overrides
 from .api import MeteoVoltApiClient
 
 _LOGGER = logging.getLogger(__name__)
@@ -26,7 +27,14 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
     """Validate the user input allows us to connect."""
-    client = MeteoVoltApiClient(data[CONF_API_TOKEN])
+    # Auch hier aufloesen, nicht nur in async_setup_entry: der Config-Flow
+    # validiert den Token gegen die API. Griffe die Ueberschreibung nur an
+    # einer Stelle, richtete man gegen die eine Umgebung ein und pollte die
+    # andere.
+    overrides = await hass.async_add_executor_job(load_overrides)
+    client = MeteoVoltApiClient(
+        data[CONF_API_TOKEN], api_url=overrides.get("api_url", API_URL)
+    )
     
     try:
         await client.async_get_predictions(hass)

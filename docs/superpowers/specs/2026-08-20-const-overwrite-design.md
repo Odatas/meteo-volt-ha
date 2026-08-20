@@ -73,5 +73,12 @@ war gewünscht.
 ## Tests
 
 `tests/test_overrides.py`: keine Datei · gültige Datei · kaputtes JSON ·
-fehlender Schlüssel · falscher Typ · unbekannter Schlüssel. Dazu ein Test, dass
-`MeteoVoltApiClient` die übergebene URL tatsächlich benutzt.
+fehlender Schlüssel · falscher Typ · leerer String · unbekannter Schlüssel.
+
+Die Verdrahtung lässt sich nicht ausführen — `api.py`, `__init__.py` und
+`config_flow.py` importieren Home Assistant, und das ist im Test-venv nicht
+vorhanden. Stattdessen prüft ein Test den **Quelltext per AST**: jede
+Konstruktion von `MeteoVoltApiClient` in der Integration muss ein `api_url`
+mitgeben. Das fängt genau den Fehlerfall, um den es geht — eine der beiden
+Aufrufstellen wird ergänzt, die andere vergessen, und die Integration richtet
+gegen die eine Umgebung ein, während sie die andere pollt.

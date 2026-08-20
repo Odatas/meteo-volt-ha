@@ -8,7 +8,8 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
 from .api import MeteoVoltApiClient
-from .const import DOMAIN, CONF_API_TOKEN
+from .const import DOMAIN, CONF_API_TOKEN, API_URL
+from .overrides import load_overrides
 from .coordinator import MeteoVoltDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -21,7 +22,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
 
     api_token = entry.data[CONF_API_TOKEN]
-    client = MeteoVoltApiClient(api_token)
+    # Dateizugriff gehoert nicht in den Event-Loop. Siehe overrides.py: fehlt
+    # die Datei -- der Normalfall -- kommt hier ein leeres dict zurueck.
+    overrides = await hass.async_add_executor_job(load_overrides)
+    client = MeteoVoltApiClient(api_token, api_url=overrides.get("api_url", API_URL))
 
     coordinator = MeteoVoltDataUpdateCoordinator(hass, client)
 
