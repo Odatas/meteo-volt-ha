@@ -2,14 +2,14 @@
   "generated_by": "meteo-volt-brain/scripts/export_contract.py",
   "do_not_edit": true,
   "schema_version": 1,
-  "brain_commit": "ab7c4dc",
+  "brain_commit": "b70e97b",
   "files": {
     "tests/fixtures/contract/drive_ready.request.json": {
       "sha256": "517699a6bbc78b9bba28f3197fe50e770f738cab57c9544955124580be796ac1",
       "scope": "document"
     },
     "tests/fixtures/contract/drive_ready.response.json": {
-      "sha256": "8bbfd3277e8cc0bdc9478d25d16816f99884e3bcf1fa70e45bbc580b6a76b4a8",
+      "sha256": "116af9d581cfed32ba85666311774f4479229caddcf50b3f98ebe5e66628cd9f",
       "scope": "document"
     },
     "tests/fixtures/contract/errors/400_empty_window.problem.json": {
@@ -73,7 +73,7 @@
       "scope": "document"
     },
     "tests/fixtures/contract/full.response.json": {
-      "sha256": "ff530d39622236f16e99827d815daf125760fded42cfee8836aa1ed919bc78fc",
+      "sha256": "bed6008d34621fc1efd12a023ca8fa450b25e4106dd44d0e81da9e30afbb969a",
       "scope": "document"
     },
     "tests/fixtures/contract/grid_fees.request.json": {
@@ -81,7 +81,7 @@
       "scope": "document"
     },
     "tests/fixtures/contract/grid_fees.response.json": {
-      "sha256": "40f3d870cd7d9ce339ab9534c1abb1026e45b626ed3649e2e317fb7c62fa4837",
+      "sha256": "c1f7fefcaf5b1464c44c27f07e4a9c183225f698edba28ae59103b580b9ee817",
       "scope": "document"
     },
     "tests/fixtures/contract/infeasible.request.json": {
@@ -89,7 +89,7 @@
       "scope": "document"
     },
     "tests/fixtures/contract/infeasible.response.json": {
-      "sha256": "81b88d6b559c707251776a6f6727646893e7430c283e231084f9bd6b53937d45",
+      "sha256": "7163dcd49b5c315ffdd0010ac4d06d7960aa0e32b0796b3caf4b6d801914287b",
       "scope": "document"
     },
     "tests/fixtures/contract/minimal.request.json": {
@@ -97,7 +97,7 @@
       "scope": "document"
     },
     "tests/fixtures/contract/minimal.response.json": {
-      "sha256": "032db437ded00ec64d0e7f4c5ab9fab4d6be89e948788ea3b47cfdab51a4697a",
+      "sha256": "d23f8fa16d9562667f4b5bf3b1d2dcd5f861164a2373200c1d32e6704cca4e62",
       "scope": "document"
     },
     "tests/fixtures/contract/plan-error.schema.json": {
@@ -117,7 +117,7 @@
       "scope": "document"
     },
     "tests/fixtures/contract/rounding.response.json": {
-      "sha256": "d0526947af19ce593d799c8cd4b1f29d8289e8b5bd80cfa927441678d4f4bc08",
+      "sha256": "236f4c5f14d48ff5e574d0902e208c193272afaded5a59afd63d002f77ba569d",
       "scope": "document"
     },
     "tests/fixtures/contract/second_block.request.json": {
@@ -125,7 +125,7 @@
       "scope": "document"
     },
     "tests/fixtures/contract/second_block.response.json": {
-      "sha256": "03cbbc36423f0c7a6d267b341fa6c816ebbd0e4c416c54058e5cbabd15eed29c",
+      "sha256": "5ca7929e14533fa9279479307e4f862c5059b724d122324bf6c61538f70bea77",
       "scope": "document"
     },
     "tests/fixtures/contract/station_overbooked.request.json": {
@@ -133,7 +133,7 @@
       "scope": "document"
     },
     "tests/fixtures/contract/station_overbooked.response.json": {
-      "sha256": "1a21b08a938d1c549535b7a38e0c3620b8081f477fc7ad964b0df7b724d42e2b",
+      "sha256": "bbcf318074f7f2d4ec3559cf9a9836081ffc3b3fef48de99f748f4302dcfab53",
       "scope": "document"
     },
     "tests/fixtures/contract/unavailable.request.json": {
@@ -141,7 +141,7 @@
       "scope": "document"
     },
     "tests/fixtures/contract/unavailable.response.json": {
-      "sha256": "e96fa88ad24fa059916ccf1e341feea78cd35ca979319f986e00d3c6c3d3bea6",
+      "sha256": "32b6f9a1211ee4abb63de881652cd750dcff755ceb12d82aab4dd5177a8693a7",
       "scope": "document"
     }
   }
