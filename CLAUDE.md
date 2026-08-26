@@ -2,7 +2,8 @@
 
 Home-Assistant-Integration, Python. **Geht an Endnutzer.**
 
-Gearbeitet wird auf **`beta`**. Default ist `master`.
+Ein Feature arbeitet auf seinem **eigenen Branch** und wird fertig nach `beta` gemergt.
+Default ist `master`; dorthin mergt keine Session.
 
 `custom_components/` ist Endnutzer-Code — HACS paketiert genau dieses Verzeichnis und sonst
 nichts. Was dort nicht liegt, erreicht keinen Nutzer: `tests/`, `scripts/` und die Fixtures
