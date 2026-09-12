@@ -18,5 +18,182 @@
     "abort": {
       "already_configured": "This API token is already configured."
     }
+  },
+  "config_subentries": {
+    "station": {
+      "title": "Charge point",
+      "entry_type": "Charge point",
+      "initiate_flow": {
+        "user": "Add charge point",
+        "reconfigure": "Edit charge point"
+      },
+      "step": {
+        "user": {
+          "title": "Add charge point",
+          "description": "The wallbox or socket you charge from. It does not have to be smart.",
+          "data": {
+            "name": "Name",
+            "max_power_kw": "Max. power (kW)",
+            "available": "Available",
+            "min_power_kw": "Min. power (kW)",
+            "phases": "Phases"
+          },
+          "data_description": {
+            "name": "Leave empty to get a name assigned automatically.",
+            "available": "Off means nothing charges here for the whole horizon."
+          },
+          "sections": {
+            "erweitert": {
+              "name": "Advanced",
+              "description": "Values that are rarely changed."
+            }
+          }
+        },
+        "reconfigure": {
+          "title": "Edit charge point",
+          "description": "The wallbox or socket you charge from. It does not have to be smart.",
+          "data": {
+            "name": "Name",
+            "max_power_kw": "Max. power (kW)",
+            "available": "Available",
+            "min_power_kw": "Min. power (kW)",
+            "phases": "Phases"
+          },
+          "data_description": {
+            "name": "Leave empty to get a name assigned automatically.",
+            "available": "Off means nothing charges here for the whole horizon."
+          },
+          "sections": {
+            "erweitert": {
+              "name": "Advanced",
+              "description": "Values that are rarely changed."
+            }
+          }
+        }
+      },
+      "abort": {
+        "reconfigure_successful": "The charge point was updated."
+      }
+    },
+    "vehicle": {
+      "title": "Vehicle",
+      "entry_type": "Vehicle",
+      "initiate_flow": {
+        "user": "Add vehicle",
+        "reconfigure": "Edit vehicle"
+      },
+      "step": {
+        "user": {
+          "title": "Add vehicle",
+          "description": "The vehicle and its battery. Only the state of charge has to come from an entity.",
+          "data": {
+            "name": "Name",
+            "capacity_kwh": "Capacity (kWh)",
+            "soc_min_pct": "State of charge min (%)",
+            "soc_max_pct": "State of charge max (%)",
+            "max_charge_kw": "Max. charge power (kW)",
+            "consumption_kwh_per_100km": "Consumption (kWh/100 km)",
+            "soc_entity": "State of charge",
+            "station_id": "Charge point",
+            "plugged_entity": "Plugged in",
+            "min_charge_kw": "Min. charge power (kW)",
+            "efficiency_pct": "Charging efficiency (%)"
+          },
+          "data_description": {
+            "name": "Leave empty to get a name assigned automatically.",
+            "soc_min_pct": "Lower bound the plan always holds. Below it and plugged in, charging starts at once — without waiting for a good price.",
+            "soc_max_pct": "Upper bound in normal operation. The plan only goes above it for a set target.",
+            "soc_entity": "Sensor or helper carrying the state of charge in percent. Planning needs it — without a sensor, create an input_number helper.",
+            "station_id": "The charge point this vehicle charges at.",
+            "plugged_entity": "Optional binary_sensor. State on means plugged in; without it the vehicle counts as plugged in.",
+            "efficiency_pct": "Total charging efficiency — cable, meter and onboard charger together."
+          },
+          "sections": {
+            "batterie": {
+              "name": "Battery",
+              "description": "What the battery holds."
+            },
+            "guard": {
+              "name": "Battery guard",
+              "description": "The bounds the plan holds at all times."
+            },
+            "laden": {
+              "name": "Charging",
+              "description": "How the vehicle takes power."
+            },
+            "fahren": {
+              "name": "Driving",
+              "description": "What the vehicle uses on the road."
+            },
+            "laufzeit": {
+              "name": "Runtime",
+              "description": "Where the current state comes from."
+            },
+            "erweitert": {
+              "name": "Advanced",
+              "description": "Values that are rarely changed."
+            }
+          }
+        },
+        "reconfigure": {
+          "title": "Edit vehicle",
+          "description": "The vehicle and its battery. Only the state of charge has to come from an entity.",
+          "data": {
+            "name": "Name",
+            "capacity_kwh": "Capacity (kWh)",
+            "soc_min_pct": "State of charge min (%)",
+            "soc_max_pct": "State of charge max (%)",
+            "max_charge_kw": "Max. charge power (kW)",
+            "consumption_kwh_per_100km": "Consumption (kWh/100 km)",
+            "soc_entity": "State of charge",
+            "station_id": "Charge point",
+            "plugged_entity": "Plugged in",
+            "min_charge_kw": "Min. charge power (kW)",
+            "efficiency_pct": "Charging efficiency (%)"
+          },
+          "data_description": {
+            "name": "Leave empty to get a name assigned automatically.",
+            "soc_min_pct": "Lower bound the plan always holds. Below it and plugged in, charging starts at once — without waiting for a good price.",
+            "soc_max_pct": "Upper bound in normal operation. The plan only goes above it for a set target.",
+            "soc_entity": "Sensor or helper carrying the state of charge in percent. Planning needs it — without a sensor, create an input_number helper.",
+            "station_id": "The charge point this vehicle charges at.",
+            "plugged_entity": "Optional binary_sensor. State on means plugged in; without it the vehicle counts as plugged in.",
+            "efficiency_pct": "Total charging efficiency — cable, meter and onboard charger together."
+          },
+          "sections": {
+            "batterie": {
+              "name": "Battery",
+              "description": "What the battery holds."
+            },
+            "guard": {
+              "name": "Battery guard",
+              "description": "The bounds the plan holds at all times."
+            },
+            "laden": {
+              "name": "Charging",
+              "description": "How the vehicle takes power."
+            },
+            "fahren": {
+              "name": "Driving",
+              "description": "What the vehicle uses on the road."
+            },
+            "laufzeit": {
+              "name": "Runtime",
+              "description": "Where the current state comes from."
+            },
+            "erweitert": {
+              "name": "Advanced",
+              "description": "Values that are rarely changed."
+            }
+          }
+        }
+      },
+      "error": {
+        "soc_range": "State of charge min must be lower than state of charge max."
+      },
+      "abort": {
+        "reconfigure_successful": "The vehicle was updated."
+      }
+    }
   }
 }
