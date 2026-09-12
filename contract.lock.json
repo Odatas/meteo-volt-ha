@@ -2,7 +2,7 @@
   "generated_by": "meteo-volt-brain/scripts/export_contract.py",
   "do_not_edit": true,
   "schema_version": 1,
-  "brain_commit": "b70e97b",
+  "brain_commit": "28bfefa",
   "files": {
     "tests/fixtures/contract/drive_ready.request.json": {
       "sha256": "517699a6bbc78b9bba28f3197fe50e770f738cab57c9544955124580be796ac1",
@@ -101,15 +101,15 @@
       "scope": "document"
     },
     "tests/fixtures/contract/plan-error.schema.json": {
-      "sha256": "6cafb096af12e10b08907bb9303fb6695a4fd09f73b6e70b416c7a825ce4032c",
+      "sha256": "04cb12b241772b5b3264f9abf937085ea2268c05f3f80ff072062ebcae46d86d",
       "scope": "document"
     },
     "tests/fixtures/contract/plan-request.schema.json": {
-      "sha256": "7f58e0ec6bc2304d413087d5c5ff83baa5e980b90b414286013f3b2116ecfcea",
+      "sha256": "d9f6a6fa6de7ffa57b1ce090749abfd02777d115b85e08b3a722184ffdce1463",
       "scope": "document"
     },
     "tests/fixtures/contract/plan-response.schema.json": {
-      "sha256": "71fc4a7bc9b25d53c68a60071cc4e62125c56b1a2c7f8fa33f49e517e80e40f0",
+      "sha256": "32cc2fd1dc139c87bcdaf88937100891792b93dac0f125d80348e4b15a44717d",
       "scope": "document"
     },
     "tests/fixtures/contract/rounding.request.json": {
