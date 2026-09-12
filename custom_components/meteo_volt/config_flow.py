@@ -101,6 +101,42 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
 
+def _formular(
+    aufbau: dict,
+    bauplan: dict,
+    eingeklappt: frozenset = frozenset(),
+    weglassen: frozenset = frozenset(),
+) -> vol.Schema:
+    """Baut ein Formular aus dem Aufbau in stammdaten.py.
+
+    Damit gibt es EINE Quelle fuer die Zuordnung Feld -> Abschnitt: dieselbe,
+    gegen die tests/test_uebersetzungen.py die Sprachdateien prueft, und
+    dieselbe, unter der Home Assistant die Beschriftungen sucht
+    (step.<schritt>.sections.<abschnitt>.data.<feld>).
+
+    Diese Zuordnung ein zweites Mal von Hand zu fuehren war der Fehler der
+    ersten Fassung. Ein Feld im Aufbau ohne Eintrag im Bauplan ist hier ein
+    KeyError beim Formularbau -- laut, nicht still.
+
+    bauplan bildet Feldname auf (Marker, Validator) ab. weglassen nennt die
+    Felder, die dieses Mal nicht erscheinen sollen; das ist eine Entscheidung
+    des Aufrufers und steht deshalb ausdruecklich da.
+    """
+    felder: dict = {}
+    for abschnitt, namen in aufbau.items():
+        inhalt = {
+            bauplan[name][0]: bauplan[name][1]
+            for name in namen
+            if name not in weglassen
+        }
+        if abschnitt is None:
+            felder.update(inhalt)
+        elif inhalt:
+            felder[vol.Required(abschnitt)] = data_entry_flow.section(
+                vol.Schema(inhalt), {"collapsed": abschnitt in eingeklappt})
+    return vol.Schema(felder)
+
+
 def _vorhandene_titel(entry: ConfigEntry, typ: str) -> list[str]:
     """Die Titel aller Subentries eines Typs, fuer die Namensvergabe."""
     return [
@@ -153,36 +189,47 @@ class LadepunktSubentryFlow(ConfigSubentryFlow):
         def vor(feld: str):
             return vorgabe.get(feld, standard.get(feld))
 
-        return vol.Schema(
-            {
+        bauplan = {
+            stammdaten.FELD_NAME: (
                 vol.Optional(
                     stammdaten.FELD_NAME,
                     default=vorgabe.get(stammdaten.FELD_NAME, ""),
-                ): str,
+                ),
+                str,
+            ),
+            stammdaten.FELD_MAX_LEISTUNG: (
                 vol.Required(
                     stammdaten.FELD_MAX_LEISTUNG,
                     default=vor(stammdaten.FELD_MAX_LEISTUNG),
-                ): positiv,
+                ),
+                positiv,
+            ),
+            stammdaten.FELD_VERFUEGBAR: (
                 vol.Required(
                     stammdaten.FELD_VERFUEGBAR,
                     default=vor(stammdaten.FELD_VERFUEGBAR),
-                ): bool,
-                vol.Required(stammdaten.ABSCHNITT_ERWEITERT): data_entry_flow.section(
-                    vol.Schema(
-                        {
-                            vol.Optional(
-                                stammdaten.FELD_MIN_LEISTUNG,
-                                default=vor(stammdaten.FELD_MIN_LEISTUNG),
-                            ): positiv,
-                            vol.Optional(
-                                stammdaten.FELD_PHASEN,
-                                default=vor(stammdaten.FELD_PHASEN),
-                            ): vol.In([1, 3]),
-                        }
-                    ),
-                    {"collapsed": True},
                 ),
-            }
+                bool,
+            ),
+            stammdaten.FELD_MIN_LEISTUNG: (
+                vol.Optional(
+                    stammdaten.FELD_MIN_LEISTUNG,
+                    default=vor(stammdaten.FELD_MIN_LEISTUNG),
+                ),
+                positiv,
+            ),
+            stammdaten.FELD_PHASEN: (
+                vol.Optional(
+                    stammdaten.FELD_PHASEN,
+                    default=vor(stammdaten.FELD_PHASEN),
+                ),
+                vol.In([1, 3]),
+            ),
+        }
+        return _formular(
+            stammdaten.LADEPUNKT_AUFBAU,
+            bauplan,
+            eingeklappt=frozenset({stammdaten.ABSCHNITT_ERWEITERT}),
         )
 
     async def async_step_user(
@@ -245,112 +292,83 @@ class FahrzeugSubentryFlow(ConfigSubentryFlow):
         def vor(feld: str):
             return vorgabe.get(feld, standard.get(feld))
 
-        laufzeit: dict = {
-            vol.Required(
-                stammdaten.FELD_SOC_ENTITAET,
-                description={"suggested_value": vor(stammdaten.FELD_SOC_ENTITAET)},
-            ): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain=["sensor", "input_number"])
-            ),
-        }
-        # Das Feld erscheint erst, wenn es einen Ladepunkt gibt. Eine leere
-        # Auswahlliste stellt eine Frage, auf die es keine Antwort gibt.
-        auswahl = self._ladepunkt_auswahl()
-        if auswahl:
-            laufzeit[
-                vol.Optional(
-                    stammdaten.FELD_LADEPUNKT,
-                    description={"suggested_value": vor(stammdaten.FELD_LADEPUNKT)},
-                )
-            ] = selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=auswahl, mode=selector.SelectSelectorMode.DROPDOWN)
-            )
-        laufzeit[
-            vol.Optional(
-                stammdaten.FELD_ANGESTECKT,
-                description={"suggested_value": vor(stammdaten.FELD_ANGESTECKT)},
-            )
-        ] = selector.EntitySelector(
-            selector.EntitySelectorConfig(domain="binary_sensor")
-        )
+        def zahl(feld: str, validator, pflicht: bool = True):
+            marker = vol.Required if pflicht else vol.Optional
+            return (marker(feld, default=vor(feld)), validator)
 
-        return vol.Schema(
-            {
+        def entitaet(feld: str, config, pflicht: bool = False):
+            # suggested_value statt default: eine Entitaets-ID hat keine
+            # sinnvolle Vorbelegung, und ein default=None waere ein Wert.
+            marker = vol.Required if pflicht else vol.Optional
+            return (
+                marker(feld, description={"suggested_value": vor(feld)}),
+                selector.EntitySelector(config),
+            )
+
+        bauplan = {
+            stammdaten.FELD_NAME: (
                 vol.Optional(
                     stammdaten.FELD_NAME,
                     default=vorgabe.get(stammdaten.FELD_NAME, ""),
-                ): str,
-                vol.Required(stammdaten.ABSCHNITT_BATTERIE): data_entry_flow.section(
-                    vol.Schema(
-                        {
-                            vol.Required(
-                                stammdaten.FELD_KAPAZITAET,
-                                default=vor(stammdaten.FELD_KAPAZITAET),
-                            ): positiv,
-                        }
-                    ),
-                    {"collapsed": False},
                 ),
-                vol.Required(stammdaten.ABSCHNITT_GUARD): data_entry_flow.section(
-                    vol.Schema(
-                        {
-                            vol.Required(
-                                stammdaten.FELD_SOC_MIN,
-                                default=vor(stammdaten.FELD_SOC_MIN),
-                            ): prozent,
-                            vol.Required(
-                                stammdaten.FELD_SOC_MAX,
-                                default=vor(stammdaten.FELD_SOC_MAX),
-                            ): prozent,
-                        }
-                    ),
-                    {"collapsed": False},
+                str,
+            ),
+            stammdaten.FELD_KAPAZITAET: zahl(stammdaten.FELD_KAPAZITAET, positiv),
+            stammdaten.FELD_SOC_MIN: zahl(stammdaten.FELD_SOC_MIN, prozent),
+            stammdaten.FELD_SOC_MAX: zahl(stammdaten.FELD_SOC_MAX, prozent),
+            stammdaten.FELD_MAX_LADELEISTUNG: zahl(
+                stammdaten.FELD_MAX_LADELEISTUNG, positiv),
+            stammdaten.FELD_VERBRAUCH: zahl(stammdaten.FELD_VERBRAUCH, positiv),
+            # Pflicht: ohne Ladestand ist ein Fahrzeug nicht planbar, und das
+            # soll beim Anlegen auffallen statt erst im Plan. input_number
+            # neben sensor, weil nicht jedes Auto einen Ladestand liefert --
+            # wer keinen hat, traegt ihn ueber einen Helfer von Hand nach.
+            stammdaten.FELD_SOC_ENTITAET: entitaet(
+                stammdaten.FELD_SOC_ENTITAET,
+                selector.EntitySelectorConfig(domain=["sensor", "input_number"]),
+                pflicht=True,
+            ),
+            stammdaten.FELD_LADEPUNKT: (
+                vol.Optional(
+                    stammdaten.FELD_LADEPUNKT,
+                    description={"suggested_value": vor(stammdaten.FELD_LADEPUNKT)},
                 ),
-                vol.Required(stammdaten.ABSCHNITT_LADEN): data_entry_flow.section(
-                    vol.Schema(
-                        {
-                            vol.Required(
-                                stammdaten.FELD_MAX_LADELEISTUNG,
-                                default=vor(stammdaten.FELD_MAX_LADELEISTUNG),
-                            ): positiv,
-                        }
-                    ),
-                    {"collapsed": False},
+                selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=self._ladepunkt_auswahl(),
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
                 ),
-                vol.Required(stammdaten.ABSCHNITT_FAHREN): data_entry_flow.section(
-                    vol.Schema(
-                        {
-                            vol.Required(
-                                stammdaten.FELD_VERBRAUCH,
-                                default=vor(stammdaten.FELD_VERBRAUCH),
-                            ): positiv,
-                        }
-                    ),
-                    {"collapsed": False},
+            ),
+            stammdaten.FELD_ANGESTECKT: entitaet(
+                stammdaten.FELD_ANGESTECKT,
+                selector.EntitySelectorConfig(domain="binary_sensor"),
+            ),
+            stammdaten.FELD_MIN_LADELEISTUNG: zahl(
+                stammdaten.FELD_MIN_LADELEISTUNG, positiv, pflicht=False),
+            stammdaten.FELD_WIRKUNGSGRAD: (
+                vol.Optional(
+                    stammdaten.FELD_WIRKUNGSGRAD,
+                    default=vor(stammdaten.FELD_WIRKUNGSGRAD),
                 ),
-                vol.Required(stammdaten.ABSCHNITT_LAUFZEIT): data_entry_flow.section(
-                    vol.Schema(laufzeit), {"collapsed": False},
+                vol.All(
+                    vol.Coerce(float),
+                    vol.Range(min=0, max=100, min_included=False),
                 ),
-                vol.Required(stammdaten.ABSCHNITT_ERWEITERT): data_entry_flow.section(
-                    vol.Schema(
-                        {
-                            vol.Optional(
-                                stammdaten.FELD_MIN_LADELEISTUNG,
-                                default=vor(stammdaten.FELD_MIN_LADELEISTUNG),
-                            ): positiv,
-                            vol.Optional(
-                                stammdaten.FELD_WIRKUNGSGRAD,
-                                default=vor(stammdaten.FELD_WIRKUNGSGRAD),
-                            ): vol.All(
-                                vol.Coerce(float),
-                                vol.Range(min=0, max=100, min_included=False),
-                            ),
-                        }
-                    ),
-                    {"collapsed": True},
-                ),
-            }
+            ),
+        }
+
+        # Der Ladepunkt erscheint erst, wenn es einen gibt. Eine leere
+        # Auswahlliste stellt eine Frage, auf die es keine Antwort gibt.
+        weglassen = frozenset()
+        if not self._ladepunkt_auswahl():
+            weglassen = frozenset({stammdaten.FELD_LADEPUNKT})
+
+        return _formular(
+            stammdaten.FAHRZEUG_AUFBAU,
+            bauplan,
+            eingeklappt=frozenset({stammdaten.ABSCHNITT_ERWEITERT}),
+            weglassen=weglassen,
         )
 
     async def async_step_user(
@@ -362,7 +380,7 @@ class FahrzeugSubentryFlow(ConfigSubentryFlow):
 
         daten = stammdaten.flach_aus_abschnitten(
             user_input, stammdaten.ABSCHNITTE_FAHRZEUG)
-        if (fehler := self._pruefen(daten)) is not None:
+        if (fehler := stammdaten.soc_grenzen_pruefen(daten)) is not None:
             return self.async_show_form(
                 step_id="user", data_schema=self._schema(daten), errors=fehler)
 
@@ -383,7 +401,7 @@ class FahrzeugSubentryFlow(ConfigSubentryFlow):
 
         daten = stammdaten.flach_aus_abschnitten(
             user_input, stammdaten.ABSCHNITTE_FAHRZEUG)
-        if (fehler := self._pruefen(daten)) is not None:
+        if (fehler := stammdaten.soc_grenzen_pruefen(daten)) is not None:
             vorgabe = dict(daten)
             # Nur einsetzen, wenn nichts getippt wurde. Den eingegebenen Namen
             # im Fehlerfall durch den alten zu ersetzen hiesse, dem Nutzer
@@ -400,17 +418,6 @@ class FahrzeugSubentryFlow(ConfigSubentryFlow):
             self, stammdaten.TYP_FAHRZEUG, daten, bisher=subentry.title)
         return self.async_update_and_abort(
             self._get_entry(), subentry, title=titel, data=daten)
-
-    @staticmethod
-    def _pruefen(daten: dict[str, Any]) -> dict[str, str] | None:
-        """Die eine Bedingung ueber zwei Felder hinweg.
-
-        Voluptuous prueft jedes Feld fuer sich; dass der Boden unter der
-        Decke liegt, sieht es nicht.
-        """
-        if daten[stammdaten.FELD_SOC_MIN] >= daten[stammdaten.FELD_SOC_MAX]:
-            return {"base": "soc_range"}
-        return None
 
 
 class CannotConnect(HomeAssistantError):

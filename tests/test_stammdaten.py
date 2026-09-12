@@ -228,3 +228,51 @@ def test_ein_unerwartetes_dict_bleibt_stehen():
     flach = stammdaten.flach_aus_abschnitten(
         {"fremd": {"a": 1}}, ("batterie",))
     assert flach == {"fremd": {"a": 1}}
+
+
+# --- Der Aufbau ist die eine Quelle -----------------------------------------
+
+def test_jedes_vorbelegte_feld_steht_auch_im_formular():
+    """Sonst gaebe es eine Vorbelegung fuer ein Feld, das niemand sieht -- und
+    umgekehrt ein Feld ohne Vorbelegung, das als None ankaeme."""
+    assert set(stammdaten.LADEPUNKT_DEFAULTS) <= set(stammdaten.LADEPUNKT_FELDER)
+    assert set(stammdaten.FAHRZEUG_DEFAULTS) <= set(stammdaten.FAHRZEUG_FELDER)
+
+
+def test_kein_feld_steht_in_zwei_abschnitten():
+    """Ein doppelt gefuehrtes Feld erschiene zweimal im Formular und traefe
+    beim Flachziehen eine Zufallsentscheidung."""
+    for aufbau in (stammdaten.LADEPUNKT_AUFBAU, stammdaten.FAHRZEUG_AUFBAU):
+        felder = stammdaten._felder(aufbau)
+        assert len(felder) == len(set(felder)), felder
+
+
+# --- Die Grenzen des Battery-Guards -----------------------------------------
+
+def test_guard_in_richtiger_reihenfolge_ist_in_ordnung():
+    daten = {stammdaten.FELD_SOC_MIN: 15.0, stammdaten.FELD_SOC_MAX: 80.0}
+    assert stammdaten.soc_grenzen_pruefen(daten) is None
+
+
+def test_guard_verkehrt_herum_wird_abgewiesen():
+    daten = {stammdaten.FELD_SOC_MIN: 80.0, stammdaten.FELD_SOC_MAX: 15.0}
+    assert stammdaten.soc_grenzen_pruefen(daten) == {"base": "soc_range"}
+
+
+def test_guard_mit_gleichstand_wird_abgewiesen():
+    """Die Grenze selbst, nicht nur die eindeutig falsche Seite. Bei
+    soc_min == soc_max bleibt dem Plan kein Spielraum -- ein spaeteres > statt
+    >= faellt sonst erst der manuellen Abnahme auf, und auch nur, wenn jemand
+    genau den Gleichstand probiert."""
+    daten = {stammdaten.FELD_SOC_MIN: 50.0, stammdaten.FELD_SOC_MAX: 50.0}
+    assert stammdaten.soc_grenzen_pruefen(daten) == {"base": "soc_range"}
+
+
+# --- Die Grenze zum Aufrufer ------------------------------------------------
+
+def test_ein_state_string_statt_eines_bool_scheitert_laut():
+    """'off' ist truthy. Waere das erlaubt, gaelte ein nicht angestecktes
+    Fahrzeug als angesteckt -- still das Falsche, an genau der Stelle, an der
+    C5 spaeter einen HA-State uebergeben koennte."""
+    with pytest.raises(TypeError, match="bool oder None"):
+        stammdaten.ladepunkt_aufloesen("wb-1", {"wb-1"}, angesteckt="off")

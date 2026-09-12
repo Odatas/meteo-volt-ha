@@ -22,7 +22,6 @@ TYP_FAHRZEUG = "vehicle"
 
 # --- Feldnamen --------------------------------------------------------------
 # Zugleich die Schluessel im Formular und in den Uebersetzungen.
-# tests/test_uebersetzungen.py prueft beide Sprachen gegen genau diese Listen.
 
 FELD_NAME = "name"
 
@@ -45,27 +44,62 @@ FELD_ANGESTECKT = "plugged_entity"
 FELD_MIN_LADELEISTUNG = "min_charge_kw"
 FELD_WIRKUNGSGRAD = "efficiency_pct"
 
-LADEPUNKT_FELDER = (
-    FELD_NAME,
-    FELD_MAX_LEISTUNG,
-    FELD_VERFUEGBAR,
-    FELD_MIN_LEISTUNG,
-    FELD_PHASEN,
-)
+# --- Formularabschnitte -----------------------------------------------------
+# HA liefert section-Felder verschachtelt unter ihrem Schluessel zurueck.
 
-FAHRZEUG_FELDER = (
-    FELD_NAME,
-    FELD_KAPAZITAET,
-    FELD_SOC_MIN,
-    FELD_SOC_MAX,
-    FELD_MAX_LADELEISTUNG,
-    FELD_VERBRAUCH,
-    FELD_SOC_ENTITAET,
-    FELD_LADEPUNKT,
-    FELD_ANGESTECKT,
-    FELD_MIN_LADELEISTUNG,
-    FELD_WIRKUNGSGRAD,
-)
+ABSCHNITT_ERWEITERT = "erweitert"
+ABSCHNITT_BATTERIE = "batterie"
+ABSCHNITT_GUARD = "guard"
+ABSCHNITT_LADEN = "laden"
+ABSCHNITT_FAHREN = "fahren"
+ABSCHNITT_LAUFZEIT = "laufzeit"
+
+# --- Der Aufbau der Formulare -----------------------------------------------
+# Welches Feld in welchem Abschnitt steht. EINE Quelle fuer drei Leser:
+#
+#   1. config_flow.py baut daraus seine sections,
+#   2. tests/test_uebersetzungen.py prueft die Sprachdateien dagegen,
+#   3. Home Assistant sucht die Beschriftung eines Feldes in einer section
+#      unter step.<schritt>.sections.<abschnitt>.data.<feld> -- nicht flach.
+#
+# Diese Zuordnung zweimal zu fuehren war der Fehler der ersten Fassung: das
+# Formular gruppierte, die Uebersetzungen lagen flach, und der Test las die
+# flache Seite und wurde gruen. Zehn von elf Fahrzeugfeldern haetten dem
+# Nutzer als roher Schluessel gegenuebergestanden.
+#
+# None ist die oberste Ebene, dort ohne sections-Praefix.
+
+LADEPUNKT_AUFBAU = {
+    None: (FELD_NAME, FELD_MAX_LEISTUNG, FELD_VERFUEGBAR),
+    ABSCHNITT_ERWEITERT: (FELD_MIN_LEISTUNG, FELD_PHASEN),
+}
+
+FAHRZEUG_AUFBAU = {
+    None: (FELD_NAME,),
+    ABSCHNITT_BATTERIE: (FELD_KAPAZITAET,),
+    ABSCHNITT_GUARD: (FELD_SOC_MIN, FELD_SOC_MAX),
+    ABSCHNITT_LADEN: (FELD_MAX_LADELEISTUNG,),
+    ABSCHNITT_FAHREN: (FELD_VERBRAUCH,),
+    ABSCHNITT_LAUFZEIT: (FELD_SOC_ENTITAET, FELD_LADEPUNKT, FELD_ANGESTECKT),
+    ABSCHNITT_ERWEITERT: (FELD_MIN_LADELEISTUNG, FELD_WIRKUNGSGRAD),
+}
+
+
+def _felder(aufbau: dict) -> tuple:
+    """Alle Felder eines Aufbaus, Abschnitte aufgeloest."""
+    return tuple(feld for felder in aufbau.values() for feld in felder)
+
+
+def abschnitte_von(aufbau: dict) -> tuple:
+    """Die Abschnittsnamen eines Aufbaus, ohne die oberste Ebene."""
+    return tuple(name for name in aufbau if name is not None)
+
+
+LADEPUNKT_FELDER = _felder(LADEPUNKT_AUFBAU)
+FAHRZEUG_FELDER = _felder(FAHRZEUG_AUFBAU)
+
+ABSCHNITTE_LADEPUNKT = abschnitte_von(LADEPUNKT_AUFBAU)
+ABSCHNITTE_FAHRZEUG = abschnitte_von(FAHRZEUG_AUFBAU)
 
 # --- Vorbelegung ------------------------------------------------------------
 
@@ -164,26 +198,6 @@ def zu_fahrzeug(
     return fragment
 
 
-# --- Formularabschnitte -----------------------------------------------------
-# HA liefert section-Felder verschachtelt unter ihrem Schluessel zurueck.
-
-ABSCHNITT_ERWEITERT = "erweitert"
-ABSCHNITT_BATTERIE = "batterie"
-ABSCHNITT_GUARD = "guard"
-ABSCHNITT_LADEN = "laden"
-ABSCHNITT_FAHREN = "fahren"
-ABSCHNITT_LAUFZEIT = "laufzeit"
-
-ABSCHNITTE_LADEPUNKT = (ABSCHNITT_ERWEITERT,)
-ABSCHNITTE_FAHRZEUG = (
-    ABSCHNITT_BATTERIE,
-    ABSCHNITT_GUARD,
-    ABSCHNITT_LADEN,
-    ABSCHNITT_FAHREN,
-    ABSCHNITT_LAUFZEIT,
-    ABSCHNITT_ERWEITERT,
-)
-
 # --- Namensvergabe ----------------------------------------------------------
 # Der Titel wird erzeugt, nicht uebersetzt: HA hat fuer erzeugte Titel keinen
 # Uebersetzungsschluessel. Deshalb hier eine kleine Tabelle statt einer
@@ -209,6 +223,22 @@ def naechster_name(vorhandene_titel, typ: str, sprache: str = "en") -> str:
     return muster.format(nummer)
 
 
+def soc_grenzen_pruefen(daten: dict) -> dict | None:
+    """Die eine Bedingung ueber zwei Felder hinweg, oder None.
+
+    Steht hier und nicht im Config-Flow, obwohl nur dieser sie aufruft: sie
+    ist reines Python ohne HA-Bezug, und im Config-Flow deckt sie kein Test
+    ab. Das Kontraktschema faengt sie auch nicht -- soc_min_pct 90 neben
+    soc_max_pct 20 validiert sauber gegen 0..100.
+
+    Gleichstand ist ein Fehler: bei soc_min == soc_max bleibt dem Plan kein
+    Spielraum, in dem er guenstig laden koennte.
+    """
+    if daten[FELD_SOC_MIN] >= daten[FELD_SOC_MAX]:
+        return {"base": "soc_range"}
+    return None
+
+
 def ladepunkt_aufloesen(
     gewaehlt: str | None,
     bekannte_ids,
@@ -229,6 +259,17 @@ def ladepunkt_aufloesen(
     Verweises: es gibt keine Fehler-Fixture fuer eine unbekannte station_id,
     der Server pinnt sein Verhalten dort also nicht.
     """
+    # Ein State-String statt eines bool waere die stille Variante des
+    # Falschen: "off" ist truthy, das Fahrzeug gaelte als angesteckt, und der
+    # Plan luede ein Auto, das gar nicht am Kabel haengt. Der Aufrufer
+    # vergleicht, dieses Modul nimmt nur das Ergebnis.
+    if angesteckt is not None and not isinstance(angesteckt, bool):
+        raise TypeError(
+            f"angesteckt muss bool oder None sein, nicht "
+            f"{type(angesteckt).__name__} ({angesteckt!r}). Ein State-String "
+            f"wie 'off' waere truthy."
+        )
+
     if not gewaehlt:
         return None
     if gewaehlt not in bekannte_ids:

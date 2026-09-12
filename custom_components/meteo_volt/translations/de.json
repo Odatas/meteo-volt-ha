@@ -34,9 +34,7 @@
           "data": {
             "name": "Name",
             "max_power_kw": "Max. Leistung (kW)",
-            "available": "Verfügbar",
-            "min_power_kw": "Min. Leistung (kW)",
-            "phases": "Phasen"
+            "available": "Verfügbar"
           },
           "data_description": {
             "name": "Leer lassen vergibt automatisch einen Namen.",
@@ -45,7 +43,11 @@
           "sections": {
             "erweitert": {
               "name": "Erweitert",
-              "description": "Werte, die selten geändert werden."
+              "description": "Werte, die selten geändert werden.",
+              "data": {
+                "min_power_kw": "Min. Leistung (kW)",
+                "phases": "Phasen"
+              }
             }
           }
         },
@@ -55,9 +57,7 @@
           "data": {
             "name": "Name",
             "max_power_kw": "Max. Leistung (kW)",
-            "available": "Verfügbar",
-            "min_power_kw": "Min. Leistung (kW)",
-            "phases": "Phasen"
+            "available": "Verfügbar"
           },
           "data_description": {
             "name": "Leer lassen vergibt automatisch einen Namen.",
@@ -66,7 +66,11 @@
           "sections": {
             "erweitert": {
               "name": "Erweitert",
-              "description": "Werte, die selten geändert werden."
+              "description": "Werte, die selten geändert werden.",
+              "data": {
+                "min_power_kw": "Min. Leistung (kW)",
+                "phases": "Phasen"
+              }
             }
           }
         }
@@ -87,51 +91,69 @@
           "title": "Fahrzeug hinzufügen",
           "description": "Das Fahrzeug und seine Batterie. Nur der Ladestand muss aus einer Entität kommen.",
           "data": {
-            "name": "Name",
-            "capacity_kwh": "Kapazität (kWh)",
-            "soc_min_pct": "Ladestand min (%)",
-            "soc_max_pct": "Ladestand max (%)",
-            "max_charge_kw": "Max. Ladeleistung (kW)",
-            "consumption_kwh_per_100km": "Verbrauch (kWh/100 km)",
-            "soc_entity": "Ladestand",
-            "station_id": "Ladepunkt",
-            "plugged_entity": "Angesteckt",
-            "min_charge_kw": "Min. Ladeleistung (kW)",
-            "efficiency_pct": "Ladewirkungsgrad (%)"
+            "name": "Name"
           },
           "data_description": {
-            "name": "Leer lassen vergibt automatisch einen Namen.",
-            "soc_min_pct": "Untergrenze, die der Plan immer hält. Liegt das Fahrzeug darunter und ist angesteckt, wird sofort geladen — ohne auf einen günstigen Preis zu warten.",
-            "soc_max_pct": "Obergrenze im Regelbetrieb. Darüber lädt der Plan nur für ein gesetztes Ziel.",
-            "soc_entity": "Sensor oder Helfer mit dem Ladestand in Prozent. Ohne Ladestand lässt sich nicht planen — wer keinen Sensor hat, legt sich einen input_number-Helfer an.",
-            "station_id": "Der Ladepunkt, an dem dieses Fahrzeug lädt.",
-            "plugged_entity": "Optionaler binary_sensor. Zustand an heisst angesteckt; ohne ihn gilt das Fahrzeug als angesteckt.",
-            "efficiency_pct": "Gesamter Ladewirkungsgrad — Kabel, Zähler und Bordlader zusammen."
+            "name": "Leer lassen vergibt automatisch einen Namen."
           },
           "sections": {
             "batterie": {
               "name": "Batterie",
-              "description": "Was die Batterie fasst."
+              "description": "Was die Batterie fasst.",
+              "data": {
+                "capacity_kwh": "Kapazität (kWh)"
+              }
             },
             "guard": {
               "name": "Battery-Guard",
-              "description": "Die Grenzen, die der Plan jederzeit hält."
+              "description": "Die Grenzen, die der Plan jederzeit hält.",
+              "data": {
+                "soc_min_pct": "Ladestand min (%)",
+                "soc_max_pct": "Ladestand max (%)"
+              },
+              "data_description": {
+                "soc_min_pct": "Untergrenze, die der Plan immer hält. Liegt das Fahrzeug darunter und ist angesteckt, wird sofort geladen — ohne auf einen günstigen Preis zu warten.",
+                "soc_max_pct": "Obergrenze im Regelbetrieb. Darüber lädt der Plan nur für ein gesetztes Ziel."
+              }
             },
             "laden": {
               "name": "Laden",
-              "description": "Womit das Fahrzeug Strom aufnimmt."
+              "description": "Womit das Fahrzeug Strom aufnimmt.",
+              "data": {
+                "max_charge_kw": "Max. Ladeleistung (kW)"
+              }
             },
             "fahren": {
               "name": "Fahren",
-              "description": "Was das Fahrzeug unterwegs braucht."
+              "description": "Was das Fahrzeug unterwegs braucht.",
+              "data": {
+                "consumption_kwh_per_100km": "Verbrauch (kWh/100 km)"
+              }
             },
             "laufzeit": {
               "name": "Laufzeit",
-              "description": "Woher der aktuelle Zustand kommt."
+              "description": "Woher der aktuelle Zustand kommt.",
+              "data": {
+                "soc_entity": "Ladestand",
+                "station_id": "Ladepunkt",
+                "plugged_entity": "Angesteckt"
+              },
+              "data_description": {
+                "soc_entity": "Sensor oder Helfer mit dem Ladestand in Prozent. Ohne Ladestand lässt sich nicht planen — wer keinen Sensor hat, legt sich einen input_number-Helfer an.",
+                "station_id": "Der Ladepunkt, an dem dieses Fahrzeug lädt. Erscheint erst, wenn ein Ladepunkt angelegt ist.",
+                "plugged_entity": "Optionaler binary_sensor. Zustand an heisst angesteckt; ohne ihn gilt das Fahrzeug als angesteckt."
+              }
             },
             "erweitert": {
               "name": "Erweitert",
-              "description": "Werte, die selten geändert werden."
+              "description": "Werte, die selten geändert werden.",
+              "data": {
+                "min_charge_kw": "Min. Ladeleistung (kW)",
+                "efficiency_pct": "Ladewirkungsgrad (%)"
+              },
+              "data_description": {
+                "efficiency_pct": "Gesamter Ladewirkungsgrad — Kabel, Zähler und Bordlader zusammen."
+              }
             }
           }
         },
@@ -139,51 +161,69 @@
           "title": "Fahrzeug bearbeiten",
           "description": "Das Fahrzeug und seine Batterie. Nur der Ladestand muss aus einer Entität kommen.",
           "data": {
-            "name": "Name",
-            "capacity_kwh": "Kapazität (kWh)",
-            "soc_min_pct": "Ladestand min (%)",
-            "soc_max_pct": "Ladestand max (%)",
-            "max_charge_kw": "Max. Ladeleistung (kW)",
-            "consumption_kwh_per_100km": "Verbrauch (kWh/100 km)",
-            "soc_entity": "Ladestand",
-            "station_id": "Ladepunkt",
-            "plugged_entity": "Angesteckt",
-            "min_charge_kw": "Min. Ladeleistung (kW)",
-            "efficiency_pct": "Ladewirkungsgrad (%)"
+            "name": "Name"
           },
           "data_description": {
-            "name": "Leer lassen vergibt automatisch einen Namen.",
-            "soc_min_pct": "Untergrenze, die der Plan immer hält. Liegt das Fahrzeug darunter und ist angesteckt, wird sofort geladen — ohne auf einen günstigen Preis zu warten.",
-            "soc_max_pct": "Obergrenze im Regelbetrieb. Darüber lädt der Plan nur für ein gesetztes Ziel.",
-            "soc_entity": "Sensor oder Helfer mit dem Ladestand in Prozent. Ohne Ladestand lässt sich nicht planen — wer keinen Sensor hat, legt sich einen input_number-Helfer an.",
-            "station_id": "Der Ladepunkt, an dem dieses Fahrzeug lädt.",
-            "plugged_entity": "Optionaler binary_sensor. Zustand an heisst angesteckt; ohne ihn gilt das Fahrzeug als angesteckt.",
-            "efficiency_pct": "Gesamter Ladewirkungsgrad — Kabel, Zähler und Bordlader zusammen."
+            "name": "Leer lassen vergibt automatisch einen Namen."
           },
           "sections": {
             "batterie": {
               "name": "Batterie",
-              "description": "Was die Batterie fasst."
+              "description": "Was die Batterie fasst.",
+              "data": {
+                "capacity_kwh": "Kapazität (kWh)"
+              }
             },
             "guard": {
               "name": "Battery-Guard",
-              "description": "Die Grenzen, die der Plan jederzeit hält."
+              "description": "Die Grenzen, die der Plan jederzeit hält.",
+              "data": {
+                "soc_min_pct": "Ladestand min (%)",
+                "soc_max_pct": "Ladestand max (%)"
+              },
+              "data_description": {
+                "soc_min_pct": "Untergrenze, die der Plan immer hält. Liegt das Fahrzeug darunter und ist angesteckt, wird sofort geladen — ohne auf einen günstigen Preis zu warten.",
+                "soc_max_pct": "Obergrenze im Regelbetrieb. Darüber lädt der Plan nur für ein gesetztes Ziel."
+              }
             },
             "laden": {
               "name": "Laden",
-              "description": "Womit das Fahrzeug Strom aufnimmt."
+              "description": "Womit das Fahrzeug Strom aufnimmt.",
+              "data": {
+                "max_charge_kw": "Max. Ladeleistung (kW)"
+              }
             },
             "fahren": {
               "name": "Fahren",
-              "description": "Was das Fahrzeug unterwegs braucht."
+              "description": "Was das Fahrzeug unterwegs braucht.",
+              "data": {
+                "consumption_kwh_per_100km": "Verbrauch (kWh/100 km)"
+              }
             },
             "laufzeit": {
               "name": "Laufzeit",
-              "description": "Woher der aktuelle Zustand kommt."
+              "description": "Woher der aktuelle Zustand kommt.",
+              "data": {
+                "soc_entity": "Ladestand",
+                "station_id": "Ladepunkt",
+                "plugged_entity": "Angesteckt"
+              },
+              "data_description": {
+                "soc_entity": "Sensor oder Helfer mit dem Ladestand in Prozent. Ohne Ladestand lässt sich nicht planen — wer keinen Sensor hat, legt sich einen input_number-Helfer an.",
+                "station_id": "Der Ladepunkt, an dem dieses Fahrzeug lädt. Erscheint erst, wenn ein Ladepunkt angelegt ist.",
+                "plugged_entity": "Optionaler binary_sensor. Zustand an heisst angesteckt; ohne ihn gilt das Fahrzeug als angesteckt."
+              }
             },
             "erweitert": {
               "name": "Erweitert",
-              "description": "Werte, die selten geändert werden."
+              "description": "Werte, die selten geändert werden.",
+              "data": {
+                "min_charge_kw": "Min. Ladeleistung (kW)",
+                "efficiency_pct": "Ladewirkungsgrad (%)"
+              },
+              "data_description": {
+                "efficiency_pct": "Gesamter Ladewirkungsgrad — Kabel, Zähler und Bordlader zusammen."
+              }
             }
           }
         }
