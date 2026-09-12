@@ -220,6 +220,199 @@ class LadepunktSubentryFlow(ConfigSubentryFlow):
             self._get_entry(), subentry, title=titel, data=daten)
 
 
+class FahrzeugSubentryFlow(ConfigSubentryFlow):
+    """Anlegen und Aendern eines Fahrzeugs."""
+
+    def _ladepunkt_auswahl(self) -> list[selector.SelectOptionDict]:
+        """Die angelegten Ladepunkte, Wert ist die subentry_id.
+
+        Der Titel ist nur die Beschriftung: umbenennen darf die Zuordnung
+        nicht verlieren, und die Kontrakt-ID ist ohnehin die subentry_id.
+        """
+        return [
+            selector.SelectOptionDict(
+                value=subentry.subentry_id, label=subentry.title)
+            for subentry in self._get_entry().subentries.values()
+            if subentry.subentry_type == stammdaten.TYP_LADEPUNKT
+        ]
+
+    def _schema(self, vorgabe: dict[str, Any]) -> vol.Schema:
+        """Das Formular, vorbelegt aus vorgabe."""
+        standard = stammdaten.FAHRZEUG_DEFAULTS
+        prozent = vol.All(vol.Coerce(float), vol.Range(min=0, max=100))
+        positiv = vol.All(vol.Coerce(float), vol.Range(min=0, min_included=False))
+
+        def vor(feld: str):
+            return vorgabe.get(feld, standard.get(feld))
+
+        laufzeit: dict = {
+            vol.Required(
+                stammdaten.FELD_SOC_ENTITAET,
+                description={"suggested_value": vor(stammdaten.FELD_SOC_ENTITAET)},
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["sensor", "input_number"])
+            ),
+        }
+        # Das Feld erscheint erst, wenn es einen Ladepunkt gibt. Eine leere
+        # Auswahlliste stellt eine Frage, auf die es keine Antwort gibt.
+        auswahl = self._ladepunkt_auswahl()
+        if auswahl:
+            laufzeit[
+                vol.Optional(
+                    stammdaten.FELD_LADEPUNKT,
+                    description={"suggested_value": vor(stammdaten.FELD_LADEPUNKT)},
+                )
+            ] = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=auswahl, mode=selector.SelectSelectorMode.DROPDOWN)
+            )
+        laufzeit[
+            vol.Optional(
+                stammdaten.FELD_ANGESTECKT,
+                description={"suggested_value": vor(stammdaten.FELD_ANGESTECKT)},
+            )
+        ] = selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="binary_sensor")
+        )
+
+        return vol.Schema(
+            {
+                vol.Optional(
+                    stammdaten.FELD_NAME,
+                    default=vorgabe.get(stammdaten.FELD_NAME, ""),
+                ): str,
+                vol.Required(stammdaten.ABSCHNITT_BATTERIE): data_entry_flow.section(
+                    vol.Schema(
+                        {
+                            vol.Required(
+                                stammdaten.FELD_KAPAZITAET,
+                                default=vor(stammdaten.FELD_KAPAZITAET),
+                            ): positiv,
+                        }
+                    ),
+                    {"collapsed": False},
+                ),
+                vol.Required(stammdaten.ABSCHNITT_GUARD): data_entry_flow.section(
+                    vol.Schema(
+                        {
+                            vol.Required(
+                                stammdaten.FELD_SOC_MIN,
+                                default=vor(stammdaten.FELD_SOC_MIN),
+                            ): prozent,
+                            vol.Required(
+                                stammdaten.FELD_SOC_MAX,
+                                default=vor(stammdaten.FELD_SOC_MAX),
+                            ): prozent,
+                        }
+                    ),
+                    {"collapsed": False},
+                ),
+                vol.Required(stammdaten.ABSCHNITT_LADEN): data_entry_flow.section(
+                    vol.Schema(
+                        {
+                            vol.Required(
+                                stammdaten.FELD_MAX_LADELEISTUNG,
+                                default=vor(stammdaten.FELD_MAX_LADELEISTUNG),
+                            ): positiv,
+                        }
+                    ),
+                    {"collapsed": False},
+                ),
+                vol.Required(stammdaten.ABSCHNITT_FAHREN): data_entry_flow.section(
+                    vol.Schema(
+                        {
+                            vol.Required(
+                                stammdaten.FELD_VERBRAUCH,
+                                default=vor(stammdaten.FELD_VERBRAUCH),
+                            ): positiv,
+                        }
+                    ),
+                    {"collapsed": False},
+                ),
+                vol.Required(stammdaten.ABSCHNITT_LAUFZEIT): data_entry_flow.section(
+                    vol.Schema(laufzeit), {"collapsed": False},
+                ),
+                vol.Required(stammdaten.ABSCHNITT_ERWEITERT): data_entry_flow.section(
+                    vol.Schema(
+                        {
+                            vol.Optional(
+                                stammdaten.FELD_MIN_LADELEISTUNG,
+                                default=vor(stammdaten.FELD_MIN_LADELEISTUNG),
+                            ): positiv,
+                            vol.Optional(
+                                stammdaten.FELD_WIRKUNGSGRAD,
+                                default=vor(stammdaten.FELD_WIRKUNGSGRAD),
+                            ): vol.All(
+                                vol.Coerce(float),
+                                vol.Range(min=0, max=100, min_included=False),
+                            ),
+                        }
+                    ),
+                    {"collapsed": True},
+                ),
+            }
+        )
+
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Neues Fahrzeug anlegen."""
+        if user_input is None:
+            return self.async_show_form(step_id="user", data_schema=self._schema({}))
+
+        daten = stammdaten.flach_aus_abschnitten(
+            user_input, stammdaten.ABSCHNITTE_FAHRZEUG)
+        if (fehler := self._pruefen(daten)) is not None:
+            return self.async_show_form(
+                step_id="user", data_schema=self._schema(daten), errors=fehler)
+
+        titel = _titel_bestimmen(self, stammdaten.TYP_FAHRZEUG, daten)
+        return self.async_create_entry(title=titel, data=daten)
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Bestehendes Fahrzeug aendern."""
+        subentry = self._get_reconfigure_subentry()
+
+        if user_input is None:
+            vorgabe = dict(subentry.data)
+            vorgabe[stammdaten.FELD_NAME] = subentry.title
+            return self.async_show_form(
+                step_id="reconfigure", data_schema=self._schema(vorgabe))
+
+        daten = stammdaten.flach_aus_abschnitten(
+            user_input, stammdaten.ABSCHNITTE_FAHRZEUG)
+        if (fehler := self._pruefen(daten)) is not None:
+            vorgabe = dict(daten)
+            # Nur einsetzen, wenn nichts getippt wurde. Den eingegebenen Namen
+            # im Fehlerfall durch den alten zu ersetzen hiesse, dem Nutzer
+            # seine Eingabe wegzunehmen, waehrend er einen Fehler korrigiert.
+            if not vorgabe.get(stammdaten.FELD_NAME):
+                vorgabe[stammdaten.FELD_NAME] = subentry.title
+            return self.async_show_form(
+                step_id="reconfigure",
+                data_schema=self._schema(vorgabe),
+                errors=fehler,
+            )
+
+        titel = _titel_bestimmen(
+            self, stammdaten.TYP_FAHRZEUG, daten, bisher=subentry.title)
+        return self.async_update_and_abort(
+            self._get_entry(), subentry, title=titel, data=daten)
+
+    @staticmethod
+    def _pruefen(daten: dict[str, Any]) -> dict[str, str] | None:
+        """Die eine Bedingung ueber zwei Felder hinweg.
+
+        Voluptuous prueft jedes Feld fuer sich; dass der Boden unter der
+        Decke liegt, sieht es nicht.
+        """
+        if daten[stammdaten.FELD_SOC_MIN] >= daten[stammdaten.FELD_SOC_MAX]:
+            return {"base": "soc_range"}
+        return None
+
+
 class CannotConnect(HomeAssistantError):
     """Error to indicate we cannot connect."""
 
