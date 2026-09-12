@@ -3,13 +3,14 @@
     "generated_by": "meteo-volt-brain/scripts/export_contract.py",
     "do_not_edit": true,
     "schema_version": 1,
-    "brain_commit": "b70e97b",
-    "sha256": "7f58e0ec6bc2304d413087d5c5ff83baa5e980b90b414286013f3b2116ecfcea"
+    "brain_commit": "28bfefa",
+    "sha256": "d9f6a6fa6de7ffa57b1ce090749abfd02777d115b85e08b3a722184ffdce1463"
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$defs": {
     "Connection": {
       "additionalProperties": false,
+      "description": "Wo das Fahrzeug gerade angesteckt ist.",
       "properties": {
         "station_id": {
           "anyOf": [
@@ -21,6 +22,7 @@
             }
           ],
           "default": null,
+          "description": "ID der Wallbox, an der das Fahrzeug steckt. null heisst: nicht angesteckt.",
           "title": "Station Id"
         },
         "since": {
@@ -34,6 +36,7 @@
             }
           ],
           "default": null,
+          "description": "Zeitpunkt, seit dem das Fahrzeug an dieser Wallbox steckt.",
           "title": "Since"
         }
       },
@@ -42,19 +45,23 @@
     },
     "ConsumptionEntry": {
       "additionalProperties": false,
+      "description": "Eine geplante Fahrt im Wochenraster.",
       "properties": {
         "weekday": {
+          "description": "Wochentag der Fahrt: 0 ist Montag, 6 ist Sonntag.",
           "maximum": 6,
           "minimum": 0,
           "title": "Weekday",
           "type": "integer"
         },
         "time": {
+          "description": "Abfahrtszeit als HH:MM, gelesen in der timezone des Requests.",
           "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
           "title": "Time",
           "type": "string"
         },
         "km": {
+          "description": "Strecke dieser Fahrt in Kilometern.",
           "minimum": 0,
           "title": "Km",
           "type": "number"
@@ -70,8 +77,10 @@
     },
     "ConsumptionModel": {
       "additionalProperties": false,
+      "description": "Wie viel das Fahrzeug zwischen den Ladevorgaengen verbraucht.",
       "properties": {
         "type": {
+          "description": "none rechnet ohne Verbrauch, daily mit einer Tagesstrecke, detailed mit einzelnen Fahrten im Wochenraster.",
           "enum": [
             "none",
             "daily",
@@ -91,6 +100,7 @@
             }
           ],
           "default": null,
+          "description": "Taegliche Fahrstrecke in Kilometern. Pflicht bei type daily, sie wird am ersten Slot jedes kommenden Tages gebucht.",
           "title": "Daily Km"
         },
         "entries": {
@@ -106,10 +116,12 @@
             }
           ],
           "default": null,
+          "description": "Die einzelnen Fahrten im Wochenraster. Pflicht bei type detailed; gebucht wird nur, was nach dem Planungsbeginn liegt.",
           "title": "Entries"
         },
         "daily_floor_compensation": {
           "default": true,
+          "description": "Hebt den Ladeboden um den Tagesverbrauch an, damit soc_min_pct auch nach der Fahrt noch gilt. Der angehobene Boden wird bei soc_max_pct gedeckelt und wirkt nur bei type daily.",
           "title": "Daily Floor Compensation",
           "type": "boolean"
         }
@@ -122,13 +134,16 @@
     },
     "EfficiencyPoint": {
       "additionalProperties": false,
+      "description": "Ein Stuetzpunkt der Ladekurve: welcher Wirkungsgrad bei welcher Leistung gilt.",
       "properties": {
         "kw": {
+          "description": "Ladeleistung in kW, fuer die dieser Wirkungsgrad gilt.",
           "exclusiveMinimum": 0,
           "title": "Kw",
           "type": "number"
         },
         "eta": {
+          "description": "Wirkungsgrad zwischen 0 und 1 bei dieser Leistung.",
           "exclusiveMinimum": 0,
           "maximum": 1,
           "title": "Eta",
@@ -144,6 +159,7 @@
     },
     "Site": {
       "additionalProperties": false,
+      "description": "Die Rahmenwerte des Standorts: Anschlussgrenze und Netzentgelt.",
       "properties": {
         "max_power_kw": {
           "anyOf": [
@@ -156,6 +172,7 @@
             }
           ],
           "default": null,
+          "description": "Grenze des Hausanschlusses in kW. Der Plan haelt sie nicht ein, sondern warnt, wenn die geplante Spitzenlast darueber liegt.",
           "title": "Max Power Kw"
         },
         "grid_fees_eur_kwh": {
@@ -169,6 +186,7 @@
             }
           ],
           "default": null,
+          "description": "Netzentgelt in EUR je kWh. Steht es im Request, weist die Antwort zusaetzlich die Kosten einschliesslich Entgelt aus.",
           "title": "Grid Fees Eur Kwh"
         }
       },
@@ -177,25 +195,30 @@
     },
     "Station": {
       "additionalProperties": false,
+      "description": "Eine Wallbox am Standort.",
       "properties": {
         "id": {
+          "description": "Vom Client vergebene ID der Wallbox. Sie bleibt ueber Requests hinweg stabil; der Server erfindet nie eine.",
           "minLength": 1,
           "title": "Id",
           "type": "string"
         },
         "max_power_kw": {
+          "description": "Hoechste Leistung in kW, die diese Wallbox abgeben kann.",
           "exclusiveMinimum": 0,
           "title": "Max Power Kw",
           "type": "number"
         },
         "min_power_kw": {
           "default": 1.4,
+          "description": "Mindestladeleistung der Wallbox in kW. Der Plan laedt immer mit voller Leistung, nie gedrosselt.",
           "exclusiveMinimum": 0,
           "title": "Min Power Kw",
           "type": "number"
         },
         "phases": {
           "default": 3,
+          "description": "Anschlussart der Wallbox: einphasig oder dreiphasig.",
           "enum": [
             1,
             3
@@ -205,6 +228,7 @@
         },
         "efficiency": {
           "default": 0.99,
+          "description": "Stationsseitiger Wirkungsgrad zwischen 0 und 1, also die Verluste in Kabel und Zaehler.",
           "exclusiveMinimum": 0,
           "maximum": 1,
           "title": "Efficiency",
@@ -212,6 +236,7 @@
         },
         "available": {
           "default": true,
+          "description": "false plant jedes Fahrzeug an dieser Wallbox so, als koenne es ueber den ganzen Horizont nicht laden.",
           "title": "Available",
           "type": "boolean"
         }
@@ -225,8 +250,10 @@
     },
     "TargetConstraint": {
       "additionalProperties": false,
+      "description": "Bis zu einem Zeitpunkt soll ein bestimmter Ladestand erreicht sein.",
       "properties": {
         "id": {
+          "description": "Vom Client vergebene ID dieses Constraints. Sie taucht in der Antwort als Grund eines Slots wieder auf. base ist reserviert und wird abgewiesen.",
           "minLength": 1,
           "title": "Id",
           "type": "string"
@@ -241,19 +268,23 @@
             }
           ],
           "default": null,
+          "description": "Freier Text zur Anzeige, etwa der Anlass der Fahrt. Der Plan rechnet nicht damit.",
           "title": "Label"
         },
         "type": {
           "const": "target",
+          "description": "Kennzeichnet diesen Constraint als Zielvorgabe.",
           "title": "Type",
           "type": "string"
         },
         "deadline": {
+          "description": "Zeitpunkt, zu dem der Ladestand erreicht sein soll.",
           "format": "date-time",
           "title": "Deadline",
           "type": "string"
         },
         "target_soc_pct": {
+          "description": "Ladestand in Prozent, der bis zur deadline erreicht sein soll. Ein Ziel wird nie gekappt: es hebt die Obergrenze ueber soc_max_pct hinaus an, solange es gilt.",
           "maximum": 100,
           "minimum": 0,
           "title": "Target Soc Pct",
@@ -270,10 +301,12 @@
             }
           ],
           "default": null,
+          "description": "Fruehester Zeitpunkt, ab dem fuer dieses Ziel geladen werden darf. Der Slot, der hier beginnt, ist der erste erlaubte.",
           "title": "Earliest Start"
         },
         "allow_above_max": {
           "default": false,
+          "description": "Wird nicht ausgewertet und immer wie true behandelt, weil ein Ziel die Obergrenze ohnehin anhebt.",
           "title": "Allow Above Max",
           "type": "boolean"
         }
@@ -289,8 +322,10 @@
     },
     "UnavailableConstraint": {
       "additionalProperties": false,
+      "description": "Ein Zeitraum, in dem das Fahrzeug nicht geladen werden kann.",
       "properties": {
         "id": {
+          "description": "Vom Client vergebene ID dieses Constraints. Sie taucht in der Antwort als Grund eines Slots wieder auf. base ist reserviert und wird abgewiesen.",
           "minLength": 1,
           "title": "Id",
           "type": "string"
@@ -305,19 +340,23 @@
             }
           ],
           "default": null,
+          "description": "Freier Text zur Anzeige, etwa der Anlass der Fahrt. Der Plan rechnet nicht damit.",
           "title": "Label"
         },
         "type": {
           "const": "unavailable",
+          "description": "Kennzeichnet diesen Constraint als Abwesenheit.",
           "title": "Type",
           "type": "string"
         },
         "from": {
+          "description": "Beginn des Zeitraums. Dieser Zeitpunkt gehoert noch dazu.",
           "format": "date-time",
           "title": "From",
           "type": "string"
         },
         "to": {
+          "description": "Ende des Zeitraums. Dieser Zeitpunkt gehoert nicht mehr dazu.",
           "format": "date-time",
           "title": "To",
           "type": "string"
@@ -334,18 +373,22 @@
     },
     "VehicleProfile": {
       "additionalProperties": false,
+      "description": "Ein Fahrzeug am Standort, mit seinem Zustand und seinen Terminen.",
       "properties": {
         "id": {
+          "description": "Vom Client vergebene ID des Fahrzeugs. Sie bleibt ueber Requests hinweg stabil; der Server erfindet nie eine.",
           "minLength": 1,
           "title": "Id",
           "type": "string"
         },
         "capacity_kwh": {
+          "description": "Nutzbare Kapazitaet der Batterie in kWh.",
           "exclusiveMinimum": 0,
           "title": "Capacity Kwh",
           "type": "number"
         },
         "soc_pct": {
+          "description": "Ladestand in Prozent zum Zeitpunkt der Anfrage, gemessen am Fahrzeug.",
           "maximum": 100,
           "minimum": 0,
           "title": "Soc Pct",
@@ -362,20 +405,24 @@
             }
           ],
           "default": null,
+          "description": "Zeitpunkt, zu dem soc_pct gemessen wurde. Liegt er zu weit zurueck, traegt die Antwort eine Warnung.",
           "title": "Soc Measured At"
         },
         "max_charge_kw": {
+          "description": "Hoechste Leistung in kW, die das Fahrzeug aufnehmen kann. Geladen wird mit dem kleineren Wert aus diesem und dem der Wallbox.",
           "exclusiveMinimum": 0,
           "title": "Max Charge Kw",
           "type": "number"
         },
         "min_charge_kw": {
           "default": 1.4,
+          "description": "Mindestladeleistung des Fahrzeugs in kW. Der Plan laedt immer mit voller Leistung, nie gedrosselt.",
           "exclusiveMinimum": 0,
           "title": "Min Charge Kw",
           "type": "number"
         },
         "efficiency_curve": {
+          "description": "Wirkungsgrad ueber der Ladeleistung, als Stuetzpunkte. Dazwischen wird linear interpoliert, ausserhalb auf den naechsten Punkt geklemmt.",
           "items": {
             "$ref": "#/$defs/EfficiencyPoint"
           },
@@ -384,18 +431,21 @@
           "type": "array"
         },
         "soc_min_pct": {
+          "description": "Unterer Ladestand in Prozent, den der Plan im Regelbetrieb haelt.",
           "maximum": 100,
           "minimum": 0,
           "title": "Soc Min Pct",
           "type": "number"
         },
         "soc_max_pct": {
+          "description": "Oberer Ladestand in Prozent, ueber den der Plan nur fuer ein Ziel hinaus laedt.",
           "maximum": 100,
           "minimum": 0,
           "title": "Soc Max Pct",
           "type": "number"
         },
         "consumption_kwh_per_100km": {
+          "description": "Verbrauch des Fahrzeugs in kWh je 100 Kilometer.",
           "exclusiveMinimum": 0,
           "title": "Consumption Kwh Per 100Km",
           "type": "number"
@@ -407,6 +457,7 @@
           "$ref": "#/$defs/ConsumptionModel"
         },
         "constraints": {
+          "description": "Termine und Abwesenheiten dieses Fahrzeugs. Ihre IDs muessen untereinander verschieden sein.",
           "items": {
             "discriminator": {
               "mapping": {
@@ -444,8 +495,10 @@
     }
   },
   "additionalProperties": false,
+  "description": "Eine Plan-Anfrage. Sie beschreibt immer einen ganzen Standort, nie ein\neinzelnes Fahrzeug.",
   "properties": {
     "schema_version": {
+      "description": "Version des Kontrakts, gegen den dieser Request gebaut ist.",
       "title": "Schema Version",
       "type": "integer"
     },
@@ -460,15 +513,18 @@
         }
       ],
       "default": null,
+      "description": "Zeitpunkt, ab dem geplant wird. Fehlt er, nimmt der Server seine eigene Uhr.",
       "title": "Now"
     },
     "model": {
       "default": "default",
+      "description": "Name des Prognosemodells. default folgt dem jeweils empfohlenen.",
       "title": "Model",
       "type": "string"
     },
     "risk": {
       "default": 2,
+      "description": "Welches Quantil der Preisprognose der Plan verwendet: 1 wartet auf guenstige Slots und geht ins Risiko, 2 ist ausgewogen, 3 laedt frueh und sichert ab.",
       "enum": [
         1,
         2,
@@ -479,13 +535,16 @@
     },
     "timezone": {
       "default": "Europe/Berlin",
+      "description": "Zeitzone, in der die Tagesgrenzen der Verbrauchsprognose liegen.",
       "title": "Timezone",
       "type": "string"
     },
     "site": {
-      "$ref": "#/$defs/Site"
+      "$ref": "#/$defs/Site",
+      "description": "Die Rahmenwerte des Standorts."
     },
     "stations": {
+      "description": "Die Wallboxen am Standort, mindestens eine.",
       "items": {
         "$ref": "#/$defs/Station"
       },
@@ -494,6 +553,7 @@
       "type": "array"
     },
     "vehicles": {
+      "description": "Die Fahrzeuge am Standort, mindestens eines.",
       "items": {
         "$ref": "#/$defs/VehicleProfile"
       },
@@ -503,6 +563,7 @@
     },
     "include_intervals": {
       "default": true,
+      "description": "false laesst die abgeleiteten Ladebloecke in der Antwort weg und liefert nur die Slots.",
       "title": "Include Intervals",
       "type": "boolean"
     }

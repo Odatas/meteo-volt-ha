@@ -3,50 +3,59 @@
     "generated_by": "meteo-volt-brain/scripts/export_contract.py",
     "do_not_edit": true,
     "schema_version": 1,
-    "brain_commit": "b70e97b",
-    "sha256": "71fc4a7bc9b25d53c68a60071cc4e62125c56b1a2c7f8fa33f49e517e80e40f0"
+    "brain_commit": "28bfefa",
+    "sha256": "32cc2fd1dc139c87bcdaf88937100891792b93dac0f125d80348e4b15a44717d"
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$defs": {
     "Interval": {
       "additionalProperties": false,
-      "description": "Abgeleitet aus den Slots. Bei Widerspruch gilt slots (R13).",
+      "description": "Ein zusammenhaengender Ladeblock, aus den Slots zusammengefasst. Bei\nWiderspruch gelten die Slots.",
       "properties": {
         "station_id": {
+          "description": "ID der Wallbox, an der dieser Block laedt.",
           "title": "Station Id",
           "type": "string"
         },
         "from": {
+          "description": "Beginn des Blocks. Dieser Zeitpunkt gehoert noch dazu.",
           "format": "date-time",
           "title": "From",
           "type": "string"
         },
         "to": {
+          "description": "Ende des Blocks. Dieser Zeitpunkt gehoert nicht mehr dazu.",
           "format": "date-time",
           "title": "To",
           "type": "string"
         },
         "kwh": {
+          "description": "Energie in kWh, die die Wallbox ueber den ganzen Block zieht.",
           "title": "Kwh",
           "type": "number"
         },
         "cost_eur": {
+          "description": "Kosten des Blocks in EUR, ohne Netzentgelt.",
           "title": "Cost Eur",
           "type": "number"
         },
         "avg_price_eur_kwh": {
+          "description": "Mittlerer Preis in EUR je kWh ueber den Block.",
           "title": "Avg Price Eur Kwh",
           "type": "number"
         },
         "soc_from_pct": {
+          "description": "Ladestand in Prozent zu Beginn des Blocks.",
           "title": "Soc From Pct",
           "type": "number"
         },
         "soc_to_pct": {
+          "description": "Ladestand in Prozent am Ende des Blocks.",
           "title": "Soc To Pct",
           "type": "number"
         },
         "reason": {
+          "description": "Die id des Constraints, der diesen Block verlangt, oder base fuer das implizite Basisziel.",
           "title": "Reason",
           "type": "string"
         }
@@ -67,14 +76,17 @@
     },
     "PredictionStaleWarning": {
       "additionalProperties": false,
+      "description": "Die Preisprognose, auf der dieser Plan steht, ist zu alt.",
       "properties": {
         "type": {
           "const": "prediction_stale",
           "default": "prediction_stale",
+          "description": "Kennzeichnet diese Warnung als veraltete Preisprognose.",
           "title": "Type",
           "type": "string"
         },
         "message": {
+          "description": "Meldung im Klartext, zur Anzeige geeignet.",
           "title": "Message",
           "type": "string"
         }
@@ -88,22 +100,27 @@
     },
     "SiteLimitExceededWarning": {
       "additionalProperties": false,
+      "description": "Der Plan ruft mehr Leistung ab, als der Hausanschluss zulaesst.",
       "properties": {
         "type": {
           "const": "site_limit_exceeded",
           "default": "site_limit_exceeded",
+          "description": "Kennzeichnet diese Warnung als ueberschrittene Anschlussgrenze.",
           "title": "Type",
           "type": "string"
         },
         "peak_power_kw": {
+          "description": "Hoechste Leistung in kW, die der Plan gleichzeitig abruft.",
           "title": "Peak Power Kw",
           "type": "number"
         },
         "limit_kw": {
+          "description": "Die Anschlussgrenze in kW, gegen die geprueft wurde.",
           "title": "Limit Kw",
           "type": "number"
         },
         "message": {
+          "description": "Meldung im Klartext, zur Anzeige geeignet.",
           "title": "Message",
           "type": "string"
         }
@@ -119,16 +136,20 @@
     },
     "SiteResult": {
       "additionalProperties": false,
+      "description": "Die Summen ueber alle Fahrzeuge des Standorts.",
       "properties": {
         "peak_power_kw": {
+          "description": "Hoechste Leistung in kW, die der Plan am Standort gleichzeitig abruft.",
           "title": "Peak Power Kw",
           "type": "number"
         },
         "total_kwh": {
+          "description": "Energie in kWh, die alle Wallboxen zusammen ziehen.",
           "title": "Total Kwh",
           "type": "number"
         },
         "total_cost_eur": {
+          "description": "Kosten aller Fahrzeuge zusammen in EUR, ohne Netzentgelt.",
           "title": "Total Cost Eur",
           "type": "number"
         },
@@ -142,9 +163,11 @@
             }
           ],
           "default": null,
+          "description": "Kosten aller Fahrzeuge zusammen in EUR einschliesslich Netzentgelt. Nur vorhanden, wenn der Request grid_fees_eur_kwh nannte.",
           "title": "Total Cost Incl Fees Eur"
         },
         "feasible": {
+          "description": "Ob jeder einzelne Fahrzeugplan erfuellbar ist.",
           "title": "Feasible",
           "type": "boolean"
         }
@@ -160,22 +183,26 @@
     },
     "SlotOut": {
       "additionalProperties": false,
-      "description": "Die Ausgabeeinheit (R13). Jeder Slot des Horizonts steht drin.",
+      "description": "Ein Viertelstundenschritt des Plans. Die Antwort enthaelt je Fahrzeug\njeden Slot des Horizonts; Ladebloecke sind daraus abgeleitet.",
       "properties": {
         "t": {
+          "description": "Beginn des Slots.",
           "format": "date-time",
           "title": "T",
           "type": "string"
         },
         "charge": {
+          "description": "Ob in diesem Slot geladen wird. Ist es false, fehlen die Ladefelder dieses Slots ganz.",
           "title": "Charge",
           "type": "boolean"
         },
         "price": {
+          "description": "Strompreis in EUR je kWh in diesem Slot.",
           "title": "Price",
           "type": "number"
         },
         "source": {
+          "description": "Herkunft des Preises: epex fuer veroeffentlichte Boersenpreise, forecast fuer prognostizierte.",
           "enum": [
             "epex",
             "forecast"
@@ -184,6 +211,7 @@
           "type": "string"
         },
         "soc_end_pct": {
+          "description": "Ladestand in Prozent am Ende dieses Slots.",
           "title": "Soc End Pct",
           "type": "number"
         },
@@ -197,6 +225,7 @@
             }
           ],
           "default": null,
+          "description": "ID der Wallbox, an der in diesem Slot geladen wird.",
           "title": "Station Id"
         },
         "kw": {
@@ -209,6 +238,7 @@
             }
           ],
           "default": null,
+          "description": "Ladeleistung in kW in diesem Slot.",
           "title": "Kw"
         },
         "kwh": {
@@ -221,6 +251,7 @@
             }
           ],
           "default": null,
+          "description": "Energie in kWh, die die Wallbox in diesem Slot zieht. Die Kosten rechnen sich immer aus dieser Zahl.",
           "title": "Kwh"
         },
         "kwh_battery": {
@@ -233,6 +264,7 @@
             }
           ],
           "default": null,
+          "description": "Energie in kWh, die davon in der Batterie ankommt, also kwh mal Wirkungsgrad.",
           "title": "Kwh Battery"
         },
         "cost_eur": {
@@ -245,6 +277,7 @@
             }
           ],
           "default": null,
+          "description": "Kosten dieses Slots in EUR, ohne Netzentgelt.",
           "title": "Cost Eur"
         },
         "reason": {
@@ -257,6 +290,7 @@
             }
           ],
           "default": null,
+          "description": "Die id des Constraints, der diesen Slot verlangt, oder base fuer das implizite Basisziel.",
           "title": "Reason"
         }
       },
@@ -272,18 +306,22 @@
     },
     "SocStaleWarning": {
       "additionalProperties": false,
+      "description": "Der gemeldete Ladestand eines Fahrzeugs ist zu alt, um darauf zu planen.",
       "properties": {
         "type": {
           "const": "soc_stale",
           "default": "soc_stale",
+          "description": "Kennzeichnet diese Warnung als veralteten Ladestand.",
           "title": "Type",
           "type": "string"
         },
         "vehicle_id": {
+          "description": "ID des Fahrzeugs, dessen Ladestand veraltet ist.",
           "title": "Vehicle Id",
           "type": "string"
         },
         "message": {
+          "description": "Meldung im Klartext, zur Anzeige geeignet.",
           "title": "Message",
           "type": "string"
         }
@@ -298,19 +336,22 @@
     },
     "StationOverbookedWarning": {
       "additionalProperties": false,
-      "description": "G3: der Plan belegt eine Station mehrfach im selben Slot.",
+      "description": "Der Plan belegt dieselbe Wallbox im selben Slot mit mehreren Fahrzeugen.",
       "properties": {
         "type": {
           "const": "station_overbooked",
           "default": "station_overbooked",
+          "description": "Kennzeichnet diese Warnung als mehrfach belegte Wallbox.",
           "title": "Type",
           "type": "string"
         },
         "station_id": {
+          "description": "ID der Wallbox, die mehrfach belegt ist.",
           "title": "Station Id",
           "type": "string"
         },
         "vehicle_ids": {
+          "description": "IDs der Fahrzeuge, die sich diese Wallbox teilen.",
           "items": {
             "type": "string"
           },
@@ -319,16 +360,19 @@
           "type": "array"
         },
         "overlapping_slots": {
+          "description": "Anzahl der Slots, in denen sich die Belegung ueberschneidet.",
           "minimum": 1,
           "title": "Overlapping Slots",
           "type": "integer"
         },
         "first_overlap": {
+          "description": "Beginn des ersten Slots mit Ueberschneidung.",
           "format": "date-time",
           "title": "First Overlap",
           "type": "string"
         },
         "message": {
+          "description": "Meldung im Klartext, zur Anzeige geeignet.",
           "title": "Message",
           "type": "string"
         }
@@ -346,16 +390,20 @@
     },
     "VehiclePlan": {
       "additionalProperties": false,
+      "description": "Der Plan fuer ein Fahrzeug: jeder Slot des Horizonts, die Summen darueber\nund was im laufenden Slot zu tun ist.",
       "properties": {
         "id": {
+          "description": "ID des Fahrzeugs, wie sie im Request stand.",
           "title": "Id",
           "type": "string"
         },
         "charge_now": {
+          "description": "Ob im laufenden Slot geladen werden soll.",
           "title": "Charge Now",
           "type": "boolean"
         },
         "charge_now_kw": {
+          "description": "Leistung in kW, mit der im laufenden Slot geladen werden soll.",
           "title": "Charge Now Kw",
           "type": "number"
         },
@@ -369,9 +417,11 @@
             }
           ],
           "default": null,
+          "description": "ID der Wallbox fuer den laufenden Slot. null, wenn gerade nicht geladen werden soll.",
           "title": "Charge Now Station Id"
         },
         "current_slot_end": {
+          "description": "Ende des laufenden Slots. Bis dahin gilt charge_now.",
           "format": "date-time",
           "title": "Current Slot End",
           "type": "string"
@@ -387,9 +437,11 @@
             }
           ],
           "default": null,
+          "description": "Beginn des naechsten Ladeblocks, nicht des laufenden. null, wenn keiner mehr geplant ist.",
           "title": "Next Charge Start"
         },
         "slots": {
+          "description": "Jeder Slot des Horizonts, in zeitlicher Reihenfolge.",
           "items": {
             "$ref": "#/$defs/SlotOut"
           },
@@ -397,6 +449,7 @@
           "type": "array"
         },
         "intervals": {
+          "description": "Die aus den Slots abgeleiteten Ladebloecke. Leer, wenn der Request include_intervals abgeschaltet hat.",
           "items": {
             "$ref": "#/$defs/Interval"
           },
@@ -404,10 +457,12 @@
           "type": "array"
         },
         "total_kwh": {
+          "description": "Energie in kWh, die die Wallbox ueber den ganzen Horizont zieht.",
           "title": "Total Kwh",
           "type": "number"
         },
         "total_cost_eur": {
+          "description": "Kosten ueber den ganzen Horizont in EUR, ohne Netzentgelt.",
           "title": "Total Cost Eur",
           "type": "number"
         },
@@ -421,17 +476,21 @@
             }
           ],
           "default": null,
+          "description": "Kosten ueber den ganzen Horizont in EUR einschliesslich Netzentgelt. Nur vorhanden, wenn der Request grid_fees_eur_kwh nannte.",
           "title": "Total Cost Incl Fees Eur"
         },
         "soc_end_pct": {
+          "description": "Ladestand in Prozent am Ende des Horizonts.",
           "title": "Soc End Pct",
           "type": "number"
         },
         "feasible": {
+          "description": "Ob der Plan alle Anforderungen dieses Fahrzeugs erfuellt. Genau dann true, wenn violations leer ist.",
           "title": "Feasible",
           "type": "boolean"
         },
         "violations": {
+          "description": "Die Anforderungen, die der Plan nicht erfuellen kann.",
           "items": {
             "$ref": "#/$defs/Violation"
           },
@@ -459,8 +518,10 @@
     },
     "Violation": {
       "additionalProperties": false,
+      "description": "Eine Anforderung, die der Plan fuer dieses Fahrzeug nicht erfuellen kann.",
       "properties": {
         "type": {
+          "description": "Was nicht aufgeht: ein unerreichbares Ziel, ein unterschrittener Ladeboden, kein verfuegbarer Slot, ein zu hoher Ladestand schon am Start oder ein nicht angestecktes Fahrzeug.",
           "enum": [
             "target_unreachable",
             "soc_floor_violated",
@@ -481,6 +542,7 @@
             }
           ],
           "default": null,
+          "description": "ID des Constraints, dem die Verletzung zuzuordnen ist. base steht fuer das implizite Basisziel.",
           "title": "Constraint Id"
         },
         "missing_kwh": {
@@ -493,9 +555,11 @@
             }
           ],
           "default": null,
+          "description": "Energie in kWh, die an der Wallbox noch fehlt, um den geforderten Ladestand zu erreichen. Netzseitig wie jede kWh-Angabe dieses Kontrakts.",
           "title": "Missing Kwh"
         },
         "message": {
+          "description": "Meldung im Klartext, zur Anzeige geeignet.",
           "title": "Message",
           "type": "string"
         }
@@ -509,21 +573,26 @@
     }
   },
   "additionalProperties": false,
+  "description": "Die Antwort auf eine Plan-Anfrage: ein Plan je Fahrzeug und die Summen\ndes Standorts.",
   "properties": {
     "schema_version": {
+      "description": "Version des Kontrakts, nach dem diese Antwort gebaut ist.",
       "title": "Schema Version",
       "type": "integer"
     },
     "computed_at": {
+      "description": "Zeitpunkt, zu dem der Server diesen Plan gerechnet hat.",
       "format": "date-time",
       "title": "Computed At",
       "type": "string"
     },
     "model": {
+      "description": "Name des Prognosemodells, das die Preise geliefert hat.",
       "title": "Model",
       "type": "string"
     },
     "risk": {
+      "description": "Welches Quantil der Preisprognose dieser Plan verwendet hat.",
       "enum": [
         1,
         2,
@@ -533,16 +602,19 @@
       "type": "integer"
     },
     "horizon_end": {
+      "description": "Ende des Planungshorizonts.",
       "format": "date-time",
       "title": "Horizon End",
       "type": "string"
     },
     "prices_known_until": {
+      "description": "Bis hierher stehen die Preise fest, danach sind sie prognostiziert. Dieser Zeitpunkt gehoert noch zum bekannten Bereich.",
       "format": "date-time",
       "title": "Prices Known Until",
       "type": "string"
     },
     "slot_minutes": {
+      "description": "Laenge eines Slots in Minuten.",
       "title": "Slot Minutes",
       "type": "integer"
     },
@@ -550,6 +622,7 @@
       "$ref": "#/$defs/SiteResult"
     },
     "vehicles": {
+      "description": "Je Fahrzeug ein Plan, in der Reihenfolge des Requests.",
       "items": {
         "$ref": "#/$defs/VehiclePlan"
       },
@@ -557,6 +630,7 @@
       "type": "array"
     },
     "actions_required": {
+      "description": "Handgriffe, die noetig sind, damit der Plan aufgeht. In schema_version 1 ist diese Liste immer leer.",
       "items": {
         "additionalProperties": true,
         "type": "object"
@@ -565,6 +639,7 @@
       "type": "array"
     },
     "warnings": {
+      "description": "Hinweise, die den Plan nicht verhindern: veralteter Ladestand, veraltete Preisprognose, ueberschrittene Anschlussgrenze, mehrfach belegte Wallbox.",
       "items": {
         "discriminator": {
           "mapping": {
