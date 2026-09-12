@@ -162,3 +162,92 @@ def zu_fahrzeug(
         fragment["soc_measured_at"] = soc_measured_at
 
     return fragment
+
+
+# --- Formularabschnitte -----------------------------------------------------
+# HA liefert section-Felder verschachtelt unter ihrem Schluessel zurueck.
+
+ABSCHNITT_ERWEITERT = "erweitert"
+ABSCHNITT_BATTERIE = "batterie"
+ABSCHNITT_GUARD = "guard"
+ABSCHNITT_LADEN = "laden"
+ABSCHNITT_FAHREN = "fahren"
+ABSCHNITT_LAUFZEIT = "laufzeit"
+
+ABSCHNITTE_LADEPUNKT = (ABSCHNITT_ERWEITERT,)
+ABSCHNITTE_FAHRZEUG = (
+    ABSCHNITT_BATTERIE,
+    ABSCHNITT_GUARD,
+    ABSCHNITT_LADEN,
+    ABSCHNITT_FAHREN,
+    ABSCHNITT_LAUFZEIT,
+    ABSCHNITT_ERWEITERT,
+)
+
+# --- Namensvergabe ----------------------------------------------------------
+# Der Titel wird erzeugt, nicht uebersetzt: HA hat fuer erzeugte Titel keinen
+# Uebersetzungsschluessel. Deshalb hier eine kleine Tabelle statt einer
+# deutschen Vorgabe in einer englischen Oberflaeche.
+
+_NAMENSMUSTER = {
+    "de": {TYP_LADEPUNKT: "Wallbox {}", TYP_FAHRZEUG: "Fahrzeug {}"},
+    "en": {TYP_LADEPUNKT: "Wallbox {}", TYP_FAHRZEUG: "Vehicle {}"},
+}
+
+
+def naechster_name(vorhandene_titel, typ: str, sprache: str = "en") -> str:
+    """Kleinste freie Nummer ab 1, etwa 'Fahrzeug 1', 'Fahrzeug 2'.
+
+    Nicht len()+1: wer 'Fahrzeug 1' loescht und neu anlegt, bekaeme sonst eine
+    Dublette zu 'Fahrzeug 2'.
+    """
+    muster = _NAMENSMUSTER.get(sprache, _NAMENSMUSTER["en"])[typ]
+    belegt = set(vorhandene_titel)
+    nummer = 1
+    while muster.format(nummer) in belegt:
+        nummer += 1
+    return muster.format(nummer)
+
+
+def ladepunkt_aufloesen(
+    gewaehlt: str | None,
+    bekannte_ids,
+    angesteckt: bool | None = None,
+) -> str | None:
+    """connection.station_id aus Auswahl und Angesteckt-Sensor.
+
+    Aufgerufen wird das nicht hier, sondern in C5, das die Entitaeten liest.
+    Die Funktion steht trotzdem in diesem Modul: hier liegt die Abbildung, und
+    hier ist sie ohne Home Assistant pruefbar.
+
+    angesteckt ist None, wenn der Nutzer keine Entitaet gewaehlt hat -- dann
+    gilt das Fahrzeug als angesteckt. Wallboxen muessen nicht smart sein und
+    Autos auch nicht; die Gegenannahme machte den Plan fuer jeden nutzlos, der
+    keinen solchen Sensor hat.
+
+    Ein Ladepunkt, den es nicht mehr gibt, wird null statt eines haengenden
+    Verweises: es gibt keine Fehler-Fixture fuer eine unbekannte station_id,
+    der Server pinnt sein Verhalten dort also nicht.
+    """
+    if not gewaehlt:
+        return None
+    if gewaehlt not in bekannte_ids:
+        return None
+    if angesteckt is False:
+        return None
+    return gewaehlt
+
+
+def flach_aus_abschnitten(user_input: dict, abschnitte) -> dict:
+    """Zieht die benannten Formularabschnitte flach.
+
+    Nur die benannten. Jedes dict aufzuloesen hiesse raten, und ein falsch
+    aufgeloestes faellt spaeter still als fehlendes Feld auf.
+    """
+    flach: dict = {}
+    for schluessel, wert in user_input.items():
+        if schluessel in abschnitte and isinstance(wert, dict):
+            flach.update(wert)
+        else:
+            flach[schluessel] = wert
+    return flach

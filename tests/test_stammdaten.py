@@ -138,3 +138,93 @@ def test_weggelassene_erweiterte_fahrzeugfelder_ergeben_die_vorbelegung():
     assert fragment["min_charge_kw"] == 1.4
     assert fragment["efficiency_curve"] == [{"kw": 7.4, "eta": 0.92}]
     jsonschema.validate(fragment, teilschema("VehicleProfile"))
+
+
+# --- Aufloesung der Ladepunkt-Zuordnung -------------------------------------
+# Die fuenf Zeilen der Tabelle aus Abschnitt 5 der Spec, einzeln.
+
+def test_ohne_gewaehlten_ladepunkt_keine_station():
+    assert stammdaten.ladepunkt_aufloesen(None, {"wb-1"}) is None
+
+
+def test_geloeschter_ladepunkt_wird_null_statt_haengender_verweis():
+    """Es gibt keine Fehler-Fixture fuer eine unbekannte station_id -- der
+    Server pinnt sein Verhalten dort nicht. Also darf der Client gar nicht
+    erst eine erzeugen."""
+    assert stammdaten.ladepunkt_aufloesen("wb-weg", {"wb-1"}) is None
+
+
+def test_nicht_angesteckt_heisst_keine_station():
+    assert stammdaten.ladepunkt_aufloesen("wb-1", {"wb-1"}, angesteckt=False) is None
+
+
+def test_angesteckt_heisst_die_gewaehlte_station():
+    assert stammdaten.ladepunkt_aufloesen("wb-1", {"wb-1"}, angesteckt=True) == "wb-1"
+
+
+def test_ohne_angesteckt_sensor_gilt_das_fahrzeug_als_angesteckt():
+    """Der dumme Fall ist die Grundeinstellung. Die Gegenannahme machte den
+    Plan fuer jeden nutzlos, der keinen solchen Sensor hat."""
+    assert stammdaten.ladepunkt_aufloesen("wb-1", {"wb-1"}, angesteckt=None) == "wb-1"
+
+
+# --- Namensvergabe ----------------------------------------------------------
+
+def test_erster_name_ohne_eingabe():
+    assert stammdaten.naechster_name([], stammdaten.TYP_FAHRZEUG, "de") == "Fahrzeug 1"
+
+
+def test_zweiter_name_zaehlt_hoch():
+    assert stammdaten.naechster_name(
+        ["Fahrzeug 1"], stammdaten.TYP_FAHRZEUG, "de") == "Fahrzeug 2"
+
+
+def test_eine_geloeschte_nummer_wird_wiederverwendet():
+    """Nicht len()+1: wer 'Fahrzeug 1' loescht und neu anlegt, bekaeme sonst
+    eine Dublette zu 'Fahrzeug 2'."""
+    assert stammdaten.naechster_name(
+        ["Fahrzeug 2"], stammdaten.TYP_FAHRZEUG, "de") == "Fahrzeug 1"
+
+
+def test_eigene_namen_stoeren_die_nummerierung_nicht():
+    assert stammdaten.naechster_name(
+        ["Papas Kombi"], stammdaten.TYP_FAHRZEUG, "de") == "Fahrzeug 1"
+
+
+def test_ladepunkt_heisst_in_beiden_sprachen_wallbox():
+    assert stammdaten.naechster_name([], stammdaten.TYP_LADEPUNKT, "de") == "Wallbox 1"
+    assert stammdaten.naechster_name([], stammdaten.TYP_LADEPUNKT, "en") == "Wallbox 1"
+
+
+def test_eine_unbekannte_sprache_faellt_auf_englisch_zurueck():
+    assert stammdaten.naechster_name(
+        [], stammdaten.TYP_FAHRZEUG, "fr") == "Vehicle 1"
+
+
+# --- Abschnitte -------------------------------------------------------------
+
+def test_abschnitte_werden_flachgezogen():
+    """HA liefert section-Felder verschachtelt zurueck. Gespeichert wird flach,
+    damit zu_fahrzeug nichts von Formularabschnitten wissen muss."""
+    verschachtelt = {
+        "name": "Kombi",
+        "batterie": {"capacity_kwh": 58.0},
+        "erweitert": {"min_charge_kw": 1.4, "efficiency_pct": 92.0},
+    }
+    flach = stammdaten.flach_aus_abschnitten(
+        verschachtelt, ("batterie", "erweitert"))
+    assert flach == {
+        "name": "Kombi",
+        "capacity_kwh": 58.0,
+        "min_charge_kw": 1.4,
+        "efficiency_pct": 92.0,
+    }
+
+
+def test_ein_unerwartetes_dict_bleibt_stehen():
+    """Nur benannte Abschnitte werden aufgeloest. Alles andere durchzureichen
+    hiesse raten -- und ein falsch aufgeloestes dict faellt spaeter still
+    als fehlendes Feld auf."""
+    flach = stammdaten.flach_aus_abschnitten(
+        {"fremd": {"a": 1}}, ("batterie",))
+    assert flach == {"fremd": {"a": 1}}
