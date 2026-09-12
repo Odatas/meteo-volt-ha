@@ -114,3 +114,51 @@ def zu_ladepunkt(daten: dict, ladepunkt_id: str) -> dict:
         "available": bool(
             daten.get(FELD_VERFUEGBAR, LADEPUNKT_DEFAULTS[FELD_VERFUEGBAR])),
     }
+
+
+def zu_fahrzeug(
+    daten: dict,
+    fahrzeug_id: str,
+    soc_pct: float,
+    soc_measured_at: str | None = None,
+    station_id: str | None = None,
+) -> dict:
+    """Ein VehicleProfile-Fragment des Kontrakts.
+
+    soc_pct, soc_measured_at und station_id misst kein Formular. Sie kommen
+    aus den Entitaeten des Nutzers und werden hereingereicht -- dieses Modul
+    liest selbst nichts. Was bei einem unavailable-Zustand geschieht,
+    entscheidet C5.
+    """
+    max_ladeleistung = float(daten[FELD_MAX_LADELEISTUNG])
+    wirkungsgrad_pct = float(
+        daten.get(FELD_WIRKUNGSGRAD, FAHRZEUG_DEFAULTS[FELD_WIRKUNGSGRAD]))
+
+    fragment = {
+        "id": fahrzeug_id,
+        "capacity_kwh": float(daten[FELD_KAPAZITAET]),
+        "soc_pct": float(soc_pct),
+        "max_charge_kw": max_ladeleistung,
+        "min_charge_kw": float(
+            daten.get(FELD_MIN_LADELEISTUNG,
+                      FAHRZEUG_DEFAULTS[FELD_MIN_LADELEISTUNG])),
+        # Ein Stuetzpunkt heisst konstanter Wirkungsgrad ueber die ganze
+        # Leistung: der Kontrakt klemmt ausserhalb auf den naechsten Punkt.
+        "efficiency_curve": [
+            {"kw": max_ladeleistung, "eta": wirkungsgrad_pct / 100},
+        ],
+        "soc_min_pct": float(daten[FELD_SOC_MIN]),
+        "soc_max_pct": float(daten[FELD_SOC_MAX]),
+        "consumption_kwh_per_100km": float(daten[FELD_VERBRAUCH]),
+        "connection": {"station_id": station_id},
+        # Eine Kopie, kein geteiltes dict: sonst aenderte ein Aufrufer die
+        # Werte aller anderen mit.
+        "consumption": dict(VERBRAUCHSMODELL),
+    }
+
+    # Weglassen ist etwas anderes als null: ein fehlender Zeitpunkt soll
+    # fehlen und nicht als gemessen gelten.
+    if soc_measured_at is not None:
+        fragment["soc_measured_at"] = soc_measured_at
+
+    return fragment

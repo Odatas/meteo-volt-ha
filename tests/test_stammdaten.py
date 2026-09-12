@@ -74,3 +74,67 @@ def test_weggelassene_optionale_felder_ergeben_die_vorbelegung():
     assert fragment["phases"] == 3
     assert fragment["available"] is True
     jsonschema.validate(fragment, teilschema("Station"))
+
+
+def test_fahrzeug_aus_vorbelegung_ist_kontraktkonform():
+    fragment = stammdaten.zu_fahrzeug(
+        dict(stammdaten.FAHRZEUG_DEFAULTS), "auto-1", soc_pct=47.0)
+    jsonschema.validate(fragment, teilschema("VehicleProfile"))
+    assert fragment["id"] == "auto-1"
+    assert fragment["soc_pct"] == 47.0
+
+
+def test_der_wirkungsgrad_wird_ein_stuetzpunkt_bei_voller_leistung():
+    """92 Prozent werden zu eta 0.92, und der Punkt liegt bei max_charge_kw.
+    Der Faktor 100 ist die Stelle, an der ein Fehler am teuersten waere: er
+    faellt in keinem Formular auf."""
+    fragment = stammdaten.zu_fahrzeug(
+        dict(stammdaten.FAHRZEUG_DEFAULTS), "auto-1", soc_pct=50.0)
+    assert fragment["efficiency_curve"] == [{"kw": 11.0, "eta": 0.92}]
+
+
+def test_das_verbrauchsmodell_ist_none_und_nicht_geteilt():
+    """type none, weil die Strecke zum Fahrprofil gehoert. Und je Aufruf ein
+    eigenes dict -- ein geteiltes liesse einen Aufrufer die Werte aller
+    anderen aendern."""
+    a = stammdaten.zu_fahrzeug(dict(stammdaten.FAHRZEUG_DEFAULTS), "a", soc_pct=10.0)
+    b = stammdaten.zu_fahrzeug(dict(stammdaten.FAHRZEUG_DEFAULTS), "b", soc_pct=10.0)
+    assert a["consumption"] == {"type": "none"}
+    assert a["consumption"] is not b["consumption"]
+    assert a["consumption"] is not stammdaten.VERBRAUCHSMODELL
+
+
+def test_ohne_ladepunkt_steht_station_id_auf_null():
+    fragment = stammdaten.zu_fahrzeug(
+        dict(stammdaten.FAHRZEUG_DEFAULTS), "auto-1", soc_pct=50.0)
+    assert fragment["connection"] == {"station_id": None}
+    jsonschema.validate(fragment, teilschema("VehicleProfile"))
+
+
+def test_der_messzeitpunkt_faellt_weg_wenn_es_keinen_gibt():
+    """soc_measured_at ist kein Pflichtfeld. Ein None mitzuschicken waere
+    etwas anderes als es wegzulassen -- der Kontrakt erlaubt beides, aber ein
+    fehlender Zeitpunkt soll fehlen und nicht als gemessen gelten."""
+    ohne = stammdaten.zu_fahrzeug(
+        dict(stammdaten.FAHRZEUG_DEFAULTS), "auto-1", soc_pct=50.0)
+    assert "soc_measured_at" not in ohne
+
+    mit = stammdaten.zu_fahrzeug(
+        dict(stammdaten.FAHRZEUG_DEFAULTS), "auto-1", soc_pct=50.0,
+        soc_measured_at="2026-09-12T08:00:00+02:00")
+    assert mit["soc_measured_at"] == "2026-09-12T08:00:00+02:00"
+    jsonschema.validate(mit, teilschema("VehicleProfile"))
+
+
+def test_weggelassene_erweiterte_fahrzeugfelder_ergeben_die_vorbelegung():
+    daten = {
+        stammdaten.FELD_KAPAZITAET: 77.0,
+        stammdaten.FELD_SOC_MIN: 20.0,
+        stammdaten.FELD_SOC_MAX: 90.0,
+        stammdaten.FELD_MAX_LADELEISTUNG: 7.4,
+        stammdaten.FELD_VERBRAUCH: 21.0,
+    }
+    fragment = stammdaten.zu_fahrzeug(daten, "auto-3", soc_pct=33.0)
+    assert fragment["min_charge_kw"] == 1.4
+    assert fragment["efficiency_curve"] == [{"kw": 7.4, "eta": 0.92}]
+    jsonschema.validate(fragment, teilschema("VehicleProfile"))
