@@ -19,7 +19,15 @@ The integration fetches the current forecast hourly and makes the full slot seri
 ## Requirements
 
 - A Meteo-Volt API token.
-- Home Assistant with HACS installed (for the recommended install path).
+- **Home Assistant 2026.4 or newer.**
+- HACS installed (for the recommended install path).
+
+Version 1.2.0 stores vehicles and charge points as config subentries, which
+older cores do not have. That raises the floor from 2024.1 to 2026.4.
+
+If you run an older core, nothing breaks: HACS will not offer 1.2.0 there, you
+keep the version you have, and the price forecast goes on working. What stops
+arriving is new features.
 
 ## Installation
 
