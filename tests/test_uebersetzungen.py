@@ -92,7 +92,7 @@ def test_der_aufbau_ist_nicht_leer():
     """Die Tests unten leiten alles aus dem Aufbau ab. Waere er leer, liefen
     sie ueber null Felder und blieben vakuos gruen."""
     assert len(stammdaten.LADEPUNKT_FELDER) >= 3
-    assert len(stammdaten.FAHRZEUG_FELDER) >= 11
+    assert len(stammdaten.FAHRZEUG_FELDER) >= 10
 
 
 @pytest.mark.parametrize("sprache", SPRACHEN)
@@ -149,8 +149,7 @@ def test_der_battery_guard_hat_seinen_hinweis():
     for sprache in SPRACHEN:
         for schritt in SCHRITTE:
             daten = _schritt(sprache, stammdaten.TYP_FAHRZEUG, schritt)
-            hinweise = _beschriftungen(
-                daten, stammdaten.ABSCHNITT_GUARD, "data_description")
+            hinweise = _beschriftungen(daten, None, "data_description")
             assert stammdaten.FELD_SOC_MIN in hinweise, f"{sprache}/{schritt}"
             assert stammdaten.FELD_SOC_MAX in hinweise, f"{sprache}/{schritt}"
 

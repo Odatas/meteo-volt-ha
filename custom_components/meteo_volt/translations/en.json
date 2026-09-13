@@ -69,140 +69,60 @@
       "step": {
         "user": {
           "title": "Add vehicle",
-          "description": "The vehicle and its battery. Only the state of charge has to come from an entity.",
           "data": {
-            "name": "Name"
+            "name": "Name",
+            "capacity_kwh": "Capacity (kWh)",
+            "soc_min_pct": "Min SoC (%) - battery guard",
+            "soc_max_pct": "Max SoC (%)",
+            "max_charge_kw": "Max. charging power (kW)",
+            "efficiency_pct": "Charging efficiency (%)",
+            "consumption_kwh_per_100km": "Average consumption (kWh/100 km)"
           },
           "data_description": {
-            "name": "Leave empty to get a name from the capacity, such as Vehicle 58 kWh."
+            "soc_min_pct": "Lower bound. Charges to this value immediately once the vehicle is plugged in.",
+            "soc_max_pct": "Upper bound in normal operation. Can be overridden manually.",
+            "efficiency_pct": "Percentage of the charging power that reaches the battery. Accounts for charging losses."
           },
           "sections": {
-            "batterie": {
-              "name": "Battery",
-              "description": "What the battery holds.",
+            "entitaeten": {
+              "name": "Entities",
               "data": {
-                "capacity_kwh": "Capacity (kWh)"
-              }
-            },
-            "guard": {
-              "name": "Battery guard",
-              "description": "The bounds the plan holds at all times.",
-              "data": {
-                "soc_min_pct": "State of charge min (%)",
-                "soc_max_pct": "State of charge max (%)"
-              },
-              "data_description": {
-                "soc_min_pct": "Lower bound the plan always holds. Below it and plugged in, charging starts at once — without waiting for a good price.",
-                "soc_max_pct": "Upper bound in normal operation. The plan only goes above it for a set target."
-              }
-            },
-            "laden": {
-              "name": "Charging",
-              "description": "How the vehicle takes power.",
-              "data": {
-                "max_charge_kw": "Max. charge power (kW)"
-              }
-            },
-            "fahren": {
-              "name": "Driving",
-              "description": "What the vehicle uses on the road.",
-              "data": {
-                "consumption_kwh_per_100km": "Consumption (kWh/100 km)"
-              }
-            },
-            "laufzeit": {
-              "name": "Runtime",
-              "description": "Where the current state comes from.",
-              "data": {
-                "soc_entity": "State of charge",
+                "soc_entity": "State of charge (%)",
                 "station_id": "Charge point",
                 "plugged_entity": "Plugged in"
               },
               "data_description": {
-                "soc_entity": "Sensor or helper carrying the state of charge in percent. Planning needs it — without a sensor, create an input_number helper.",
-                "station_id": "The charge point this vehicle charges at. Appears once a charge point exists.",
-                "plugged_entity": "Optional binary_sensor. State on means plugged in; without it the vehicle counts as plugged in."
-              }
-            },
-            "erweitert": {
-              "name": "Advanced",
-              "description": "Values that are rarely changed.",
-              "data": {
-                "min_charge_kw": "Min. charge power (kW)",
-                "efficiency_pct": "Charging efficiency (%)"
-              },
-              "data_description": {
-                "efficiency_pct": "Total charging efficiency — cable, meter and onboard charger together."
+                "station_id": "Optional. If set, the vehicle charges only at this charge point."
               }
             }
           }
         },
         "reconfigure": {
           "title": "Edit vehicle",
-          "description": "The vehicle and its battery. Only the state of charge has to come from an entity.",
           "data": {
-            "name": "Name"
+            "name": "Name",
+            "capacity_kwh": "Capacity (kWh)",
+            "soc_min_pct": "Min SoC (%) - battery guard",
+            "soc_max_pct": "Max SoC (%)",
+            "max_charge_kw": "Max. charging power (kW)",
+            "efficiency_pct": "Charging efficiency (%)",
+            "consumption_kwh_per_100km": "Average consumption (kWh/100 km)"
           },
           "data_description": {
-            "name": "Leave empty to get a name from the capacity, such as Vehicle 58 kWh."
+            "soc_min_pct": "Lower bound. Charges to this value immediately once the vehicle is plugged in.",
+            "soc_max_pct": "Upper bound in normal operation. Can be overridden manually.",
+            "efficiency_pct": "Percentage of the charging power that reaches the battery. Accounts for charging losses."
           },
           "sections": {
-            "batterie": {
-              "name": "Battery",
-              "description": "What the battery holds.",
+            "entitaeten": {
+              "name": "Entities",
               "data": {
-                "capacity_kwh": "Capacity (kWh)"
-              }
-            },
-            "guard": {
-              "name": "Battery guard",
-              "description": "The bounds the plan holds at all times.",
-              "data": {
-                "soc_min_pct": "State of charge min (%)",
-                "soc_max_pct": "State of charge max (%)"
-              },
-              "data_description": {
-                "soc_min_pct": "Lower bound the plan always holds. Below it and plugged in, charging starts at once — without waiting for a good price.",
-                "soc_max_pct": "Upper bound in normal operation. The plan only goes above it for a set target."
-              }
-            },
-            "laden": {
-              "name": "Charging",
-              "description": "How the vehicle takes power.",
-              "data": {
-                "max_charge_kw": "Max. charge power (kW)"
-              }
-            },
-            "fahren": {
-              "name": "Driving",
-              "description": "What the vehicle uses on the road.",
-              "data": {
-                "consumption_kwh_per_100km": "Consumption (kWh/100 km)"
-              }
-            },
-            "laufzeit": {
-              "name": "Runtime",
-              "description": "Where the current state comes from.",
-              "data": {
-                "soc_entity": "State of charge",
+                "soc_entity": "State of charge (%)",
                 "station_id": "Charge point",
                 "plugged_entity": "Plugged in"
               },
               "data_description": {
-                "soc_entity": "Sensor or helper carrying the state of charge in percent. Planning needs it — without a sensor, create an input_number helper.",
-                "station_id": "The charge point this vehicle charges at. Appears once a charge point exists.",
-                "plugged_entity": "Optional binary_sensor. State on means plugged in; without it the vehicle counts as plugged in."
-              }
-            },
-            "erweitert": {
-              "name": "Advanced",
-              "description": "Values that are rarely changed.",
-              "data": {
-                "min_charge_kw": "Min. charge power (kW)",
-                "efficiency_pct": "Charging efficiency (%)"
-              },
-              "data_description": {
-                "efficiency_pct": "Total charging efficiency — cable, meter and onboard charger together."
+                "station_id": "Optional. If set, the vehicle charges only at this charge point."
               }
             }
           }

@@ -136,7 +136,7 @@ def test_der_messzeitpunkt_faellt_weg_wenn_es_keinen_gibt():
     jsonschema.validate(mit, teilschema("VehicleProfile"))
 
 
-def test_weggelassene_erweiterte_fahrzeugfelder_ergeben_die_vorbelegung():
+def test_ein_weggelassener_wirkungsgrad_ergibt_die_vorbelegung():
     daten = {
         stammdaten.FELD_KAPAZITAET: 77.0,
         stammdaten.FELD_SOC_MIN: 20.0,
@@ -145,37 +145,20 @@ def test_weggelassene_erweiterte_fahrzeugfelder_ergeben_die_vorbelegung():
         stammdaten.FELD_VERBRAUCH: 21.0,
     }
     fragment = stammdaten.zu_fahrzeug(daten, "auto-3", soc_pct=33.0)
-    assert fragment["min_charge_kw"] == 1.4
     assert fragment["efficiency_curve"] == [{"kw": 7.4, "eta": 0.92}]
     jsonschema.validate(fragment, teilschema("VehicleProfile"))
 
 
-# --- Aufloesung der Ladepunkt-Zuordnung -------------------------------------
-# Die fuenf Zeilen der Tabelle aus Abschnitt 5 der Spec, einzeln.
-
-def test_ohne_gewaehlten_ladepunkt_keine_station():
-    assert stammdaten.ladepunkt_aufloesen(None, {"wb-1"}) is None
-
-
-def test_geloeschter_ladepunkt_wird_null_statt_haengender_verweis():
-    """Es gibt keine Fehler-Fixture fuer eine unbekannte station_id -- der
-    Server pinnt sein Verhalten dort nicht. Also darf der Client gar nicht
-    erst eine erzeugen."""
-    assert stammdaten.ladepunkt_aufloesen("wb-weg", {"wb-1"}) is None
-
-
-def test_nicht_angesteckt_heisst_keine_station():
-    assert stammdaten.ladepunkt_aufloesen("wb-1", {"wb-1"}, angesteckt=False) is None
-
-
-def test_angesteckt_heisst_die_gewaehlte_station():
-    assert stammdaten.ladepunkt_aufloesen("wb-1", {"wb-1"}, angesteckt=True) == "wb-1"
-
-
-def test_ohne_angesteckt_sensor_gilt_das_fahrzeug_als_angesteckt():
-    """Der dumme Fall ist die Grundeinstellung. Die Gegenannahme machte den
-    Plan fuer jeden nutzlos, der keinen solchen Sensor hat."""
-    assert stammdaten.ladepunkt_aufloesen("wb-1", {"wb-1"}, angesteckt=None) == "wb-1"
+def test_min_charge_kw_geht_nicht_mehr_mit():
+    """meteovolt_planner liest min_charge_kw an keiner Stelle. Es fehlt im
+    Formular und im Fragment, der Server nimmt den Default -- auch wenn ein in
+    1.1.0-beta.4 angelegtes Fahrzeug den Wert noch in seinen Daten traegt.
+    Ueber den Kontrakt entscheidet A5."""
+    alt = dict(stammdaten.FAHRZEUG_DEFAULTS)
+    alt["min_charge_kw"] = 3.7
+    fragment = stammdaten.zu_fahrzeug(alt, "auto-alt", soc_pct=40.0)
+    assert "min_charge_kw" not in fragment
+    jsonschema.validate(fragment, teilschema("VehicleProfile"))
 
 
 # --- Namensvergabe ----------------------------------------------------------
@@ -297,13 +280,3 @@ def test_guard_mit_gleichstand_wird_abgewiesen():
     genau den Gleichstand probiert."""
     daten = {stammdaten.FELD_SOC_MIN: 50.0, stammdaten.FELD_SOC_MAX: 50.0}
     assert stammdaten.soc_grenzen_pruefen(daten) == {"base": "soc_range"}
-
-
-# --- Die Grenze zum Aufrufer ------------------------------------------------
-
-def test_ein_state_string_statt_eines_bool_scheitert_laut():
-    """'off' ist truthy. Waere das erlaubt, gaelte ein nicht angestecktes
-    Fahrzeug als angesteckt -- still das Falsche, an genau der Stelle, an der
-    C5 spaeter einen HA-State uebergeben koennte."""
-    with pytest.raises(TypeError, match="bool oder None"):
-        stammdaten.ladepunkt_aufloesen("wb-1", {"wb-1"}, angesteckt="off")

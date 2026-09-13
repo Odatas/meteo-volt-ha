@@ -10,6 +10,9 @@ Fehler wehtut: ein vertauschter Faktor 100 beim Wirkungsgrad faellt in keinem
 Formular auf, wohl aber in der Rechnung des Planers. Sie liegt deshalb hier und
 nicht im Config-Flow, wo sie ohne Home Assistant nicht pruefbar waere.
 
+Was hier NICHT steht: welche station_id ein Fahrzeug gerade hat. Das haengt am
+Laufzeitzustand und daran, ob ein Ladepunkt gebunden ist -- entscheidet C5.
+
 Spec: meteo-volt-brain/docs/features/C1-C2-stammdaten-subentries/spec.md
 """
 
@@ -32,6 +35,7 @@ FELD_KAPAZITAET = "capacity_kwh"
 FELD_SOC_MIN = "soc_min_pct"
 FELD_SOC_MAX = "soc_max_pct"
 FELD_MAX_LADELEISTUNG = "max_charge_kw"
+FELD_WIRKUNGSGRAD = "efficiency_pct"
 FELD_VERBRAUCH = "consumption_kwh_per_100km"
 FELD_SOC_ENTITAET = "soc_entity"
 # Nicht "station": das ist schon der Wert von TYP_LADEPUNKT. Zwei Namensraeume,
@@ -39,18 +43,15 @@ FELD_SOC_ENTITAET = "soc_entity"
 # welcher von beiden gemeint ist.
 FELD_LADEPUNKT = "station_id"
 FELD_ANGESTECKT = "plugged_entity"
-FELD_MIN_LADELEISTUNG = "min_charge_kw"
-FELD_WIRKUNGSGRAD = "efficiency_pct"
 
 # --- Formularabschnitte -----------------------------------------------------
 # HA liefert section-Felder verschachtelt unter ihrem Schluessel zurueck.
+#
+# Es gibt genau einen: die drei Entitaeten. Alles andere steht ohne Kasten und
+# ohne Ueberschrift -- entschieden am 2026-09-13 nach dem ersten Blick auf das
+# Fahrzeugformular: zu viel Text, zu viele Kaesten.
 
-ABSCHNITT_ERWEITERT = "erweitert"
-ABSCHNITT_BATTERIE = "batterie"
-ABSCHNITT_GUARD = "guard"
-ABSCHNITT_LADEN = "laden"
-ABSCHNITT_FAHREN = "fahren"
-ABSCHNITT_LAUFZEIT = "laufzeit"
+ABSCHNITT_ENTITAETEN = "entitaeten"
 
 # --- Der Aufbau der Formulare -----------------------------------------------
 # Welches Feld in welchem Abschnitt steht. EINE Quelle fuer drei Leser:
@@ -65,24 +66,28 @@ ABSCHNITT_LAUFZEIT = "laufzeit"
 # flache Seite und wurde gruen. Zehn von elf Fahrzeugfeldern haetten dem
 # Nutzer als roher Schluessel gegenuebergestanden.
 #
-# None ist die oberste Ebene, dort ohne sections-Praefix.
+# None ist die oberste Ebene, dort ohne sections-Praefix. Die Reihenfolge
+# innerhalb eines Eintrags ist die Reihenfolge im Formular.
 
-# Der Ladepunkt hat keine Abschnitte: drei Felder, nichts eingeklappt. Was er
-# frueher mehr hatte -- min_power_kw, phases -- liest meteovolt_planner nicht
-# (slots.py liest max_power_kw, efficiency, available). Ob die beiden aus dem
-# Kontrakt fallen, entscheidet A5.
+# Der Ladepunkt: drei Felder. min_power_kw und phases liest meteovolt_planner
+# nicht (slots.py liest max_power_kw, efficiency, available).
 LADEPUNKT_AUFBAU = {
     None: (FELD_NAME, FELD_MAX_LEISTUNG, FELD_VERFUEGBAR),
 }
 
+# Das Fahrzeug: sieben Felder ohne Kasten, drei Entitaeten im Kasten.
+# min_charge_kw fehlt -- meteovolt_planner liest es an keiner Stelle.
 FAHRZEUG_AUFBAU = {
-    None: (FELD_NAME,),
-    ABSCHNITT_BATTERIE: (FELD_KAPAZITAET,),
-    ABSCHNITT_GUARD: (FELD_SOC_MIN, FELD_SOC_MAX),
-    ABSCHNITT_LADEN: (FELD_MAX_LADELEISTUNG,),
-    ABSCHNITT_FAHREN: (FELD_VERBRAUCH,),
-    ABSCHNITT_LAUFZEIT: (FELD_SOC_ENTITAET, FELD_LADEPUNKT, FELD_ANGESTECKT),
-    ABSCHNITT_ERWEITERT: (FELD_MIN_LADELEISTUNG, FELD_WIRKUNGSGRAD),
+    None: (
+        FELD_NAME,
+        FELD_KAPAZITAET,
+        FELD_SOC_MIN,
+        FELD_SOC_MAX,
+        FELD_MAX_LADELEISTUNG,
+        FELD_WIRKUNGSGRAD,
+        FELD_VERBRAUCH,
+    ),
+    ABSCHNITT_ENTITAETEN: (FELD_SOC_ENTITAET, FELD_LADEPUNKT, FELD_ANGESTECKT),
 }
 
 
@@ -114,9 +119,8 @@ FAHRZEUG_DEFAULTS = {
     FELD_SOC_MIN: 15.0,
     FELD_SOC_MAX: 80.0,
     FELD_MAX_LADELEISTUNG: 11.0,
-    FELD_VERBRAUCH: 19.5,
-    FELD_MIN_LADELEISTUNG: 1.4,
     FELD_WIRKUNGSGRAD: 92.0,
+    FELD_VERBRAUCH: 19.5,
 }
 
 # Abschnitt 3 der Spec: der Ladepunkt traegt keinen Wirkungsgrad. Der
@@ -215,8 +219,13 @@ def zu_fahrzeug(
 
     soc_pct, soc_measured_at und station_id misst kein Formular. Sie kommen
     aus den Entitaeten des Nutzers und werden hereingereicht -- dieses Modul
-    liest selbst nichts. Was bei einem unavailable-Zustand geschieht,
-    entscheidet C5.
+    liest selbst nichts. Welche station_id gilt, auch wenn kein Ladepunkt
+    gebunden ist, und was bei einem unavailable-Zustand geschieht, entscheidet
+    C5.
+
+    min_charge_kw fehlt: meteovolt_planner liest es an keiner Stelle, der
+    Server nimmt den Default -- auch wenn ein in 1.1.0-beta.4 angelegtes
+    Fahrzeug den Wert noch in seinen Daten traegt.
     """
     max_ladeleistung = float(daten[FELD_MAX_LADELEISTUNG])
     wirkungsgrad_pct = float(
@@ -227,9 +236,6 @@ def zu_fahrzeug(
         "capacity_kwh": float(daten[FELD_KAPAZITAET]),
         "soc_pct": float(soc_pct),
         "max_charge_kw": max_ladeleistung,
-        "min_charge_kw": float(
-            daten.get(FELD_MIN_LADELEISTUNG,
-                      FAHRZEUG_DEFAULTS[FELD_MIN_LADELEISTUNG])),
         # Ein Stuetzpunkt heisst konstanter Wirkungsgrad ueber die ganze
         # Leistung: der Kontrakt klemmt ausserhalb auf den naechsten Punkt.
         "efficiency_curve": [
@@ -252,7 +258,7 @@ def zu_fahrzeug(
     return fragment
 
 
-# --- Pruefungen und Aufloesung ----------------------------------------------
+# --- Pruefungen -------------------------------------------------------------
 
 
 def soc_grenzen_pruefen(daten: dict) -> dict | None:
@@ -269,46 +275,6 @@ def soc_grenzen_pruefen(daten: dict) -> dict | None:
     if daten[FELD_SOC_MIN] >= daten[FELD_SOC_MAX]:
         return {"base": "soc_range"}
     return None
-
-
-def ladepunkt_aufloesen(
-    gewaehlt: str | None,
-    bekannte_ids,
-    angesteckt: bool | None = None,
-) -> str | None:
-    """connection.station_id aus Auswahl und Angesteckt-Sensor.
-
-    Aufgerufen wird das nicht hier, sondern in C5, das die Entitaeten liest.
-    Die Funktion steht trotzdem in diesem Modul: hier liegt die Abbildung, und
-    hier ist sie ohne Home Assistant pruefbar.
-
-    angesteckt ist None, wenn der Nutzer keine Entitaet gewaehlt hat -- dann
-    gilt das Fahrzeug als angesteckt. Wallboxen muessen nicht smart sein und
-    Autos auch nicht; die Gegenannahme machte den Plan fuer jeden nutzlos, der
-    keinen solchen Sensor hat.
-
-    Ein Ladepunkt, den es nicht mehr gibt, wird null statt eines haengenden
-    Verweises: es gibt keine Fehler-Fixture fuer eine unbekannte station_id,
-    der Server pinnt sein Verhalten dort also nicht.
-    """
-    # Ein State-String statt eines bool waere die stille Variante des
-    # Falschen: "off" ist truthy, das Fahrzeug gaelte als angesteckt, und der
-    # Plan luede ein Auto, das gar nicht am Kabel haengt. Der Aufrufer
-    # vergleicht, dieses Modul nimmt nur das Ergebnis.
-    if angesteckt is not None and not isinstance(angesteckt, bool):
-        raise TypeError(
-            f"angesteckt muss bool oder None sein, nicht "
-            f"{type(angesteckt).__name__} ({angesteckt!r}). Ein State-String "
-            f"wie 'off' waere truthy."
-        )
-
-    if not gewaehlt:
-        return None
-    if gewaehlt not in bekannte_ids:
-        return None
-    if angesteckt is False:
-        return None
-    return gewaehlt
 
 
 def flach_aus_abschnitten(user_input: dict, abschnitte) -> dict:

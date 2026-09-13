@@ -327,8 +327,6 @@ class FahrzeugSubentryFlow(ConfigSubentryFlow):
                 stammdaten.FELD_ANGESTECKT,
                 selector.EntitySelectorConfig(domain="binary_sensor"),
             ),
-            stammdaten.FELD_MIN_LADELEISTUNG: zahl(
-                stammdaten.FELD_MIN_LADELEISTUNG, positiv, pflicht=False),
             stammdaten.FELD_WIRKUNGSGRAD: (
                 vol.Optional(
                     stammdaten.FELD_WIRKUNGSGRAD,
@@ -347,12 +345,7 @@ class FahrzeugSubentryFlow(ConfigSubentryFlow):
         if not self._ladepunkt_auswahl():
             weglassen = frozenset({stammdaten.FELD_LADEPUNKT})
 
-        return _formular(
-            stammdaten.FAHRZEUG_AUFBAU,
-            bauplan,
-            eingeklappt=frozenset({stammdaten.ABSCHNITT_ERWEITERT}),
-            weglassen=weglassen,
-        )
+        return _formular(stammdaten.FAHRZEUG_AUFBAU, bauplan, weglassen=weglassen)
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
