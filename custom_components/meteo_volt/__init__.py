@@ -11,6 +11,7 @@ from .api import MeteoVoltApiClient
 from .const import DOMAIN, CONF_API_TOKEN, API_URL
 from .overrides import load_overrides
 from .coordinator import MeteoVoltDataUpdateCoordinator
+from .dev import async_dev_action_registrieren
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,6 +34,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await coordinator.async_config_entry_first_refresh()
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
+
+    # Temporaer, Spec C7 Abschnitt 7: nur wenn const_overwrite.json wirkt.
+    if overrides:
+        async_dev_action_registrieren(hass)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
