@@ -1,7 +1,8 @@
 """Temporaer: eine Action, die einen festen Plan-Request schickt.
 
 Nur fuer die Entwicklung, und sie fliegt wieder raus: dann gehen diese Datei,
-ihr Eintrag in services.yaml und der Aufruf in __init__.py. Registriert wird
+ihr Eintrag in services.yaml sowie Import und Aufruf in __init__.py -- bleibt
+der Import stehen, laedt die ganze Integration nicht mehr. Registriert wird
 sie nur, wenn const_overwrite.json wirkt (siehe overrides.py) -- ein normaler
 Nutzer sieht sie nie.
 

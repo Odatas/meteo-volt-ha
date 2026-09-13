@@ -11,6 +11,7 @@ from .api import MeteoVoltApiClient
 from .const import DOMAIN, CONF_API_TOKEN, API_URL
 from .overrides import load_overrides
 from .coordinator import MeteoVoltDataUpdateCoordinator
+# Temporaer, Spec C7 Abschnitt 7: geht zusammen mit dev.py und dem Aufruf unten.
 from .dev import async_dev_action_registrieren
 
 _LOGGER = logging.getLogger(__name__)
