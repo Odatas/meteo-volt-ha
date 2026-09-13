@@ -23,6 +23,17 @@ Ein Stand erreicht die Testinstanz als **GitHub-Prerelease**, nicht als kopierte
   *dann* das Release auf diesen Commit legen. Laufen Tag und Manifest auseinander, zeigt HACS
   die eine Zahl und Home Assistant die andere.
 - Im Release **„Set as a pre-release" an**, „Set as the latest release" aus.
+- **Target ist der Feature-Branch, nicht der Vorschlag.** GitHub schlägt den Default-Branch vor;
+  ein Release darauf liefert den `master`-Code mit Beta-Etikett aus. Beim Eintippen des
+  Tag-Namens muss GitHub einen **neuen** Tag anzeigen — steht da, er existiert, nicht
+  veröffentlichen.
+- **Danach nachmessen**, bevor HACS aufgefrischt wird: `git ls-remote origin refs/tags/<tag>`
+  zeigt auf den Branch-Commit, und `git show <tag>:custom_components/meteo_volt/manifest.json`
+  trägt dieselbe Nummer.
+- **Ein falsches Release geht samt Tag.** Release löschen lässt den Tag stehen, und ein neues
+  Release mit demselben Namen nimmt stillschweigend den alten — egal, welches Target eingestellt
+  ist. Löschen und neu anlegen geht nur, solange die Version noch niemand installiert hat;
+  danach gilt: neue Nummer.
 - Die Beta-Linie läuft weiter, bis ihr `x.y.0` final erscheint. `1.1.0` ist noch offen.
 
 Auf der Testinstanz meldet HACS Prereleases nur, wenn `switch.<name>_pre_release` an ist. Der
