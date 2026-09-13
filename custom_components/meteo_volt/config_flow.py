@@ -108,6 +108,50 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
         )
 
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """API-Key und Netzentgelte aendern, ohne den Eintrag neu anzulegen.
+
+        Spec S2 Abschnitt 3. Neu anlegen hiesse loeschen -- und das nimmt alle
+        Fahrzeuge und Ladepunkte mit. Die unique_id ist heute der Key und
+        folgt ihm deshalb; entry_id und Subentries bleiben, und damit das
+        unique_id-Schema der Sensoren (Bestandsschutz Auflage 5).
+        """
+        entry = self._get_reconfigure_entry()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            neuer_key = user_input[CONF_API_TOKEN]
+            if neuer_key != entry.data[CONF_API_TOKEN]:
+                # Gehoert der Key schon einem anderen Eintrag, bricht das hier ab.
+                await self.async_set_unique_id(neuer_key)
+                self._abort_if_unique_id_configured()
+
+            try:
+                await validate_input(self.hass, user_input)
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except InvalidAuth:
+                errors["base"] = "invalid_auth"
+            except Exception:  # pylint: disable=broad-except
+                _LOGGER.exception("Unexpected exception")
+                errors["base"] = "unknown"
+            else:
+                # Die unique_id ueber async_update_entry: dieser Weg ist belegt,
+                # ein unique_id-Parameter am Helfer darunter nicht.
+                self.hass.config_entries.async_update_entry(entry, unique_id=neuer_key)
+                return self.async_update_reload_and_abort(
+                    entry, data_updates=user_input, reason="reconfigure_successful"
+                )
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=self.add_suggested_values_to_schema(
+                STEP_USER_DATA_SCHEMA, user_input or entry.data
+            ),
+            errors=errors,
+        )
+
 
 def _formular(
     aufbau: dict,
