@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+import aiohttp
 import voluptuous as vol
 
 from homeassistant import config_entries, data_entry_flow
@@ -45,6 +46,13 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     
     try:
         await client.async_get_predictions(hass)
+    except (aiohttp.ClientError, TimeoutError, ValueError) as err:
+        # Spec S2 Abschnitt 2: Netz, Timeout, HTTP-Fehler ausser 401/403 und
+        # eine unlesbare Antwort sagen nichts ueber den Key. Nur 401 und 403
+        # wirft async_get_predictions als blankes Exception -- das faengt der
+        # Zweig darunter.
+        _LOGGER.error("Meteo-Volt API nicht erreichbar: %s", err)
+        raise CannotConnect from err
     except Exception as err:
         _LOGGER.error("Error authenticating with Meteo-Volt API: %s", err)
         raise InvalidAuth from err
