@@ -8,6 +8,12 @@
           "api_token": "API Token",
           "grid_fees": "Grid Fees (EUR/kWh)"
         }
+      },
+      "reconfigure": {
+        "data": {
+          "api_token": "API Token",
+          "grid_fees": "Grid Fees (EUR/kWh)"
+        }
       }
     },
     "error": {
@@ -16,7 +22,8 @@
       "unknown": "An unknown error occurred."
     },
     "abort": {
-      "already_configured": "This API token is already configured."
+      "already_configured": "This API token is already configured.",
+      "reconfigure_successful": "The settings were saved."
     }
   },
   "config_subentries": {
