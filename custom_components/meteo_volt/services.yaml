@@ -1,0 +1,6 @@
+# Temporaer. Gehoert zur Dev-Action in dev.py und geht mit ihr.
+# Ohne diese Datei warnt Home Assistant bei jedem Laden der
+# Action-Beschreibungen: "Unable to find services.yaml".
+dev_plan:
+  name: Dev-Plan
+  description: Temporaer. Schickt einen festen Plan-Request und zeigt die Antwort.
