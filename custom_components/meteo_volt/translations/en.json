@@ -18,5 +18,122 @@
     "abort": {
       "already_configured": "This API token is already configured."
     }
+  },
+  "config_subentries": {
+    "station": {
+      "title": "Charge point",
+      "entry_type": "Charge point",
+      "initiate_flow": {
+        "user": "Add charge point",
+        "reconfigure": "Edit charge point"
+      },
+      "step": {
+        "user": {
+          "title": "Add charge point",
+          "description": "The wallbox or socket you charge from. It does not have to be smart.",
+          "data": {
+            "name": "Name",
+            "max_power_kw": "Max. power (kW)",
+            "available": "Available"
+          },
+          "data_description": {
+            "name": "Leave empty to get a name from the power, such as Wallbox 11 kW.",
+            "available": "Off means nothing charges here for the whole horizon."
+          }
+        },
+        "reconfigure": {
+          "title": "Edit charge point",
+          "description": "The wallbox or socket you charge from. It does not have to be smart.",
+          "data": {
+            "name": "Name",
+            "max_power_kw": "Max. power (kW)",
+            "available": "Available"
+          },
+          "data_description": {
+            "name": "Leave empty to get a name from the power, such as Wallbox 11 kW.",
+            "available": "Off means nothing charges here for the whole horizon."
+          }
+        }
+      },
+      "abort": {
+        "reconfigure_successful": "The charge point was updated."
+      }
+    },
+    "vehicle": {
+      "title": "Vehicle",
+      "entry_type": "Vehicle",
+      "initiate_flow": {
+        "user": "Add vehicle",
+        "reconfigure": "Edit vehicle"
+      },
+      "step": {
+        "user": {
+          "title": "Add vehicle",
+          "data": {
+            "name": "Name",
+            "capacity_kwh": "Capacity (kWh)",
+            "soc_min_pct": "Min SoC (%) - battery guard",
+            "soc_max_pct": "Max SoC (%)",
+            "max_charge_kw": "Max. charging power (kW)",
+            "efficiency_pct": "Charging efficiency (%)",
+            "consumption_kwh_per_100km": "Average consumption (kWh/100 km)"
+          },
+          "data_description": {
+            "soc_min_pct": "Lower bound. Charges to this value immediately once the vehicle is plugged in.",
+            "soc_max_pct": "Upper bound in normal operation. Can be overridden manually.",
+            "efficiency_pct": "Percentage of the charging power that reaches the battery. Accounts for charging losses."
+          },
+          "sections": {
+            "entitaeten": {
+              "name": "Entities",
+              "data": {
+                "soc_entity": "State of charge (%)",
+                "station_id": "Charge point",
+                "plugged_entity": "Plugged in"
+              },
+              "data_description": {
+                "station_id": "Optional. If set, the vehicle charges only at this charge point."
+              }
+            }
+          }
+        },
+        "reconfigure": {
+          "title": "Edit vehicle",
+          "data": {
+            "name": "Name",
+            "capacity_kwh": "Capacity (kWh)",
+            "soc_min_pct": "Min SoC (%) - battery guard",
+            "soc_max_pct": "Max SoC (%)",
+            "max_charge_kw": "Max. charging power (kW)",
+            "efficiency_pct": "Charging efficiency (%)",
+            "consumption_kwh_per_100km": "Average consumption (kWh/100 km)"
+          },
+          "data_description": {
+            "soc_min_pct": "Lower bound. Charges to this value immediately once the vehicle is plugged in.",
+            "soc_max_pct": "Upper bound in normal operation. Can be overridden manually.",
+            "efficiency_pct": "Percentage of the charging power that reaches the battery. Accounts for charging losses."
+          },
+          "sections": {
+            "entitaeten": {
+              "name": "Entities",
+              "data": {
+                "soc_entity": "State of charge (%)",
+                "station_id": "Charge point",
+                "plugged_entity": "Plugged in"
+              },
+              "data_description": {
+                "station_id": "Optional. If set, the vehicle charges only at this charge point."
+              }
+            }
+          }
+        }
+      },
+      "error": {
+        "soc_range": "State of charge min must be lower than state of charge max."
+      },
+      "abort": {
+        "reconfigure_successful": "The vehicle was updated."
+      }
+    }
   }
 }

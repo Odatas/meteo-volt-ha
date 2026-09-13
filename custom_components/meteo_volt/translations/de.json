@@ -18,5 +18,122 @@
     "abort": {
       "already_configured": "Dieses API Token ist bereits konfiguriert."
     }
+  },
+  "config_subentries": {
+    "station": {
+      "title": "Ladepunkt",
+      "entry_type": "Ladepunkt",
+      "initiate_flow": {
+        "user": "Ladepunkt hinzufügen",
+        "reconfigure": "Ladepunkt bearbeiten"
+      },
+      "step": {
+        "user": {
+          "title": "Ladepunkt hinzufügen",
+          "description": "Die Wallbox oder Steckdose, an der geladen wird. Sie muss nicht smart sein.",
+          "data": {
+            "name": "Name",
+            "max_power_kw": "Max. Leistung (kW)",
+            "available": "Verfügbar"
+          },
+          "data_description": {
+            "name": "Leer lassen vergibt einen Namen aus der Leistung, etwa Wallbox 11 kW.",
+            "available": "Aus heisst: an diesem Ladepunkt wird über den ganzen Zeitraum nicht geladen."
+          }
+        },
+        "reconfigure": {
+          "title": "Ladepunkt bearbeiten",
+          "description": "Die Wallbox oder Steckdose, an der geladen wird. Sie muss nicht smart sein.",
+          "data": {
+            "name": "Name",
+            "max_power_kw": "Max. Leistung (kW)",
+            "available": "Verfügbar"
+          },
+          "data_description": {
+            "name": "Leer lassen vergibt einen Namen aus der Leistung, etwa Wallbox 11 kW.",
+            "available": "Aus heisst: an diesem Ladepunkt wird über den ganzen Zeitraum nicht geladen."
+          }
+        }
+      },
+      "abort": {
+        "reconfigure_successful": "Der Ladepunkt wurde geändert."
+      }
+    },
+    "vehicle": {
+      "title": "Fahrzeug",
+      "entry_type": "Fahrzeug",
+      "initiate_flow": {
+        "user": "Fahrzeug hinzufügen",
+        "reconfigure": "Fahrzeug bearbeiten"
+      },
+      "step": {
+        "user": {
+          "title": "Fahrzeug hinzufügen",
+          "data": {
+            "name": "Name",
+            "capacity_kwh": "Kapazität (kWh)",
+            "soc_min_pct": "Min-SoC (%) - Battery-Guard",
+            "soc_max_pct": "Max-SoC (%)",
+            "max_charge_kw": "Max. Ladeleistung (kW)",
+            "efficiency_pct": "Ladewirkungsgrad (%)",
+            "consumption_kwh_per_100km": "Durchschnittsverbrauch (kWh/100 km)"
+          },
+          "data_description": {
+            "soc_min_pct": "Untergrenze. Wird sofort auf diesen Wert geladen, wenn das Fahrzeug angesteckt ist.",
+            "soc_max_pct": "Obergrenze im Regelbetrieb. Kann manuell überschrieben werden.",
+            "efficiency_pct": "Prozentsatz der Ladeleistung, der in der Batterie ankommt. Berücksichtigt Ladeverluste."
+          },
+          "sections": {
+            "entitaeten": {
+              "name": "Entitäten",
+              "data": {
+                "soc_entity": "Ladestand (%)",
+                "station_id": "Ladepunkt",
+                "plugged_entity": "Angesteckt"
+              },
+              "data_description": {
+                "station_id": "Optional. Wenn gesetzt, lädt das Fahrzeug nur an diesem Ladepunkt."
+              }
+            }
+          }
+        },
+        "reconfigure": {
+          "title": "Fahrzeug bearbeiten",
+          "data": {
+            "name": "Name",
+            "capacity_kwh": "Kapazität (kWh)",
+            "soc_min_pct": "Min-SoC (%) - Battery-Guard",
+            "soc_max_pct": "Max-SoC (%)",
+            "max_charge_kw": "Max. Ladeleistung (kW)",
+            "efficiency_pct": "Ladewirkungsgrad (%)",
+            "consumption_kwh_per_100km": "Durchschnittsverbrauch (kWh/100 km)"
+          },
+          "data_description": {
+            "soc_min_pct": "Untergrenze. Wird sofort auf diesen Wert geladen, wenn das Fahrzeug angesteckt ist.",
+            "soc_max_pct": "Obergrenze im Regelbetrieb. Kann manuell überschrieben werden.",
+            "efficiency_pct": "Prozentsatz der Ladeleistung, der in der Batterie ankommt. Berücksichtigt Ladeverluste."
+          },
+          "sections": {
+            "entitaeten": {
+              "name": "Entitäten",
+              "data": {
+                "soc_entity": "Ladestand (%)",
+                "station_id": "Ladepunkt",
+                "plugged_entity": "Angesteckt"
+              },
+              "data_description": {
+                "station_id": "Optional. Wenn gesetzt, lädt das Fahrzeug nur an diesem Ladepunkt."
+              }
+            }
+          }
+        }
+      },
+      "error": {
+        "soc_range": "Ladestand min muss kleiner sein als Ladestand max."
+      },
+      "abort": {
+        "reconfigure_successful": "Das Fahrzeug wurde geändert."
+      }
+    }
   }
 }

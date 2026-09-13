@@ -1,0 +1,292 @@
+"""Bildet die beiden Subentry-Typen auf Kontrakt-Fragmente ab.
+
+Dieses Modul importiert bewusst NICHTS aus Home Assistant -- wie overrides.py.
+Nur so laesst es sich in der Testsuite dieses Repos laden; homeassistant steckt
+nicht in den Testabhaengigkeiten, und die HA-Abnahme laeuft von Hand auf einer
+echten Instanz.
+
+Der Schnitt hat einen zweiten Zweck. Die Abbildung ist die Stelle, an der ein
+Fehler wehtut: ein vertauschter Faktor 100 beim Wirkungsgrad faellt in keinem
+Formular auf, wohl aber in der Rechnung des Planers. Sie liegt deshalb hier und
+nicht im Config-Flow, wo sie ohne Home Assistant nicht pruefbar waere.
+
+Was hier NICHT steht: welche station_id ein Fahrzeug gerade hat. Das haengt am
+Laufzeitzustand und daran, ob ein Ladepunkt gebunden ist -- entscheidet C5.
+
+Spec: meteo-volt-brain/docs/features/C1-C2-stammdaten-subentries/spec.md
+"""
+
+from __future__ import annotations
+
+# --- Subentry-Typen ---------------------------------------------------------
+
+TYP_LADEPUNKT = "station"
+TYP_FAHRZEUG = "vehicle"
+
+# --- Feldnamen --------------------------------------------------------------
+# Zugleich die Schluessel im Formular und in den Uebersetzungen.
+
+FELD_NAME = "name"
+
+FELD_MAX_LEISTUNG = "max_power_kw"
+FELD_VERFUEGBAR = "available"
+
+FELD_KAPAZITAET = "capacity_kwh"
+FELD_SOC_MIN = "soc_min_pct"
+FELD_SOC_MAX = "soc_max_pct"
+FELD_MAX_LADELEISTUNG = "max_charge_kw"
+FELD_WIRKUNGSGRAD = "efficiency_pct"
+FELD_VERBRAUCH = "consumption_kwh_per_100km"
+FELD_SOC_ENTITAET = "soc_entity"
+# Nicht "station": das ist schon der Wert von TYP_LADEPUNKT. Zwei Namensraeume,
+# derselbe String -- beim Lesen einer Subentry-dict waere nicht mehr zu sehen,
+# welcher von beiden gemeint ist.
+FELD_LADEPUNKT = "station_id"
+FELD_ANGESTECKT = "plugged_entity"
+
+# --- Formularabschnitte -----------------------------------------------------
+# HA liefert section-Felder verschachtelt unter ihrem Schluessel zurueck.
+#
+# Es gibt genau einen: die drei Entitaeten. Alles andere steht ohne Kasten und
+# ohne Ueberschrift -- entschieden am 2026-09-13 nach dem ersten Blick auf das
+# Fahrzeugformular: zu viel Text, zu viele Kaesten.
+
+ABSCHNITT_ENTITAETEN = "entitaeten"
+
+# --- Der Aufbau der Formulare -----------------------------------------------
+# Welches Feld in welchem Abschnitt steht. EINE Quelle fuer drei Leser:
+#
+#   1. config_flow.py baut daraus seine sections,
+#   2. tests/test_uebersetzungen.py prueft die Sprachdateien dagegen,
+#   3. Home Assistant sucht die Beschriftung eines Feldes in einer section
+#      unter step.<schritt>.sections.<abschnitt>.data.<feld> -- nicht flach.
+#
+# Diese Zuordnung zweimal zu fuehren war der Fehler der ersten Fassung: das
+# Formular gruppierte, die Uebersetzungen lagen flach, und der Test las die
+# flache Seite und wurde gruen. Zehn von elf Fahrzeugfeldern haetten dem
+# Nutzer als roher Schluessel gegenuebergestanden.
+#
+# None ist die oberste Ebene, dort ohne sections-Praefix. Die Reihenfolge
+# innerhalb eines Eintrags ist die Reihenfolge im Formular.
+
+# Der Ladepunkt: drei Felder. min_power_kw und phases liest meteovolt_planner
+# nicht (slots.py liest max_power_kw, efficiency, available).
+LADEPUNKT_AUFBAU = {
+    None: (FELD_NAME, FELD_MAX_LEISTUNG, FELD_VERFUEGBAR),
+}
+
+# Das Fahrzeug: sieben Felder ohne Kasten, drei Entitaeten im Kasten.
+# min_charge_kw fehlt -- meteovolt_planner liest es an keiner Stelle.
+FAHRZEUG_AUFBAU = {
+    None: (
+        FELD_NAME,
+        FELD_KAPAZITAET,
+        FELD_SOC_MIN,
+        FELD_SOC_MAX,
+        FELD_MAX_LADELEISTUNG,
+        FELD_WIRKUNGSGRAD,
+        FELD_VERBRAUCH,
+    ),
+    ABSCHNITT_ENTITAETEN: (FELD_SOC_ENTITAET, FELD_LADEPUNKT, FELD_ANGESTECKT),
+}
+
+
+def _felder(aufbau: dict) -> tuple:
+    """Alle Felder eines Aufbaus, Abschnitte aufgeloest."""
+    return tuple(feld for felder in aufbau.values() for feld in felder)
+
+
+def abschnitte_von(aufbau: dict) -> tuple:
+    """Die Abschnittsnamen eines Aufbaus, ohne die oberste Ebene."""
+    return tuple(name for name in aufbau if name is not None)
+
+
+LADEPUNKT_FELDER = _felder(LADEPUNKT_AUFBAU)
+FAHRZEUG_FELDER = _felder(FAHRZEUG_AUFBAU)
+
+ABSCHNITTE_LADEPUNKT = abschnitte_von(LADEPUNKT_AUFBAU)
+ABSCHNITTE_FAHRZEUG = abschnitte_von(FAHRZEUG_AUFBAU)
+
+# --- Vorbelegung ------------------------------------------------------------
+
+LADEPUNKT_DEFAULTS = {
+    FELD_MAX_LEISTUNG: 11.0,
+    FELD_VERFUEGBAR: True,
+}
+
+FAHRZEUG_DEFAULTS = {
+    FELD_KAPAZITAET: 58.0,
+    FELD_SOC_MIN: 15.0,
+    FELD_SOC_MAX: 80.0,
+    FELD_MAX_LADELEISTUNG: 11.0,
+    FELD_WIRKUNGSGRAD: 92.0,
+    FELD_VERBRAUCH: 19.5,
+}
+
+# Abschnitt 3 der Spec: der Ladepunkt traegt keinen Wirkungsgrad. Der
+# Kontrakt-Default waere 0.99 -- ein Prozent, das der Fahrzeugwert bereits
+# enthaelt. Neutral heisst hier 1.0, sonst wird still doppelt gezaehlt.
+LADEPUNKT_WIRKUNGSGRAD = 1.0
+
+# Abschnitt 4: die Strecke gehoert zum Fahrprofil und hat hier keinen Ort.
+# "none" heisst, der Planer rechnet ohne Fahrverbrauch. Das ist entschieden,
+# nicht vergessen -- siehe Abschnitt 11 der Spec.
+VERBRAUCHSMODELL = {"type": "none"}
+
+# --- Namensvergabe ----------------------------------------------------------
+# Der Titel wird erzeugt, nicht uebersetzt: HA hat fuer erzeugte Titel keinen
+# Uebersetzungsschluessel. Deshalb hier eine kleine Tabelle statt einer
+# deutschen Vorgabe in einer englischen Oberflaeche.
+
+_NAMENSMUSTER = {
+    "de": {TYP_LADEPUNKT: "Wallbox {} kW", TYP_FAHRZEUG: "Fahrzeug {} kWh"},
+    "en": {TYP_LADEPUNKT: "Wallbox {} kW", TYP_FAHRZEUG: "Vehicle {} kWh"},
+}
+
+# Die Zahl, an der man die Hardware erkennt.
+_NAMENSFELD = {
+    TYP_LADEPUNKT: FELD_MAX_LEISTUNG,
+    TYP_FAHRZEUG: FELD_KAPAZITAET,
+}
+
+
+def _grundsprache(sprache: str) -> str:
+    """'de-CH' -> 'de'. hass.config.language traegt die Region mit, und ohne
+    Grundsprache fiele die Schweiz auf Englisch zurueck."""
+    return (sprache or "en").split("-")[0].lower()
+
+
+def _zahl(wert, sprache: str) -> str:
+    """11.0 -> '11'; 7.4 -> '7,4' deutsch und '7.4' englisch."""
+    text = f"{float(wert):g}"
+    return text.replace(".", ",") if _grundsprache(sprache) == "de" else text
+
+
+def naechster_name(vorhandene_titel, typ: str, daten: dict, sprache: str = "en") -> str:
+    """Ein Name aus der kennzeichnenden Zahl, etwa 'Wallbox 11 kW'.
+
+    Gibt es ihn schon, kommt die kleinste freie Nummer ab 2 dazu:
+    'Wallbox 11 kW (2)'. Nicht len()+1 -- wer eine Box loescht und neu anlegt,
+    bekaeme sonst eine Luecke oder eine Dublette.
+
+    Beim Aendern wird der Name NICHT nachgezogen, entschieden am 2026-09-13:
+    eine auf 22 kW umgestellte Box heisst weiter 'Wallbox 11 kW', bis jemand
+    umbenennt. Nachziehen hiesse sich merken, ob der Titel noch der erzeugte ist.
+    """
+    tabelle = _NAMENSMUSTER.get(_grundsprache(sprache), _NAMENSMUSTER["en"])
+    basis = tabelle[typ].format(_zahl(daten[_NAMENSFELD[typ]], sprache))
+    belegt = set(vorhandene_titel)
+    if basis not in belegt:
+        return basis
+    nummer = 2
+    while f"{basis} ({nummer})" in belegt:
+        nummer += 1
+    return f"{basis} ({nummer})"
+
+
+# --- Abbildung auf den Kontrakt ---------------------------------------------
+
+
+def zu_ladepunkt(daten: dict, ladepunkt_id: str) -> dict:
+    """Ein Station-Fragment des Kontrakts.
+
+    ladepunkt_id ist die subentry_id. Der Kontrakt verlangt eine ueber
+    Requests stabile ID; ein Slug aus dem Titel waere es nicht, er aendert
+    sich beim Umbenennen.
+
+    Das Fragment traegt nur, was meteovolt_planner liest: max_power_kw,
+    efficiency und available. min_power_kw und phases fehlen, der Server nimmt
+    ihre Defaults -- auch dann, wenn ein in 1.1.0-beta.3 angelegter Ladepunkt
+    sie noch in seinen Daten traegt.
+    """
+    return {
+        "id": ladepunkt_id,
+        "max_power_kw": float(daten[FELD_MAX_LEISTUNG]),
+        "efficiency": LADEPUNKT_WIRKUNGSGRAD,
+        "available": bool(
+            daten.get(FELD_VERFUEGBAR, LADEPUNKT_DEFAULTS[FELD_VERFUEGBAR])),
+    }
+
+
+def zu_fahrzeug(
+    daten: dict,
+    fahrzeug_id: str,
+    soc_pct: float,
+    soc_measured_at: str | None = None,
+    station_id: str | None = None,
+) -> dict:
+    """Ein VehicleProfile-Fragment des Kontrakts.
+
+    soc_pct, soc_measured_at und station_id misst kein Formular. Sie kommen
+    aus den Entitaeten des Nutzers und werden hereingereicht -- dieses Modul
+    liest selbst nichts. Welche station_id gilt, auch wenn kein Ladepunkt
+    gebunden ist, und was bei einem unavailable-Zustand geschieht, entscheidet
+    C5.
+
+    min_charge_kw fehlt: meteovolt_planner liest es an keiner Stelle, der
+    Server nimmt den Default -- auch wenn ein in 1.1.0-beta.4 angelegtes
+    Fahrzeug den Wert noch in seinen Daten traegt.
+    """
+    max_ladeleistung = float(daten[FELD_MAX_LADELEISTUNG])
+    wirkungsgrad_pct = float(
+        daten.get(FELD_WIRKUNGSGRAD, FAHRZEUG_DEFAULTS[FELD_WIRKUNGSGRAD]))
+
+    fragment = {
+        "id": fahrzeug_id,
+        "capacity_kwh": float(daten[FELD_KAPAZITAET]),
+        "soc_pct": float(soc_pct),
+        "max_charge_kw": max_ladeleistung,
+        # Ein Stuetzpunkt heisst konstanter Wirkungsgrad ueber die ganze
+        # Leistung: der Kontrakt klemmt ausserhalb auf den naechsten Punkt.
+        "efficiency_curve": [
+            {"kw": max_ladeleistung, "eta": wirkungsgrad_pct / 100},
+        ],
+        "soc_min_pct": float(daten[FELD_SOC_MIN]),
+        "soc_max_pct": float(daten[FELD_SOC_MAX]),
+        "consumption_kwh_per_100km": float(daten[FELD_VERBRAUCH]),
+        "connection": {"station_id": station_id},
+        # Eine Kopie, kein geteiltes dict: sonst aenderte ein Aufrufer die
+        # Werte aller anderen mit.
+        "consumption": dict(VERBRAUCHSMODELL),
+    }
+
+    # Weglassen ist etwas anderes als null: ein fehlender Zeitpunkt soll
+    # fehlen und nicht als gemessen gelten.
+    if soc_measured_at is not None:
+        fragment["soc_measured_at"] = soc_measured_at
+
+    return fragment
+
+
+# --- Pruefungen -------------------------------------------------------------
+
+
+def soc_grenzen_pruefen(daten: dict) -> dict | None:
+    """Die eine Bedingung ueber zwei Felder hinweg, oder None.
+
+    Steht hier und nicht im Config-Flow, obwohl nur dieser sie aufruft: sie
+    ist reines Python ohne HA-Bezug, und im Config-Flow deckt sie kein Test
+    ab. Das Kontraktschema faengt sie auch nicht -- soc_min_pct 90 neben
+    soc_max_pct 20 validiert sauber gegen 0..100.
+
+    Gleichstand ist ein Fehler: bei soc_min == soc_max bleibt dem Plan kein
+    Spielraum, in dem er guenstig laden koennte.
+    """
+    if daten[FELD_SOC_MIN] >= daten[FELD_SOC_MAX]:
+        return {"base": "soc_range"}
+    return None
+
+
+def flach_aus_abschnitten(user_input: dict, abschnitte) -> dict:
+    """Zieht die benannten Formularabschnitte flach.
+
+    Nur die benannten. Jedes dict aufzuloesen hiesse raten, und ein falsch
+    aufgeloestes faellt spaeter still als fehlendes Feld auf.
+    """
+    flach: dict = {}
+    for schluessel, wert in user_input.items():
+        if schluessel in abschnitte and isinstance(wert, dict):
+            flach.update(wert)
+        else:
+            flach[schluessel] = wert
+    return flach
