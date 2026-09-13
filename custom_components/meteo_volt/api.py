@@ -86,7 +86,12 @@ class MeteoVoltApiClient:
             ) as response:
                 status = response.status
                 retry_after = response.headers.get("Retry-After")
-                koerper = await response.read()
+                try:
+                    koerper = await response.read()
+                except (aiohttp.ClientError, TimeoutError):
+                    # Status und Header sind schon da. Ein 429 muss die Pause
+                    # auch dann setzen, wenn sein Koerper nicht lesbar ist.
+                    koerper = b""
         except (aiohttp.ClientError, TimeoutError) as err:
             # Der Typ genuegt zur Diagnose und nennt keine Adresse.
             raise PlanNichtVerfuegbar(detail=type(err).__name__) from err
