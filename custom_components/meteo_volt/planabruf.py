@@ -20,6 +20,7 @@ Spec: meteo-volt-brain/docs/features/C7-plan-client/spec.md
 from __future__ import annotations
 
 import json
+import math
 
 PROGNOSE_PFAD = "/v1/prediction"
 PLAN_PFAD = "/v1/plan"
@@ -79,7 +80,10 @@ class PlanRateLimit(PlanFehler):
         super().__init__(**felder)
 
     def _meldung(self) -> str:
-        return f"{super()._meldung()}; Pause {self.retry_after:.0f} s"
+        # Aufgerundet: 0,4 s Rest sind noch gesperrt und duerfen nicht als
+        # "Pause 0 s" erscheinen. retry_after ist immer endlich, siehe
+        # _retry_after.
+        return f"{super()._meldung()}; Pause {math.ceil(self.retry_after)} s"
 
 
 class PlanAbgelehnt(PlanFehler):
@@ -110,7 +114,9 @@ def _json_objekt(koerper: bytes) -> dict | None:
     """Der Koerper als JSON-Objekt, oder None. Wirft nie."""
     try:
         dokument = json.loads(koerper)
-    except ValueError:  # faengt auch JSONDecodeError und UnicodeDecodeError
+    # ValueError faengt auch JSONDecodeError und UnicodeDecodeError. Tief
+    # verschachteltes JSON wirft dagegen RecursionError, und das ist keiner.
+    except (ValueError, RecursionError):
         return None
     return dokument if isinstance(dokument, dict) else None
 
@@ -140,14 +146,17 @@ def _retry_after(wert: str | None) -> float | None:
     """delay-seconds nach RFC 9110, sonst None.
 
     Ein HTTP-Datum schickt das Gateway nicht; es zaehlt wie ein fehlender
-    Header. isascii() steht dabei, weil isdigit() auch '²' durchlaesst.
+    Header. isascii() steht dabei, weil isdigit() auch '²' durchlaesst. Und
+    400 Ziffern sind fuer isdigit() eine Zahl, fuer float() aber unendlich --
+    eine Pause, die nie ablaeuft, zaehlt ebenfalls wie keine.
     """
     if wert is None:
         return None
     wert = wert.strip()
     if not (wert.isascii() and wert.isdigit()):
         return None
-    return float(wert)
+    zahl = float(wert)
+    return zahl if math.isfinite(zahl) else None
 
 
 class Sendepause:

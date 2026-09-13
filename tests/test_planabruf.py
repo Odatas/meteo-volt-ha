@@ -258,3 +258,64 @@ def test_nicht_ableitbare_url_lehnt_vor_dem_senden_ab():
     with pytest.raises(planabruf.PlanAbgelehnt) as info:
         abruf.vor_dem_senden(0.0)
     assert info.value.status is None
+
+
+# --- Nachtraege aus der Review -----------------------------------------------
+
+
+def test_tief_verschachtelter_koerper_ergibt_die_klasse_des_status():
+    """json.loads wirft bei tiefer Verschachtelung RecursionError, und das ist
+    kein ValueError. Spec Abschnitt 8: nie eine andere Ausnahme."""
+    with pytest.raises(planabruf.PlanNichtVerfuegbar):
+        _auswerten(502, b"[" * 100000)
+    with pytest.raises(planabruf.PlanNichtVerfuegbar):
+        _auswerten(200, b"[" * 100000)
+
+
+def test_die_meldung_rundet_die_restpause_auf():
+    """Abnahmeschritt 5 liest diese Zahl. 0,4 s Rest sind noch gesperrt und
+    duerfen nicht als 'Pause 0 s' erscheinen."""
+    assert "Pause 1 s" in str(planabruf.PlanRateLimit(retry_after=0.4))
+
+
+def test_ein_unendlicher_header_zaehlt_wie_keiner():
+    """400 Ziffern sind fuer isdigit() eine Zahl und fuer float() unendlich.
+    Eine Pause, die nie ablaeuft, ist keine -- also wie ein fehlender Header."""
+    with pytest.raises(planabruf.PlanRateLimit) as info:
+        _auswerten(429, b"", retry_after="9" * 400)
+    assert info.value.retry_after == 60
+
+
+def test_eine_200_ohne_json_setzt_die_pause_trotzdem_zurueck():
+    abruf = planabruf.PlanAbruf(PROD_URL)
+    with pytest.raises(planabruf.PlanRateLimit):
+        _auswerten(429, b"", abruf=abruf, jetzt=0.0)
+    with pytest.raises(planabruf.PlanNichtVerfuegbar):
+        _auswerten(200, b"<html></html>", abruf=abruf, jetzt=1.0)
+
+    abruf.vor_dem_senden(1.0)  # frei
+    with pytest.raises(planabruf.PlanRateLimit) as info:
+        _auswerten(429, b"", abruf=abruf, jetzt=1.0)
+    assert info.value.retry_after == 60
+
+
+def test_ein_429_mit_header_zaehlt_fuer_die_verdopplung_mit():
+    """Spec Abschnitt 4: gezaehlt wird jeder 429, auch einer mit Header."""
+    abruf = planabruf.PlanAbruf(PROD_URL)
+    with pytest.raises(planabruf.PlanRateLimit) as info:
+        _auswerten(429, b"", retry_after="39", abruf=abruf)
+    assert info.value.retry_after == 39
+    with pytest.raises(planabruf.PlanRateLimit) as info:
+        _auswerten(429, b"", abruf=abruf)
+    assert info.value.retry_after == 120
+
+
+def test_die_verdoppelte_pause_sperrt_wirklich():
+    """Die Verdopplung am Senden pruefen, nicht nur am Rueckgabewert."""
+    abruf = planabruf.PlanAbruf(PROD_URL)
+    for _ in range(2):
+        with pytest.raises(planabruf.PlanRateLimit):
+            _auswerten(429, b"", abruf=abruf, jetzt=0.0)
+    with pytest.raises(planabruf.PlanRateLimit):
+        abruf.vor_dem_senden(119.0)
+    abruf.vor_dem_senden(120.0)  # frei
