@@ -23,10 +23,12 @@ Ein Stand erreicht die Testinstanz als **GitHub-Prerelease**, nicht als kopierte
   *dann* das Release auf diesen Commit legen. Laufen Tag und Manifest auseinander, zeigt HACS
   die eine Zahl und Home Assistant die andere.
 - Im Release **„Set as a pre-release" an**, „Set as the latest release" aus.
-- **Target ist der Feature-Branch, nicht der Vorschlag.** GitHub schlägt den Default-Branch vor;
-  ein Release darauf liefert den `master`-Code mit Beta-Etikett aus. Beim Eintippen des
-  Tag-Namens muss GitHub einen **neuen** Tag anzeigen — steht da, er existiert, nicht
-  veröffentlichen.
+- **Target ist der Commit, nicht der Vorschlag.** GitHub schlägt den Default-Branch vor; ein
+  Release darauf liefert den `master`-Code mit Beta-Etikett aus. Auch der Feature-Branch ist nur
+  sicher, wenn sein Stand beim **Veröffentlichen** schon der richtige ist — GitHub legt den Tag
+  auf den Branch-Stand genau in diesem Moment. Deshalb: erst pushen, dann im Reiter „Recent
+  commits" den Commit wählen. Beim Eintippen des Tag-Namens muss GitHub einen **neuen** Tag
+  anzeigen — steht da, er existiert, nicht veröffentlichen.
 - **Danach nachmessen**, bevor HACS aufgefrischt wird: `git ls-remote origin refs/tags/<tag>`
   zeigt auf den Branch-Commit, und `git show <tag>:custom_components/meteo_volt/manifest.json`
   trägt dieselbe Nummer.
