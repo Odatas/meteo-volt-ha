@@ -66,14 +66,24 @@ def test_ladepunkt_traegt_keinen_wirkungsgrad_des_kontrakt_defaults():
     assert fragment["efficiency"] == 1.0
 
 
-def test_weggelassene_optionale_felder_ergeben_die_vorbelegung():
-    """Min. Leistung und Phasen stehen im eingeklappten Abschnitt. Wer ihn nie
-    aufklappt, schickt sie nicht mit -- dann darf kein None ankommen."""
+def test_ladepunkt_schickt_nur_was_der_planer_liest():
+    """meteovolt_planner/slots.py liest vom Ladepunkt max_power_kw, efficiency
+    und available -- nichts sonst. min_power_kw und phases fehlen deshalb im
+    Fragment, der Server nimmt ihre Defaults. Ueber den Kontrakt entscheidet A5."""
     fragment = stammdaten.zu_ladepunkt({stammdaten.FELD_MAX_LEISTUNG: 22.0}, "wb-2")
-    assert fragment["min_power_kw"] == 1.4
-    assert fragment["phases"] == 3
+    assert set(fragment) == {"id", "max_power_kw", "efficiency", "available"}
     assert fragment["available"] is True
     jsonschema.validate(fragment, teilschema("Station"))
+
+
+def test_alte_felder_aus_beta3_sickern_nicht_durch():
+    """Ein in 1.1.0-beta.3 angelegter Ladepunkt traegt min_power_kw und phases
+    noch in seinen gespeicherten Daten. Die Abbildung darf sie nicht
+    weiterreichen, sonst entschiede ein Altbestand ueber das Fragment."""
+    alt = {stammdaten.FELD_MAX_LEISTUNG: 11.0, "min_power_kw": 2.0, "phases": 1}
+    fragment = stammdaten.zu_ladepunkt(alt, "wb-alt")
+    assert "min_power_kw" not in fragment
+    assert "phases" not in fragment
 
 
 def test_fahrzeug_aus_vorbelegung_ist_kontraktkonform():
@@ -169,36 +179,57 @@ def test_ohne_angesteckt_sensor_gilt_das_fahrzeug_als_angesteckt():
 
 
 # --- Namensvergabe ----------------------------------------------------------
+# Leeres Namensfeld -> Name aus der kennzeichnenden Zahl. Entschieden am
+# 2026-09-13, beim Aendern der Leistung wird er nicht nachgezogen.
 
-def test_erster_name_ohne_eingabe():
-    assert stammdaten.naechster_name([], stammdaten.TYP_FAHRZEUG, "de") == "Fahrzeug 1"
-
-
-def test_zweiter_name_zaehlt_hoch():
-    assert stammdaten.naechster_name(
-        ["Fahrzeug 1"], stammdaten.TYP_FAHRZEUG, "de") == "Fahrzeug 2"
+LP = stammdaten.TYP_LADEPUNKT
+FZ = stammdaten.TYP_FAHRZEUG
 
 
-def test_eine_geloeschte_nummer_wird_wiederverwendet():
-    """Nicht len()+1: wer 'Fahrzeug 1' loescht und neu anlegt, bekaeme sonst
-    eine Dublette zu 'Fahrzeug 2'."""
-    assert stammdaten.naechster_name(
-        ["Fahrzeug 2"], stammdaten.TYP_FAHRZEUG, "de") == "Fahrzeug 1"
+def test_ladepunkt_heisst_nach_seiner_leistung():
+    daten = {stammdaten.FELD_MAX_LEISTUNG: 11.0}
+    assert stammdaten.naechster_name([], LP, daten, "de") == "Wallbox 11 kW"
 
 
-def test_eigene_namen_stoeren_die_nummerierung_nicht():
-    assert stammdaten.naechster_name(
-        ["Papas Kombi"], stammdaten.TYP_FAHRZEUG, "de") == "Fahrzeug 1"
+def test_fahrzeug_heisst_nach_seiner_kapazitaet():
+    daten = {stammdaten.FELD_KAPAZITAET: 58.0}
+    assert stammdaten.naechster_name([], FZ, daten, "de") == "Fahrzeug 58 kWh"
+    assert stammdaten.naechster_name([], FZ, daten, "en") == "Vehicle 58 kWh"
 
 
-def test_ladepunkt_heisst_in_beiden_sprachen_wallbox():
-    assert stammdaten.naechster_name([], stammdaten.TYP_LADEPUNKT, "de") == "Wallbox 1"
-    assert stammdaten.naechster_name([], stammdaten.TYP_LADEPUNKT, "en") == "Wallbox 1"
+def test_die_zahl_folgt_der_sprache():
+    """'7.4 kW' in einer deutschen Oberflaeche sieht aus wie ein Tippfehler."""
+    daten = {stammdaten.FELD_MAX_LEISTUNG: 7.4}
+    assert stammdaten.naechster_name([], LP, daten, "de") == "Wallbox 7,4 kW"
+    assert stammdaten.naechster_name([], LP, daten, "en") == "Wallbox 7.4 kW"
+
+
+def test_eine_regionale_sprache_nimmt_ihre_grundsprache():
+    """hass.config.language kann 'de-CH' sein. Ohne Grundsprache fiele die
+    Schweiz auf Englisch zurueck."""
+    daten = {stammdaten.FELD_KAPAZITAET: 58.0}
+    assert stammdaten.naechster_name([], FZ, daten, "de-CH") == "Fahrzeug 58 kWh"
 
 
 def test_eine_unbekannte_sprache_faellt_auf_englisch_zurueck():
+    daten = {stammdaten.FELD_KAPAZITAET: 58.0}
+    assert stammdaten.naechster_name([], FZ, daten, "fr") == "Vehicle 58 kWh"
+
+
+def test_ein_doppelter_name_bekommt_die_kleinste_freie_nummer():
+    """Zwei gleich starke Boxen muessen auseinanderzuhalten sein -- das war
+    der Grund fuer das Namensfeld ueberhaupt. Und eine Luecke wird gefuellt,
+    statt hochzuzaehlen."""
+    daten = {stammdaten.FELD_MAX_LEISTUNG: 11.0}
     assert stammdaten.naechster_name(
-        [], stammdaten.TYP_FAHRZEUG, "fr") == "Vehicle 1"
+        ["Wallbox 11 kW"], LP, daten, "de") == "Wallbox 11 kW (2)"
+    assert stammdaten.naechster_name(
+        ["Wallbox 11 kW", "Wallbox 11 kW (3)"], LP, daten, "de") == "Wallbox 11 kW (2)"
+
+
+def test_eigene_namen_stoeren_die_vergabe_nicht():
+    daten = {stammdaten.FELD_MAX_LEISTUNG: 11.0}
+    assert stammdaten.naechster_name(["Garage"], LP, daten, "de") == "Wallbox 11 kW"
 
 
 # --- Abschnitte -------------------------------------------------------------

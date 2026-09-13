@@ -27,8 +27,6 @@ FELD_NAME = "name"
 
 FELD_MAX_LEISTUNG = "max_power_kw"
 FELD_VERFUEGBAR = "available"
-FELD_MIN_LEISTUNG = "min_power_kw"
-FELD_PHASEN = "phases"
 
 FELD_KAPAZITAET = "capacity_kwh"
 FELD_SOC_MIN = "soc_min_pct"
@@ -69,9 +67,12 @@ ABSCHNITT_LAUFZEIT = "laufzeit"
 #
 # None ist die oberste Ebene, dort ohne sections-Praefix.
 
+# Der Ladepunkt hat keine Abschnitte: drei Felder, nichts eingeklappt. Was er
+# frueher mehr hatte -- min_power_kw, phases -- liest meteovolt_planner nicht
+# (slots.py liest max_power_kw, efficiency, available). Ob die beiden aus dem
+# Kontrakt fallen, entscheidet A5.
 LADEPUNKT_AUFBAU = {
     None: (FELD_NAME, FELD_MAX_LEISTUNG, FELD_VERFUEGBAR),
-    ABSCHNITT_ERWEITERT: (FELD_MIN_LEISTUNG, FELD_PHASEN),
 }
 
 FAHRZEUG_AUFBAU = {
@@ -106,8 +107,6 @@ ABSCHNITTE_FAHRZEUG = abschnitte_von(FAHRZEUG_AUFBAU)
 LADEPUNKT_DEFAULTS = {
     FELD_MAX_LEISTUNG: 11.0,
     FELD_VERFUEGBAR: True,
-    FELD_MIN_LEISTUNG: 1.4,
-    FELD_PHASEN: 3,
 }
 
 FAHRZEUG_DEFAULTS = {
@@ -130,6 +129,59 @@ LADEPUNKT_WIRKUNGSGRAD = 1.0
 # nicht vergessen -- siehe Abschnitt 11 der Spec.
 VERBRAUCHSMODELL = {"type": "none"}
 
+# --- Namensvergabe ----------------------------------------------------------
+# Der Titel wird erzeugt, nicht uebersetzt: HA hat fuer erzeugte Titel keinen
+# Uebersetzungsschluessel. Deshalb hier eine kleine Tabelle statt einer
+# deutschen Vorgabe in einer englischen Oberflaeche.
+
+_NAMENSMUSTER = {
+    "de": {TYP_LADEPUNKT: "Wallbox {} kW", TYP_FAHRZEUG: "Fahrzeug {} kWh"},
+    "en": {TYP_LADEPUNKT: "Wallbox {} kW", TYP_FAHRZEUG: "Vehicle {} kWh"},
+}
+
+# Die Zahl, an der man die Hardware erkennt.
+_NAMENSFELD = {
+    TYP_LADEPUNKT: FELD_MAX_LEISTUNG,
+    TYP_FAHRZEUG: FELD_KAPAZITAET,
+}
+
+
+def _grundsprache(sprache: str) -> str:
+    """'de-CH' -> 'de'. hass.config.language traegt die Region mit, und ohne
+    Grundsprache fiele die Schweiz auf Englisch zurueck."""
+    return (sprache or "en").split("-")[0].lower()
+
+
+def _zahl(wert, sprache: str) -> str:
+    """11.0 -> '11'; 7.4 -> '7,4' deutsch und '7.4' englisch."""
+    text = f"{float(wert):g}"
+    return text.replace(".", ",") if _grundsprache(sprache) == "de" else text
+
+
+def naechster_name(vorhandene_titel, typ: str, daten: dict, sprache: str = "en") -> str:
+    """Ein Name aus der kennzeichnenden Zahl, etwa 'Wallbox 11 kW'.
+
+    Gibt es ihn schon, kommt die kleinste freie Nummer ab 2 dazu:
+    'Wallbox 11 kW (2)'. Nicht len()+1 -- wer eine Box loescht und neu anlegt,
+    bekaeme sonst eine Luecke oder eine Dublette.
+
+    Beim Aendern wird der Name NICHT nachgezogen, entschieden am 2026-09-13:
+    eine auf 22 kW umgestellte Box heisst weiter 'Wallbox 11 kW', bis jemand
+    umbenennt. Nachziehen hiesse sich merken, ob der Titel noch der erzeugte ist.
+    """
+    tabelle = _NAMENSMUSTER.get(_grundsprache(sprache), _NAMENSMUSTER["en"])
+    basis = tabelle[typ].format(_zahl(daten[_NAMENSFELD[typ]], sprache))
+    belegt = set(vorhandene_titel)
+    if basis not in belegt:
+        return basis
+    nummer = 2
+    while f"{basis} ({nummer})" in belegt:
+        nummer += 1
+    return f"{basis} ({nummer})"
+
+
+# --- Abbildung auf den Kontrakt ---------------------------------------------
+
 
 def zu_ladepunkt(daten: dict, ladepunkt_id: str) -> dict:
     """Ein Station-Fragment des Kontrakts.
@@ -137,13 +189,15 @@ def zu_ladepunkt(daten: dict, ladepunkt_id: str) -> dict:
     ladepunkt_id ist die subentry_id. Der Kontrakt verlangt eine ueber
     Requests stabile ID; ein Slug aus dem Titel waere es nicht, er aendert
     sich beim Umbenennen.
+
+    Das Fragment traegt nur, was meteovolt_planner liest: max_power_kw,
+    efficiency und available. min_power_kw und phases fehlen, der Server nimmt
+    ihre Defaults -- auch dann, wenn ein in 1.1.0-beta.3 angelegter Ladepunkt
+    sie noch in seinen Daten traegt.
     """
     return {
         "id": ladepunkt_id,
         "max_power_kw": float(daten[FELD_MAX_LEISTUNG]),
-        "min_power_kw": float(
-            daten.get(FELD_MIN_LEISTUNG, LADEPUNKT_DEFAULTS[FELD_MIN_LEISTUNG])),
-        "phases": int(daten.get(FELD_PHASEN, LADEPUNKT_DEFAULTS[FELD_PHASEN])),
         "efficiency": LADEPUNKT_WIRKUNGSGRAD,
         "available": bool(
             daten.get(FELD_VERFUEGBAR, LADEPUNKT_DEFAULTS[FELD_VERFUEGBAR])),
@@ -198,29 +252,7 @@ def zu_fahrzeug(
     return fragment
 
 
-# --- Namensvergabe ----------------------------------------------------------
-# Der Titel wird erzeugt, nicht uebersetzt: HA hat fuer erzeugte Titel keinen
-# Uebersetzungsschluessel. Deshalb hier eine kleine Tabelle statt einer
-# deutschen Vorgabe in einer englischen Oberflaeche.
-
-_NAMENSMUSTER = {
-    "de": {TYP_LADEPUNKT: "Wallbox {}", TYP_FAHRZEUG: "Fahrzeug {}"},
-    "en": {TYP_LADEPUNKT: "Wallbox {}", TYP_FAHRZEUG: "Vehicle {}"},
-}
-
-
-def naechster_name(vorhandene_titel, typ: str, sprache: str = "en") -> str:
-    """Kleinste freie Nummer ab 1, etwa 'Fahrzeug 1', 'Fahrzeug 2'.
-
-    Nicht len()+1: wer 'Fahrzeug 1' loescht und neu anlegt, bekaeme sonst eine
-    Dublette zu 'Fahrzeug 2'.
-    """
-    muster = _NAMENSMUSTER.get(sprache, _NAMENSMUSTER["en"])[typ]
-    belegt = set(vorhandene_titel)
-    nummer = 1
-    while muster.format(nummer) in belegt:
-        nummer += 1
-    return muster.format(nummer)
+# --- Pruefungen und Aufloesung ----------------------------------------------
 
 
 def soc_grenzen_pruefen(daten: dict) -> dict | None:

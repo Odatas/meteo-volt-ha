@@ -91,7 +91,7 @@ def test_beide_sprachdateien_sind_da():
 def test_der_aufbau_ist_nicht_leer():
     """Die Tests unten leiten alles aus dem Aufbau ab. Waere er leer, liefen
     sie ueber null Felder und blieben vakuos gruen."""
-    assert len(stammdaten.LADEPUNKT_FELDER) >= 5
+    assert len(stammdaten.LADEPUNKT_FELDER) >= 3
     assert len(stammdaten.FAHRZEUG_FELDER) >= 11
 
 

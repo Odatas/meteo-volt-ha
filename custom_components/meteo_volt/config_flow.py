@@ -152,7 +152,7 @@ def _titel_bestimmen(
     daten: dict[str, Any],
     bisher: str | None = None,
 ) -> str:
-    """Der eingetippte Name, sonst der bisherige, sonst eine Nummer.
+    """Der eingetippte Name, sonst der bisherige, sonst einer aus der Hardware.
 
     Nimmt den Namen aus daten HERAUS: er ist der Titel des Subentries und
     nicht eines seiner Felder. Stuenden beide da, gingen sie beim naechsten
@@ -169,6 +169,7 @@ def _titel_bestimmen(
     return stammdaten.naechster_name(
         _vorhandene_titel(flow._get_entry(), typ),
         typ,
+        daten,
         flow.hass.config.language,
     )
 
@@ -179,9 +180,9 @@ class LadepunktSubentryFlow(ConfigSubentryFlow):
     def _schema(self, vorgabe: dict[str, Any]) -> vol.Schema:
         """Das Formular, vorbelegt aus vorgabe.
 
-        Min. Leistung und Phasen haben einen Kontrakt-Default, den kaum
-        jemand aendert. Sie stehen deshalb eingeklappt -- der Wizard fragt
-        sonst nach Werten, zu denen ein Erstnutzer nichts sagen kann.
+        Drei Felder, nichts eingeklappt. min_power_kw und phases fehlen,
+        weil meteovolt_planner sie nicht liest -- ob sie aus dem Kontrakt
+        fallen, entscheidet A5.
         """
         standard = stammdaten.LADEPUNKT_DEFAULTS
         positiv = vol.All(vol.Coerce(float), vol.Range(min=0, min_included=False))
@@ -211,26 +212,8 @@ class LadepunktSubentryFlow(ConfigSubentryFlow):
                 ),
                 bool,
             ),
-            stammdaten.FELD_MIN_LEISTUNG: (
-                vol.Optional(
-                    stammdaten.FELD_MIN_LEISTUNG,
-                    default=vor(stammdaten.FELD_MIN_LEISTUNG),
-                ),
-                positiv,
-            ),
-            stammdaten.FELD_PHASEN: (
-                vol.Optional(
-                    stammdaten.FELD_PHASEN,
-                    default=vor(stammdaten.FELD_PHASEN),
-                ),
-                vol.In([1, 3]),
-            ),
         }
-        return _formular(
-            stammdaten.LADEPUNKT_AUFBAU,
-            bauplan,
-            eingeklappt=frozenset({stammdaten.ABSCHNITT_ERWEITERT}),
-        )
+        return _formular(stammdaten.LADEPUNKT_AUFBAU, bauplan)
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None

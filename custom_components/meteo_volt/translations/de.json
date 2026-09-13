@@ -37,18 +37,8 @@
             "available": "Verfügbar"
           },
           "data_description": {
-            "name": "Leer lassen vergibt automatisch einen Namen.",
+            "name": "Leer lassen vergibt einen Namen aus der Leistung, etwa Wallbox 11 kW.",
             "available": "Aus heisst: an diesem Ladepunkt wird über den ganzen Zeitraum nicht geladen."
-          },
-          "sections": {
-            "erweitert": {
-              "name": "Erweitert",
-              "description": "Werte, die selten geändert werden.",
-              "data": {
-                "min_power_kw": "Min. Leistung (kW)",
-                "phases": "Phasen"
-              }
-            }
           }
         },
         "reconfigure": {
@@ -60,18 +50,8 @@
             "available": "Verfügbar"
           },
           "data_description": {
-            "name": "Leer lassen vergibt automatisch einen Namen.",
+            "name": "Leer lassen vergibt einen Namen aus der Leistung, etwa Wallbox 11 kW.",
             "available": "Aus heisst: an diesem Ladepunkt wird über den ganzen Zeitraum nicht geladen."
-          },
-          "sections": {
-            "erweitert": {
-              "name": "Erweitert",
-              "description": "Werte, die selten geändert werden.",
-              "data": {
-                "min_power_kw": "Min. Leistung (kW)",
-                "phases": "Phasen"
-              }
-            }
           }
         }
       },
@@ -94,7 +74,7 @@
             "name": "Name"
           },
           "data_description": {
-            "name": "Leer lassen vergibt automatisch einen Namen."
+            "name": "Leer lassen vergibt einen Namen aus der Kapazität, etwa Fahrzeug 58 kWh."
           },
           "sections": {
             "batterie": {
@@ -164,7 +144,7 @@
             "name": "Name"
           },
           "data_description": {
-            "name": "Leer lassen vergibt automatisch einen Namen."
+            "name": "Leer lassen vergibt einen Namen aus der Kapazität, etwa Fahrzeug 58 kWh."
           },
           "sections": {
             "batterie": {

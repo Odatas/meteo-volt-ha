@@ -37,18 +37,8 @@
             "available": "Available"
           },
           "data_description": {
-            "name": "Leave empty to get a name assigned automatically.",
+            "name": "Leave empty to get a name from the power, such as Wallbox 11 kW.",
             "available": "Off means nothing charges here for the whole horizon."
-          },
-          "sections": {
-            "erweitert": {
-              "name": "Advanced",
-              "description": "Values that are rarely changed.",
-              "data": {
-                "min_power_kw": "Min. power (kW)",
-                "phases": "Phases"
-              }
-            }
           }
         },
         "reconfigure": {
@@ -60,18 +50,8 @@
             "available": "Available"
           },
           "data_description": {
-            "name": "Leave empty to get a name assigned automatically.",
+            "name": "Leave empty to get a name from the power, such as Wallbox 11 kW.",
             "available": "Off means nothing charges here for the whole horizon."
-          },
-          "sections": {
-            "erweitert": {
-              "name": "Advanced",
-              "description": "Values that are rarely changed.",
-              "data": {
-                "min_power_kw": "Min. power (kW)",
-                "phases": "Phases"
-              }
-            }
           }
         }
       },
@@ -94,7 +74,7 @@
             "name": "Name"
           },
           "data_description": {
-            "name": "Leave empty to get a name assigned automatically."
+            "name": "Leave empty to get a name from the capacity, such as Vehicle 58 kWh."
           },
           "sections": {
             "batterie": {
@@ -164,7 +144,7 @@
             "name": "Name"
           },
           "data_description": {
-            "name": "Leave empty to get a name assigned automatically."
+            "name": "Leave empty to get a name from the capacity, such as Vehicle 58 kWh."
           },
           "sections": {
             "batterie": {
