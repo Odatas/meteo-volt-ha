@@ -49,11 +49,11 @@ def _dokument(name: str) -> dict:
     return json.loads((FEHLER / f"{name}.problem.json").read_text(encoding="utf-8"))
 
 
-def _auswerten(status, antwort, retry_after=None, abruf=None):
+def _auswerten(status, antwort, retry_after=None, abruf=None, jetzt=0.0):
     """antwort ist ein Dokument oder schon ein Koerper in Bytes."""
     abruf = abruf or planabruf.PlanAbruf(PROD_URL)
     koerper = antwort if isinstance(antwort, bytes) else json.dumps(antwort).encode("utf-8")
-    return abruf.nach_antwort(status, retry_after, koerper)
+    return abruf.nach_antwort(status, retry_after, koerper, jetzt)
 
 
 def test_jede_fehlerfixture_hat_eine_erwartung():
@@ -194,3 +194,67 @@ def test_alle_klassen_erben_von_planfehler():
     for klasse in (planabruf.PlanNichtAutorisiert, planabruf.PlanRateLimit,
                    planabruf.PlanAbgelehnt, planabruf.PlanNichtVerfuegbar):
         assert issubclass(klasse, planabruf.PlanFehler)
+
+
+# --- Die Sendepause (Spec Abschnitt 4) ---------------------------------------
+
+
+def test_ohne_429_wird_gesendet():
+    """Gegenprobe zu allem darunter: ein frischer Abruf sperrt nichts."""
+    planabruf.PlanAbruf(PROD_URL).vor_dem_senden(0.0)
+
+
+def test_retry_after_sperrt_genau_so_lange():
+    abruf = planabruf.PlanAbruf(PROD_URL)
+    with pytest.raises(planabruf.PlanRateLimit):
+        _auswerten(429, _dokument("429_rate_limited"), retry_after="39",
+                   abruf=abruf, jetzt=1000.0)
+
+    with pytest.raises(planabruf.PlanRateLimit) as info:
+        abruf.vor_dem_senden(1038.0)
+    assert info.value.status is None  # nichts gesendet
+    assert info.value.retry_after == pytest.approx(1.0)
+
+    abruf.vor_dem_senden(1039.0)  # frei
+
+
+def test_ohne_header_verdoppelt_bis_15_minuten():
+    abruf = planabruf.PlanAbruf(PROD_URL)
+    dauern = []
+    for _ in range(7):
+        with pytest.raises(planabruf.PlanRateLimit) as info:
+            _auswerten(429, b"", abruf=abruf)
+        dauern.append(info.value.retry_after)
+    assert dauern == [60, 120, 240, 480, 900, 900, 900]
+
+
+def test_andere_fehler_setzen_nicht_zurueck():
+    """Nur eine 200 setzt zurueck. Ein 503 dazwischen laesst die Folge stehen."""
+    abruf = planabruf.PlanAbruf(PROD_URL)
+    with pytest.raises(planabruf.PlanRateLimit):
+        _auswerten(429, b"", abruf=abruf)
+    with pytest.raises(planabruf.PlanNichtVerfuegbar):
+        _auswerten(503, _dokument("503_no_snapshot"), abruf=abruf)
+    with pytest.raises(planabruf.PlanRateLimit) as info:
+        _auswerten(429, b"", abruf=abruf)
+    assert info.value.retry_after == 120
+
+
+def test_eine_200_setzt_die_pause_zurueck():
+    abruf = planabruf.PlanAbruf(PROD_URL)
+    for _ in range(3):
+        with pytest.raises(planabruf.PlanRateLimit):
+            _auswerten(429, b"", abruf=abruf, jetzt=0.0)
+    _auswerten(200, {"schema_version": 1}, abruf=abruf, jetzt=10.0)
+
+    abruf.vor_dem_senden(10.0)  # frei, obwohl die Pause bis 240 s lief
+    with pytest.raises(planabruf.PlanRateLimit) as info:
+        _auswerten(429, b"", abruf=abruf, jetzt=10.0)
+    assert info.value.retry_after == 60
+
+
+def test_nicht_ableitbare_url_lehnt_vor_dem_senden_ab():
+    abruf = planabruf.PlanAbruf("http://localhost:8080/prognose")
+    with pytest.raises(planabruf.PlanAbgelehnt) as info:
+        abruf.vor_dem_senden(0.0)
+    assert info.value.status is None

@@ -24,8 +24,10 @@ import json
 PROGNOSE_PFAD = "/v1/prediction"
 PLAN_PFAD = "/v1/plan"
 
-# Ohne brauchbaren Retry-After-Header gilt diese Pause (A0-Spec 3.9).
+# Ohne brauchbaren Retry-After-Header (A0-Spec 3.9): 60 s, verdoppelt mit
+# jedem weiteren 429 seit der letzten 200, hoechstens 15 min.
 PAUSE_BASIS_S = 60.0
+PAUSE_DECKEL_S = 900.0
 
 
 class PlanFehler(Exception):
@@ -148,15 +150,72 @@ def _retry_after(wert: str | None) -> float | None:
     return float(wert)
 
 
+class Sendepause:
+    """R14: nach einem 429 geht nichts hinaus, bis die Pause abgelaufen ist.
+
+    Die Zeit kommt als Argument -- api.py reicht time.monotonic(), die Tests
+    reichen Zahlen. Die Pause lebt nur im Speicher: ein Neustart vergisst sie,
+    und der naechste 429 setzt sie neu.
+
+    Mit Header nennt der Server die Pause selbst; Zuplo schickt den Rest des
+    laufenden Fensters. Verdoppelt wird deshalb nur ohne brauchbaren Header.
+    """
+
+    def __init__(self) -> None:
+        self._bis: float | None = None
+        self._folge = 0
+
+    def rest(self, jetzt: float) -> float:
+        """Sekunden bis zum Ende der Pause, 0 wenn frei."""
+        if self._bis is None:
+            return 0.0
+        return max(0.0, self._bis - jetzt)
+
+    def nach_429(self, retry_after: float | None, jetzt: float) -> float:
+        """Setzt die Pause und gibt ihre Dauer zurueck."""
+        self._folge += 1
+        if retry_after is None:
+            # Der Exponent ist gedeckelt: 60 * 2**10 liegt laengst ueber dem
+            # Deckel, und ohne Grenze wuerde 2**n irgendwann zu gross fuer float.
+            retry_after = min(PAUSE_BASIS_S * 2 ** min(self._folge - 1, 10), PAUSE_DECKEL_S)
+        self._bis = jetzt + retry_after
+        return retry_after
+
+    def nach_erfolg(self) -> None:
+        self._bis = None
+        self._folge = 0
+
+
 class PlanAbruf:
-    """Was nach dem Senden entschieden wird. Ohne Netz, ohne Home Assistant."""
+    """Was vor und nach dem Senden entschieden wird. Ohne Netz, ohne Home Assistant.
+
+    Haelt die Sendepause aus R14. Ein PlanAbruf gehoert zu genau einem
+    MeteoVoltApiClient, also zu einem Config-Entry und damit zu einem Key.
+    Gleichzeitige Aufrufe haelt er nicht auseinander; das tut C5.
+    """
 
     def __init__(self, api_url: str) -> None:
         self.url = _plan_url(api_url)
+        self._pause = Sendepause()
 
-    def nach_antwort(self, status: int, retry_after: str | None, koerper: bytes) -> dict:
+    def vor_dem_senden(self, jetzt: float) -> None:
+        """Wirft, wenn nicht gesendet werden darf. Sonst nichts."""
+        if self.url is None:
+            raise PlanAbgelehnt(
+                detail=f"api_url endet nicht auf {PROGNOSE_PFAD}; "
+                       "die Plan-URL ist nicht ableitbar")
+        rest = self._pause.rest(jetzt)
+        if rest > 0:
+            raise PlanRateLimit(retry_after=rest, detail="Sendepause nach R14, nicht gesendet")
+
+    def nach_antwort(
+        self, status: int, retry_after: str | None, koerper: bytes, jetzt: float
+    ) -> dict:
         """Eine 200 mit JSON-Objekt kommt unveraendert zurueck, alles andere wirft."""
         if status == 200:
+            # Die erste 200 setzt zurueck, auch mit unbrauchbarem Koerper:
+            # das Rate-Limit hat sie durchgelassen.
+            self._pause.nach_erfolg()
             dokument = _json_objekt(koerper)
             if dokument is None:
                 raise PlanNichtVerfuegbar(status=200, detail="Antwort ist kein JSON-Objekt")
@@ -170,8 +229,8 @@ class PlanAbruf:
             "feldfehler": _feldfehler(problem),
         }
         if status == 429:
-            dauer = _retry_after(retry_after)
-            raise PlanRateLimit(retry_after=PAUSE_BASIS_S if dauer is None else dauer, **felder)
+            dauer = self._pause.nach_429(_retry_after(retry_after), jetzt)
+            raise PlanRateLimit(retry_after=dauer, **felder)
         if status in (401, 403):
             raise PlanNichtAutorisiert(**felder)
         if status >= 500:
