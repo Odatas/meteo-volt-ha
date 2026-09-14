@@ -316,8 +316,17 @@ def test_unter_zwei_stunden_wird_nicht_bewertet():
         _laden_ueber(_stand("infeasible"), GEPLANT, 30.0, _abend("23:55"))) == []
 
 
-def test_ohne_anstieg_wird_nicht_bewertet():
-    assert _bewertungen(_laden_ueber(_stand("infeasible"), 0.0, 30.0, _abend("00:00"))) == []
+@pytest.mark.parametrize(("letzter", "bewertet"), [(50.0, False), (52.0, True)])
+def test_ohne_anstieg_wird_nicht_bewertet(letzter, bewertet):
+    """Fuenf Punkte in 2 h, der Ladestand pendelt nur zwischen 50 und 51.
+
+    Endet dieselbe Reihe bei 52, wird sie bewertet: das None kommt von der
+    Regel, nicht von zu wenigen Punkten.
+    """
+    punkte = tuple((1, 1800.0 * i, soc)
+                   for i, soc in enumerate((50.0, 51.0, 50.0, 51.0, letzter)))
+    abgleich = ausgabe.Abgleich(ladezeit_s=7200.0, geplant_pp=2 * GEPLANT, punkte=punkte)
+    assert (ausgabe.bewerten(abgleich) is not None) is bewertet
 
 
 def _messpunkt(abgleich, jetzt, rate, soc):
