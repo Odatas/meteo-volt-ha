@@ -46,6 +46,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         plan_koordinator.async_starten()
     except Exception:  # pylint: disable=broad-except
         _LOGGER.exception("Standort-Koordinator nicht gestartet, die Prognose laeuft weiter")
+        # None statt eines fehlenden Attributs: C6 darf daran nicht scheitern.
+        entry.runtime_data = None
     else:
         entry.runtime_data = plan_koordinator
 

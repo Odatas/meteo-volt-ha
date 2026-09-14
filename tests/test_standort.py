@@ -370,3 +370,79 @@ def test_das_issue_nennt_den_letzten_fehler_sonst_die_gruende():
     ausgelassen = {"auto-1": standort.GRUND_LADESTAND}
     assert standort.issue_text(standort.Planstand(ausgelassen=ausgelassen)) == (
         standort.GRUND_LADESTAND)
+
+
+# --- Nachgebessert nach der Pruefung am 2026-09-14 --------------------------
+
+
+@pytest.mark.parametrize("fehler", [
+    planabruf.PlanNichtVerfuegbar(status=503),
+    planabruf.PlanRateLimit(retry_after=39.0, status=429),
+], ids=["nicht-verfuegbar", "rate-limit"])
+def test_ein_gescheiterter_nachholversuch_plant_keinen_weiteren(fehler):
+    """Spec Abschnitt 7: einmal nachholen, danach im Grundtakt -- nicht alle 5 min."""
+    assert standort.naechster_versuch(fehler, nur_nachholen=True) == (
+        standort.WEITER_IM_GRUNDTAKT, None)
+
+
+def test_nach_abgelehnt_pausiert_der_grundtakt_auch_beim_nachholen():
+    fehler = planabruf.PlanAbgelehnt(status=404)
+    assert standort.naechster_versuch(fehler, nur_nachholen=True) == (standort.PAUSE, None)
+
+
+@pytest.mark.parametrize("grund", [
+    standort.GRUND_KEIN_LADEPUNKT, standort.GRUND_LADEPUNKT_GELOESCHT])
+def test_ohne_gueltigen_ladepunkt_steuert_der_alte_plan_nicht_weiter(grund):
+    """Spec Abschnitt 8: ein Plan fuer einen geloeschten Ladepunkt gilt nicht mehr."""
+    anfrage, plan = _fixture("minimal")
+    jetzt = datetime.fromisoformat(anfrage["now"])
+    stand = standort.Planstand(plan=plan, erhalten_um=jetzt, ausgelassen={"auto-a": grund})
+    gilt = standort.was_gilt(stand, "auto-a", jetzt, 5.0)
+    assert (gilt["quelle"], gilt["charge_now"]) == (standort.QUELLE_DEFAULT, False)
+
+
+def test_ein_unlesbarer_ladestand_laesst_den_alten_plan_gelten():
+    anfrage, plan = _fixture("minimal")
+    jetzt = datetime.fromisoformat(anfrage["now"])
+    stand = standort.Planstand(
+        plan=plan, erhalten_um=jetzt, ausgelassen={"auto-a": standort.GRUND_LADESTAND})
+    assert standort.was_gilt(stand, "auto-a", jetzt, None)["quelle"] == standort.QUELLE_PLAN
+
+
+@pytest.mark.parametrize("plan", [
+    {},
+    {"horizon_end": "2026-08-19T00:00:00+02:00", "slot_minutes": 15, "vehicles": None},
+    {"horizon_end": "kein Datum", "slot_minutes": 15, "vehicles": []},
+    {"horizon_end": "2026-08-19T00:00:00+02:00", "slot_minutes": 15,
+     "vehicles": [{"id": "auto-a", "slots": [{"charge": True}]}]},
+], ids=["leer", "vehicles-null", "horizon-kaputt", "slot-ohne-t"])
+def test_eine_antwort_ohne_plan_form_ergibt_den_default(plan):
+    """Spec Abschnitt 8: der Plan-Client prueft eine 200 nicht gegen das Schema."""
+    jetzt = datetime.fromisoformat("2026-08-18T22:00:00+02:00")
+    stand = standort.Planstand(plan=plan, erhalten_um=jetzt)
+    assert standort.was_gilt(stand, "auto-a", jetzt, None)["quelle"] == standort.QUELLE_DEFAULT
+
+
+def test_der_default_laedt_nicht_an_einem_nicht_verfuegbaren_ladepunkt():
+    anfrage, _ = _bauen([("wb-1", _ladepunkt(available=False))], EIN_FAHRZEUG)
+    gilt = standort.was_gilt(standort.Planstand(anfrage=anfrage), "auto-1", VORMITTAG, 5.0)
+    assert (gilt["charge_now"], gilt["charge_now_kw"]) == (False, 0.0)
+
+
+def test_negative_netzkosten_fehlen_im_request():
+    """Spec Abschnitt 4: der Kontrakt verlangt >= 0 und lehnte sonst jeden Request ab."""
+    anfrage, _ = _bauen(EIN_LADEPUNKT, EIN_FAHRZEUG, haupteintrag={const.CONF_GRID_FEES: -0.02})
+    jsonschema.validate(anfrage, REQUEST_SCHEMA)
+    assert "site" not in anfrage
+
+
+def test_geht_die_uhr_im_haus_nach_gilt_der_erste_slot():
+    """Spec Abschnitt 8: weniger als einen Slot vor dem ersten gilt der erste."""
+    anfrage, plan = _fixture("second_block")
+    beginn = datetime.fromisoformat(anfrage["now"])
+    stand = _stand(anfrage, plan, beginn)
+    knapp = standort.was_gilt(stand, "auto-a", beginn - timedelta(seconds=2), None)
+    assert (knapp["quelle"], knapp["charge_now"], knapp["current_slot_end"]) == (
+        standort.QUELLE_PLAN, True, beginn + timedelta(minutes=15))
+    zu_weit = standort.was_gilt(stand, "auto-a", beginn - timedelta(minutes=15), None)
+    assert zu_weit["quelle"] == standort.QUELLE_DEFAULT

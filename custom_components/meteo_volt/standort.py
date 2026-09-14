@@ -132,7 +132,10 @@ def anfrage_bauen(
         "vehicles": fragmente,
     }
     site = {}
-    if CONF_GRID_FEES in haupteintrag:
+    if CONF_GRID_FEES in haupteintrag and float(haupteintrag[CONF_GRID_FEES]) >= 0:
+        # Der Kontrakt verlangt >= 0. Ein negativer Wert aus einem alten Eintrag
+        # liesse den Server jeden Request ablehnen; ohne ihn fehlen nur die
+        # Kosten mit Netzentgelt.
         site["grid_fees_eur_kwh"] = float(haupteintrag[CONF_GRID_FEES])
     if haupteintrag.get(CONF_SITE_MAX_POWER) is not None:
         # Der Planer vergleicht heute nur den einzelnen Ladevorgang. Mit E1
@@ -181,7 +184,9 @@ class Planstand:
     letzter_versuch_um: datetime | None = None
 
 
-def naechster_versuch(fehler: PlanFehler | None) -> tuple[str, float | None]:
+def naechster_versuch(
+    fehler: PlanFehler | None, nur_nachholen: bool = False
+) -> tuple[str, float | None]:
     """Was nach einem Aufruf kommt. Spec Abschnitt 7.
 
     ("grundtakt", None)  weiter im Grundtakt
@@ -191,13 +196,19 @@ def naechster_versuch(fehler: PlanFehler | None) -> tuple[str, float | None]:
     Abgelehnt und nicht autorisiert pausieren, weil dieselbe Anfrage wieder
     scheitert -- und weil die main-Umgebung heute keine Plan-Route hat: jeder
     Beta-Nutzer mit Fahrzeug schickte sonst stuendlich einen 404.
+
+    nur_nachholen heisst: der Lauf war selbst ein Nachholversuch. Scheitert
+    er, wird nicht wieder nachgeholt -- sonst liefe bei einem Ausfall alle
+    5 min ein Request statt einmal.
     """
     if fehler is None:
         return WEITER_IM_GRUNDTAKT, None
-    if isinstance(fehler, PlanRateLimit):
-        return NACHHOLEN, fehler.retry_after
     if isinstance(fehler, (PlanAbgelehnt, PlanNichtAutorisiert)):
         return PAUSE, None
+    if nur_nachholen:
+        return WEITER_IM_GRUNDTAKT, None
+    if isinstance(fehler, PlanRateLimit):
+        return NACHHOLEN, fehler.retry_after
     return NACHHOLEN, NACHHOLEN_NICHT_VERFUEGBAR_S
 
 
@@ -211,41 +222,77 @@ def was_gilt(
     geschickt hat. soc_pct ist der Ladestand zum Zeitpunkt des Aufrufs, None
     wenn er nicht lesbar ist -- nur der Default braucht ihn.
     """
+    try:
+        gilt = _aus_dem_plan(stand, fahrzeug_id, jetzt)
+    except (AttributeError, KeyError, TypeError, ValueError):
+        # Der Plan-Client prueft eine 200 nicht gegen das Schema (C7-Spec
+        # Abschnitt 5). Ein Plan ohne die Form des Kontrakts ist nie brauchbar.
+        gilt = None
+    return gilt if gilt is not None else _sicherer_default(stand, fahrzeug_id, jetzt, soc_pct)
+
+
+def _aus_dem_plan(stand: Planstand, fahrzeug_id: str, jetzt: datetime) -> dict | None:
     fahrzeugplan = _brauchbarer_plan(stand, fahrzeug_id, jetzt)
-    if fahrzeugplan is not None:
-        schritt = timedelta(minutes=stand.plan["slot_minutes"])
-        slots = fahrzeugplan["slots"]
-        for index, slot in enumerate(slots):
-            beginn = datetime.fromisoformat(slot["t"])
-            if beginn <= jetzt < beginn + schritt:
-                laden = slot["charge"]
-                return {
-                    "charge_now": laden,
-                    "charge_now_kw": (slot.get("kw") or 0.0) if laden else 0.0,
-                    "charge_now_station_id": slot.get("station_id") if laden else None,
-                    "current_slot_end": beginn + schritt,
-                    "next_charge_start": _naechster_ladestart(slots, index),
-                    "quelle": QUELLE_PLAN,
-                }
-    return _sicherer_default(stand, fahrzeug_id, jetzt, soc_pct)
+    if fahrzeugplan is None:
+        return None
+    schritt = timedelta(minutes=stand.plan["slot_minutes"])
+    slots = fahrzeugplan["slots"]
+    index = _laufender_slot(slots, jetzt, schritt)
+    if index is None:
+        return None
+    slot = slots[index]
+    laden = slot["charge"]
+    return {
+        "charge_now": laden,
+        "charge_now_kw": (slot.get("kw") or 0.0) if laden else 0.0,
+        "charge_now_station_id": slot.get("station_id") if laden else None,
+        "current_slot_end": datetime.fromisoformat(slot["t"]) + schritt,
+        "next_charge_start": _naechster_ladestart(slots, index),
+        "quelle": QUELLE_PLAN,
+    }
 
 
 def _brauchbarer_plan(stand: Planstand, fahrzeug_id: str, jetzt: datetime) -> dict | None:
-    """Der Fahrzeugplan, wenn der Plan da, juenger als 12 h und nicht abgelaufen ist."""
+    """Der Fahrzeugplan, wenn der Plan da, juenger als 12 h und nicht abgelaufen ist.
+
+    Fuer ein Fahrzeug, das ohne gueltigen Ladepunkt fehlt, gilt er nicht mehr:
+    ein Plan fuer einen geloeschten Ladepunkt steuert nicht weiter. Ein
+    unlesbarer Ladestand laesst ihn dagegen gelten.
+    """
     if stand.plan is None or stand.erhalten_um is None:
+        return None
+    if stand.ausgelassen.get(fahrzeug_id) in (GRUND_KEIN_LADEPUNKT, GRUND_LADEPUNKT_GELOESCHT):
         return None
     if jetzt - stand.erhalten_um >= VERALTET_NACH:
         return None
     if jetzt >= datetime.fromisoformat(stand.plan["horizon_end"]):
         return None
-    for fahrzeugplan in stand.plan.get("vehicles", []):
+    for fahrzeugplan in stand.plan["vehicles"]:
         if fahrzeugplan.get("id") == fahrzeug_id:
             return fahrzeugplan
     return None
 
 
+def _laufender_slot(slots: list[dict], jetzt: datetime, schritt: timedelta) -> int | None:
+    """Der Index des Slots mit t <= jetzt < t + schritt, oder None.
+
+    Liegt jetzt weniger als einen Slot vor dem ersten, gilt der erste: die Uhr
+    im Haus geht nach, und beim Server laeuft der erste Slot schon.
+    """
+    if not slots:
+        return None
+    erster = datetime.fromisoformat(slots[0]["t"])
+    if erster - schritt < jetzt < erster:
+        return 0
+    for index, slot in enumerate(slots):
+        beginn = datetime.fromisoformat(slot["t"])
+        if beginn <= jetzt < beginn + schritt:
+            return index
+    return None
+
+
 def _naechster_ladestart(slots: list[dict], index: int) -> datetime | None:
-    """Ab dem laufenden Slot der erste Ladeslot, dessen Vorgaenger nicht laedt.
+    """Nach dem laufenden Slot der erste Ladeslot, dessen Vorgaenger nicht laedt.
 
     Dieselbe Regel wie _next_charge_start in meteovolt_planner/plan.py, nur ab
     index statt ab dem ersten Slot (A0-Spec 3.10).
@@ -259,7 +306,9 @@ def _naechster_ladestart(slots: list[dict], index: int) -> datetime | None:
 def _sicherer_default(
     stand: Planstand, fahrzeug_id: str, jetzt: datetime, soc_pct: float | None
 ) -> dict:
-    """Laden nur unter Min-SoC. Fahrzeug und Ladepunkt aus dem zuletzt gebauten Request.
+    """Laden nur unter Min-SoC und an einem verfuegbaren Ladepunkt.
+
+    Fahrzeug und Ladepunkt kommen aus dem zuletzt gebauten Request.
 
     Fehlt das Fahrzeug dort, wird nicht geladen: ohne Ladepunkt gibt es keine
     Leistung, ohne Ladestand keinen Vergleich.
@@ -267,8 +316,9 @@ def _sicherer_default(
     fahrzeug = _eintrag(stand.anfrage, "vehicles", fahrzeug_id)
     station_id = None if fahrzeug is None else fahrzeug["connection"]["station_id"]
     station = _eintrag(stand.anfrage, "stations", station_id)
-    laden = (
+    laden = bool(
         station is not None
+        and station.get("available", True)
         and soc_pct is not None
         and soc_pct < fahrzeug["soc_min_pct"]
     )

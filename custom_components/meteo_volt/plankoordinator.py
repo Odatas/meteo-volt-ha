@@ -156,8 +156,11 @@ class MeteoVoltPlanKoordinator(DataUpdateCoordinator[standort.Planstand]):
 
     @callback
     def _stecker_geaendert(self, event: Event[EventStateChangedData]) -> None:
+        # Spec Abschnitt 6: nur off -> on ist Einstecken. Aus unavailable oder
+        # beim Start aus dem Nichts nicht -- sonst ginge beim Start ein Request
+        # vor start raus, und eine flatternde Cloud-Entitaet loeste staendig aus.
         neu, alt = event.data["new_state"], event.data["old_state"]
-        if neu is not None and neu.state == "on" and (alt is None or alt.state != "on"):
+        if neu is not None and alt is not None and alt.state == "off" and neu.state == "on":
             self._ausloesen("stecker")
 
     @callback
@@ -191,6 +194,9 @@ class MeteoVoltPlanKoordinator(DataUpdateCoordinator[standort.Planstand]):
         """Ein Lauf. Wirft nie fuer einen PlanFehler, der steht im Planstand."""
         async with self._sperre:
             kennung = ",".join(sorted(self._ausloeser)) or "grundtakt"
+            # Spec Abschnitt 7: ein Nachholversuch, der selbst scheitert, plant
+            # keinen weiteren.
+            nur_nachholen = self._ausloeser == {"nachholen"}
             self._ausloeser.clear()
             # Spec Abschnitt 7: ein Nachholversuch entfaellt, wenn vorher ein
             # anderer Aufruf kommt.
@@ -229,12 +235,12 @@ class MeteoVoltPlanKoordinator(DataUpdateCoordinator[standort.Planstand]):
                 kennung,
                 "erhalten" if stand.fehler is None else type(stand.fehler).__name__,
             )
-            self._nach_dem_aufruf(stand)
+            self._nach_dem_aufruf(stand, nur_nachholen)
             return stand
 
     @callback
-    def _nach_dem_aufruf(self, stand: standort.Planstand) -> None:
-        art, sekunden = standort.naechster_versuch(stand.fehler)
+    def _nach_dem_aufruf(self, stand: standort.Planstand, nur_nachholen: bool) -> None:
+        art, sekunden = standort.naechster_versuch(stand.fehler, nur_nachholen)
         self._grundtakt_pausiert = art == standort.PAUSE
         if art == standort.NACHHOLEN:
             self._nachholen_abbrechen = async_call_later(self.hass, sekunden, self._nachholen)
@@ -248,6 +254,9 @@ class MeteoVoltPlanKoordinator(DataUpdateCoordinator[standort.Planstand]):
         if stand.fehler is None:
             ir.async_delete_issue(self.hass, DOMAIN, self._issue_id)
             self._issue_pruefung_planen(stand)
+        else:
+            # Spec Abschnitt 8: jeder weitere Fehlschlag schreibt den Text neu.
+            self._issue_anlegen_wenn_faellig(stand, dt_util.utcnow())
 
     @callback
     def _nachholen_absagen(self) -> None:
@@ -278,8 +287,13 @@ class MeteoVoltPlanKoordinator(DataUpdateCoordinator[standort.Planstand]):
     @callback
     def _issue_pruefen(self, jetzt: datetime) -> None:
         self._issue_abbrechen = None
+        self._issue_anlegen_wenn_faellig(self.data, jetzt)
+
+    @callback
+    def _issue_anlegen_wenn_faellig(self, stand: standort.Planstand, jetzt: datetime) -> None:
+        """Legt das Issue an oder ersetzt seinen Text, wenn es faellig ist."""
         hat_fahrzeuge = self._hat_fahrzeuge(self._subentries)
-        if standort.issue_faellig(self.data, self._seit, jetzt, hat_fahrzeuge):
+        if standort.issue_faellig(stand, self._seit, jetzt, hat_fahrzeuge):
             ir.async_create_issue(
                 self.hass,
                 DOMAIN,
@@ -287,7 +301,7 @@ class MeteoVoltPlanKoordinator(DataUpdateCoordinator[standort.Planstand]):
                 is_fixable=False,
                 severity=ir.IssueSeverity.WARNING,
                 translation_key=ISSUE_PLAN_VERALTET,
-                translation_placeholders={"fehler": standort.issue_text(self.data)},
+                translation_placeholders={"fehler": standort.issue_text(stand)},
             )
 
     # --- Lesen aus Home Assistant --------------------------------------------
