@@ -3,4 +3,4 @@
 # Action-Beschreibungen: "Unable to find services.yaml".
 dev_plan:
   name: Dev-Plan
-  description: Temporaer. Schickt einen festen Plan-Request und zeigt die Antwort.
+  description: Temporaer. Holt sofort einen Plan ueber den Standort-Koordinator und zeigt den Planstand.
