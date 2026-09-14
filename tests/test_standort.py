@@ -192,3 +192,181 @@ def test_ein_geloeschter_gebundener_ladepunkt_laesst_das_fahrzeug_aus():
     anfrage, ausgelassen = _bauen(EIN_LADEPUNKT, [("auto-1", _fahrzeug(station_id="wb-weg"))])
     assert anfrage is None
     assert ausgelassen == {"auto-1": standort.GRUND_LADEPUNKT_GELOESCHT}
+
+
+# --- Naechster Versuch, Spec Abschnitt 7 ------------------------------------
+
+
+@pytest.mark.parametrize(("fehler", "erwartet"), [
+    (None, (standort.WEITER_IM_GRUNDTAKT, None)),
+    (planabruf.PlanRateLimit(retry_after=39.0, status=429), (standort.NACHHOLEN, 39.0)),
+    (planabruf.PlanNichtVerfuegbar(status=503), (standort.NACHHOLEN, 300.0)),
+    (planabruf.PlanAbgelehnt(status=404), (standort.PAUSE, None)),
+    (planabruf.PlanNichtAutorisiert(status=401), (standort.PAUSE, None)),
+], ids=["erfolg", "rate-limit", "nicht-verfuegbar", "abgelehnt", "nicht-autorisiert"])
+def test_jede_fehlerklasse_hat_ihren_naechsten_versuch(fehler, erwartet):
+    assert standort.naechster_versuch(fehler) == erwartet
+
+
+# --- Was gerade gilt, Spec Abschnitt 8 --------------------------------------
+
+FUENF_FELDER = ("charge_now", "charge_now_kw", "charge_now_station_id",
+                "current_slot_end", "next_charge_start")
+
+
+def _fixture_namen() -> list[str]:
+    return sorted(p.name.split(".")[0] for p in CONTRACT.glob("*.response.json"))
+
+
+def _fixture(name: str) -> tuple[dict, dict]:
+    return (_laden(CONTRACT / f"{name}.request.json"),
+            _laden(CONTRACT / f"{name}.response.json"))
+
+
+def _zeit(text: str | None) -> datetime | None:
+    return None if text is None else datetime.fromisoformat(text)
+
+
+def _stand(anfrage: dict, plan: dict, erhalten_um: datetime):
+    return standort.Planstand(plan=plan, erhalten_um=erhalten_um, anfrage=anfrage)
+
+
+def test_es_gibt_response_fixtures():
+    """Die Parametrisierung unten saehe ohne Fixtures null Faelle und bliebe gruen."""
+    assert _fixture_namen(), "keine Response-Fixtures; export_contract.py --to-ha ausfuehren"
+
+
+@pytest.mark.parametrize("name", _fixture_namen())
+def test_im_ersten_slot_gilt_genau_was_der_server_schickte(name):
+    anfrage, plan = _fixture(name)
+    jetzt = datetime.fromisoformat(anfrage["now"])
+    stand = _stand(anfrage, plan, jetzt)
+    for fahrzeugplan in plan["vehicles"]:
+        gilt = standort.was_gilt(stand, fahrzeugplan["id"], jetzt, None)
+        assert gilt["quelle"] == standort.QUELLE_PLAN
+        assert {feld: gilt[feld] for feld in FUENF_FELDER} == {
+            "charge_now": fahrzeugplan["charge_now"],
+            "charge_now_kw": fahrzeugplan["charge_now_kw"],
+            "charge_now_station_id": fahrzeugplan["charge_now_station_id"],
+            "current_slot_end": _zeit(fahrzeugplan["current_slot_end"]),
+            "next_charge_start": _zeit(fahrzeugplan["next_charge_start"]),
+        }, (name, fahrzeugplan["id"])
+
+
+def _abend(uhrzeit: str | None) -> datetime | None:
+    """Eine Uhrzeit am Abend des 2026-08-18. 00:00 ist die Mitternacht danach."""
+    if uhrzeit is None:
+        return None
+    tag = "2026-08-19" if uhrzeit == "00:00" else "2026-08-18"
+    return datetime.fromisoformat(f"{tag}T{uhrzeit}:00+02:00")
+
+
+@pytest.mark.parametrize(("beginn", "laden", "kw", "station", "ende", "naechster"), [
+    ("22:00", True, 11.0, "wb", "22:15", "23:15"),
+    ("22:15", True, 11.0, "wb", "22:30", "23:15"),
+    ("22:30", False, 0.0, None, "22:45", "23:15"),
+    ("22:45", False, 0.0, None, "23:00", "23:15"),
+    ("23:00", False, 0.0, None, "23:15", "23:15"),
+    ("23:15", True, 11.0, "wb", "23:30", None),
+    ("23:30", True, 11.0, "wb", "23:45", None),
+    ("23:45", False, 0.0, None, "00:00", None),
+])
+def test_second_block_gilt_slot_fuer_slot(beginn, laden, kw, station, ende, naechster):
+    """Muster CC...CC.: der laufende Block, eine Luecke, der naechste Block.
+    Geprueft am Beginn des Slots und mitten darin."""
+    anfrage, plan = _fixture("second_block")
+    stand = _stand(anfrage, plan, datetime.fromisoformat(anfrage["now"]))
+    for jetzt in (_abend(beginn), _abend(beginn) + timedelta(minutes=7)):
+        assert standort.was_gilt(stand, "auto-a", jetzt, None) == {
+            "charge_now": laden,
+            "charge_now_kw": kw,
+            "charge_now_station_id": station,
+            "current_slot_end": _abend(ende),
+            "next_charge_start": _abend(naechster),
+            "quelle": standort.QUELLE_PLAN,
+        }
+
+
+def test_ab_horizon_end_gilt_der_default():
+    anfrage, plan = _fixture("second_block")
+    stand = _stand(anfrage, plan, datetime.fromisoformat(anfrage["now"]))
+    assert standort.was_gilt(stand, "auto-a", _abend("00:00"), None)["quelle"] == (
+        standort.QUELLE_DEFAULT)
+
+
+def test_ein_plan_gilt_bis_kurz_vor_12_stunden_nach_empfang():
+    anfrage, plan = _fixture("minimal")
+    jetzt = datetime.fromisoformat(anfrage["now"])
+    knapp = _stand(anfrage, plan, jetzt - standort.VERALTET_NACH + timedelta(seconds=1))
+    veraltet = _stand(anfrage, plan, jetzt - standort.VERALTET_NACH)
+    assert standort.was_gilt(knapp, "auto-a", jetzt, None)["quelle"] == standort.QUELLE_PLAN
+    assert standort.was_gilt(veraltet, "auto-a", jetzt, None)["quelle"] == (
+        standort.QUELLE_DEFAULT)
+
+
+VORMITTAG = datetime(2026, 9, 14, 8, 7, tzinfo=timezone.utc)
+
+
+def test_der_default_laedt_unter_min_soc():
+    """Leistung aus Fahrzeug und Ladepunkt, der Ladepunkt aus dem Request."""
+    anfrage, _ = _bauen(EIN_LADEPUNKT, [("auto-1", _fahrzeug(max_charge_kw=7.4))])
+    stand = standort.Planstand(anfrage=anfrage)
+    assert standort.was_gilt(stand, "auto-1", VORMITTAG, 14.9) == {
+        "charge_now": True,
+        "charge_now_kw": 7.4,
+        "charge_now_station_id": "wb-1",
+        "current_slot_end": datetime(2026, 9, 14, 8, 15, tzinfo=timezone.utc),
+        "next_charge_start": None,
+        "quelle": standort.QUELLE_DEFAULT,
+    }
+
+
+@pytest.mark.parametrize("soc", [15.0, 15.1, 80.0, None])
+def test_der_default_laedt_nicht_ab_min_soc_und_nicht_ohne_ladestand(soc):
+    anfrage, _ = _bauen(EIN_LADEPUNKT, EIN_FAHRZEUG)
+    gilt = standort.was_gilt(standort.Planstand(anfrage=anfrage), "auto-1", VORMITTAG, soc)
+    assert (gilt["charge_now"], gilt["charge_now_kw"], gilt["charge_now_station_id"]) == (
+        False, 0.0, None)
+
+
+def test_der_default_laedt_nicht_fuer_ein_fahrzeug_ausserhalb_des_requests():
+    gilt = standort.was_gilt(standort.Planstand(), "auto-1", VORMITTAG, 5.0)
+    assert gilt["charge_now"] is False
+
+
+def test_auf_der_grenze_beginnt_die_naechste_viertelstunde():
+    grenze = datetime(2026, 9, 14, 10, 15, tzinfo=timezone(timedelta(hours=2)))
+    gilt = standort.was_gilt(standort.Planstand(), "auto-1", grenze, None)
+    assert gilt["current_slot_end"] == grenze + timedelta(minutes=15)
+
+
+# --- Das Repair-Issue, Spec Abschnitt 8 -------------------------------------
+
+START = datetime(2026, 9, 14, 6, 0, tzinfo=timezone.utc)
+
+
+def test_das_issue_zaehlt_ab_dem_was_zuletzt_kam():
+    ohne_plan = standort.Planstand()
+    plan_danach = standort.Planstand(erhalten_um=START + timedelta(hours=3))
+    plan_davor = standort.Planstand(erhalten_um=START - timedelta(hours=3))
+    assert standort.issue_pruefen_um(ohne_plan, START) == START + timedelta(hours=12)
+    assert standort.issue_pruefen_um(plan_danach, START) == START + timedelta(hours=15)
+    assert standort.issue_pruefen_um(plan_davor, START) == START + timedelta(hours=12)
+
+
+def test_das_issue_ist_ab_12_stunden_faellig_und_nur_mit_fahrzeug():
+    stand = standort.Planstand()
+    knapp = START + standort.VERALTET_NACH - timedelta(seconds=1)
+    faellig = START + standort.VERALTET_NACH
+    assert not standort.issue_faellig(stand, START, knapp, hat_fahrzeuge=True)
+    assert standort.issue_faellig(stand, START, faellig, hat_fahrzeuge=True)
+    assert not standort.issue_faellig(stand, START, faellig, hat_fahrzeuge=False)
+
+
+def test_das_issue_nennt_den_letzten_fehler_sonst_die_gruende():
+    fehler = planabruf.PlanAbgelehnt(status=404, titel="Not Found")
+    assert standort.issue_text(standort.Planstand(fehler=fehler)) == (
+        "PlanAbgelehnt: Status 404; Not Found")
+    ausgelassen = {"auto-1": standort.GRUND_LADESTAND}
+    assert standort.issue_text(standort.Planstand(ausgelassen=ausgelassen)) == (
+        standort.GRUND_LADESTAND)
