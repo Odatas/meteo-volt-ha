@@ -212,15 +212,29 @@ def test_mehr_als_einen_slot_voraus_geht_jetzt_laden_aus():
     assert auswertung.zustand.gesperrt_bis == _abend("22:30")
 
 
+def _block_bis_2245(plan: dict) -> dict:
+    """second_block mit geladenem Slot 22:30: der erste Block endet um 22:45 bei 60 %."""
+    fahrzeug = plan["vehicles"][0]
+    slots = [dict(slot) for slot in fahrzeug["slots"]]
+    for slot in slots:
+        if datetime.fromisoformat(slot["t"]) == _abend("22:30"):
+            slot.update(charge=True, kw=11.0, soc_end_pct=60.0)
+    return {**plan, "vehicles": [{**fahrzeug, "slots": slots}, *plan["vehicles"][1:]]}
+
+
 def test_die_sperre_haelt_bis_zum_blockende():
     stand = _stand("second_block")
     gesperrt = ausgabe.Zustand(gesperrt_bis=_abend("22:30"))
     faellt = _auswerten(stand, _abend("22:25"), 54.0, _abend("22:25"), gesperrt)
     assert faellt.werte["charge_now"] is False
-    neuer_plan = standort.Planstand(plan=stand.plan, erhalten_um=_abend("22:24"),
-                                    anfrage=stand.anfrage)
-    assert _auswerten(neuer_plan, _abend("22:25"), 54.0, _abend("22:25"),
-                      gesperrt).werte["charge_now"] is False
+    # Ein neuer Plan verlaengert den Block bis 22:45. Die Sperre gilt trotzdem
+    # bis 22:30, wie der Plan beim Abschalten es nannte, und nicht laenger.
+    neuer_plan = standort.Planstand(plan=_block_bis_2245(stand.plan),
+                                    erhalten_um=_abend("22:24"), anfrage=stand.anfrage)
+    haelt = _auswerten(neuer_plan, _abend("22:25"), 54.0, _abend("22:25"), gesperrt)
+    assert haelt.werte["charge_now"] is False
+    danach = _auswerten(neuer_plan, _abend("22:32"), 56.0, _abend("22:32"), haelt.zustand)
+    assert (danach.werte["charge_now"], danach.zustand.gesperrt_bis) == (True, None)
     naechster_block = _auswerten(stand, _abend("23:15"), 56.0, _abend("23:15"), faellt.zustand)
     assert naechster_block.werte["charge_now"] is True
     assert naechster_block.zustand.gesperrt_bis is None
