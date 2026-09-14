@@ -61,7 +61,7 @@ def _fahrzeug(**felder) -> dict:
 
 
 def _messung(zustand: str = "47.5"):
-    return standort.Messung(zustand=zustand, geaendert=MESSZEIT)
+    return standort.Messung(zustand=zustand, gemeldet=MESSZEIT)
 
 
 EIN_LADEPUNKT = [("wb-1", _ladepunkt())]

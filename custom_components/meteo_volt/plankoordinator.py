@@ -347,7 +347,9 @@ class MeteoVoltPlanKoordinator(DataUpdateCoordinator[standort.Planstand]):
             messungen[fahrzeug_id] = (
                 None
                 if zustand is None
-                else standort.Messung(zustand=zustand.state, geaendert=zustand.last_changed)
+                # last_reported, nicht last_changed (Spec C5 Abschnitt 3): ein gleichbleibender
+                # Ladestand, den die Integration neu meldet, gilt als frisch.
+                else standort.Messung(zustand=zustand.state, gemeldet=zustand.last_reported)
             )
         return messungen
 

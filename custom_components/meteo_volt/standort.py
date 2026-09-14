@@ -34,10 +34,10 @@ GRUND_LADESTAND = "ladestand_nicht_lesbar"
 
 @dataclass(frozen=True)
 class Messung:
-    """Zustand und last_changed einer Entitaet, von plankoordinator.py gelesen."""
+    """Zustand und last_reported einer Entitaet, von plankoordinator.py gelesen."""
 
     zustand: str
-    geaendert: datetime
+    gemeldet: datetime
 
 
 def ladestand_lesen(zustand: str | None) -> float | None:
@@ -113,7 +113,7 @@ def anfrage_bauen(
                 daten,
                 fahrzeug_id,
                 soc,
-                soc_measured_at=messung.geaendert.isoformat(),
+                soc_measured_at=messung.gemeldet.isoformat(),
                 station_id=station_id,
             )
         )
