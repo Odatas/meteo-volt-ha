@@ -4,7 +4,7 @@
 
 **Goal:** Jedes Fahrzeug bekommt ein Gerät mit acht Entitäten. Der Plan aus C5 wird sichtbar und automatisierbar, „Jetzt laden" stoppt am gemessenen Ladestand, und weicht die Ladegeschwindigkeit um mehr als 5 % vom Plan ab, erscheint ein Reparatur-Issue.
 
-**Architecture:** Alles, was C6 entscheidet — Werte und Attribute der acht Entitäten, der Stopp am Ladestand mit Sperre, die Messung der Ladegeschwindigkeit und ihre Bewertung — liegt im neuen Modul `ausgabe.py`, ohne Import aus Home Assistant, und ist gegen die vendorten Fixtures geprüft. `fahrzeugausgabe.py` verdrahtet es: eine Auswertung je Fahrzeug mit Listenern auf den Plan-Koordinator und die Ladestand-Entität, einem Timer und dem Issue, dazu die Basisklasse der Entitäten und das Anlegen für später angelegte Fahrzeuge. `binary_sensor.py` ist eine neue Plattform; `fahrzeugsensor.py` lädt `sensor.py` erst nach den sechs Sensoren der Prognose und abgeschirmt.
+**Architecture:** Alles, was C6 entscheidet — Werte und Attribute der acht Entitäten, der Stopp am Ladestand mit Sperre, die Messung der Ladegeschwindigkeit und ihre Bewertung — liegt im neuen Modul `ausgabe.py`, ohne Import aus Home Assistant, und ist gegen die vendorten Fixtures geprüft. `fahrzeugausgabe.py` verdrahtet es: eine Auswertung je Fahrzeug mit Listenern auf den Plan-Koordinator und die Ladestand-Entität, einem Timer und dem Issue, dazu die Basisklasse der Entitäten und das Anlegen für später angelegte Fahrzeuge. `sensor.py` lädt `fahrzeugsensor.py` erst nach den sechs Sensoren der Prognose und im `try`, die neue Plattform `binary_sensor.py` ebenso `fahrzeugbinaersensor.py`.
 
 **Tech Stack:** Python 3.12 (Venv `.venv`), pytest + jsonschema. Zur Laufzeit Home Assistant 2026.4.1 — nicht in den Testabhängigkeiten.
 
@@ -17,7 +17,7 @@
 - **Python** ist `.venv/Scripts/python.exe`. Ein blankes `python` ist der Windows-Store-Alias. **Kein Venv-Update**, keine neue Testabhängigkeit.
 - **`custom_components/` ist Endnutzer-Code.** HACS paketiert genau dieses Verzeichnis.
 - **`ausgabe.py` importiert nichts aus Home Assistant und nichts aus aiohttp**, ebenso wenig die Module, die es lädt (`standort.py` und was daran hängt). Der Test lädt es über ein Paket, dessen `__init__.py` nicht läuft.
-- **Bestandsschutz:** Die sechs Sensoren, ihr `unique_id`-Schema `meteo_volt_{entry_id}_{key}` und `hass.data[DOMAIN]` bleiben unberührt. `sensor.py` legt die sechs zuerst an; die Fahrzeugsensoren folgen in einem `try`, **der Import eingeschlossen**. Neue Entitäten tragen `meteo_volt_{subentry_id}_{schlüssel}`.
+- **Bestandsschutz:** Die sechs Sensoren, ihr `unique_id`-Schema `meteo_volt_{entry_id}_{key}` und `hass.data[DOMAIN]` bleiben unberührt. `sensor.py` legt die sechs zuerst an; die Fahrzeugsensoren folgen in einem `try`, **der Import eingeschlossen**. `binary_sensor.py` lädt seine Klassen ebenso, und kein Rückruf an `async_on_unload` gibt etwas zurück (Spec Abschnitt 8). Neue Entitäten tragen `meteo_volt_{subentry_id}_{schlüssel}`.
 - **Kein Attribut der acht Entitäten geht in den Recorder** (Spec Abschnitt 3).
 - **Aus C5 benutzt C6 nur die zugesagte Oberfläche:** `entry.runtime_data`, `Planstand`, `was_gilt`, `ladestand_lesen`, `VERALTET_NACH` und die Gründe (C5-Spec Abschnitt 9). `standort.py` und `plankoordinator.py` bleiben unverändert.
 - **Die 35 Kontrakt-Artefakte werden nie von Hand geändert** — `tests/fixtures/contract/**` und `contract.lock.json`.
@@ -34,7 +34,8 @@
 |---|---|
 | `custom_components/meteo_volt/ausgabe.py` | **neu.** Werte und Attribute der acht Entitäten, Stopp am Ladestand, Sperre, Messung, Bewertung, Issue-Texte. Ohne Home Assistant. |
 | `custom_components/meteo_volt/fahrzeugausgabe.py` | **neu.** Auswertung je Fahrzeug mit Listenern, Timer und Issue; Basisklasse der Entitäten; Anlegen für später angelegte Fahrzeuge. |
-| `custom_components/meteo_volt/binary_sensor.py` | **neu.** Jetzt laden, Plan erfüllbar. |
+| `custom_components/meteo_volt/binary_sensor.py` | **neu.** Die Plattform. Lädt `fahrzeugbinaersensor.py` erst im `try`. |
+| `custom_components/meteo_volt/fahrzeugbinaersensor.py` | **neu.** Jetzt laden, Plan erfüllbar. |
 | `custom_components/meteo_volt/fahrzeugsensor.py` | **neu.** Die sechs Sensoren je Fahrzeug, von `sensor.py` abgeschirmt geladen. |
 | `custom_components/meteo_volt/sensor.py` | **ergänzt.** Nach den sechs Sensoren der Aufruf von `fahrzeugsensor.py` im `try`. |
 | `custom_components/meteo_volt/__init__.py` | **ergänzt.** Plattform `binary_sensor`, Start der Auswertungen hinter dem Koordinator. |
@@ -43,9 +44,10 @@
 | `custom_components/meteo_volt/manifest.json` | **geändert.** Version `1.1.0-beta.9`. |
 | `tests/test_ausgabe.py` | **neu.** Prüft `ausgabe.py` gegen die Response-Fixtures und erzeugte Ladestände. |
 | `tests/test_uebersetzungen.py` | **ergänzt.** Namen, Zustände und Issues sind in beiden Sprachen beschriftet. |
+| `tests/test_verdrahtung.py` | **neu.** Am Quelltext: keine `lambda` an `async_on_unload`, und C6 wird außerhalb von C6 nur im `try` importiert. |
 | `README.md` | **ergänzt.** Abschnitt „Charge planning" mit Automation und ApexCharts-Karte. |
 
-**Was das Gate nicht sieht:** Home Assistant. `tests/test_overrides.py` parst jede `.py`-Datei der Integration und fängt Syntaxfehler, aber keine falschen Namen. Dafür prüft Task 3 einmalig jeden benutzten Namen gegen den Quelltext von Home Assistant 2026.4.1, mit Gegenprobe. Das Verhalten sieht nur die Abnahme.
+**Was das Gate nicht sieht:** Home Assistant. `tests/test_overrides.py` parst jede `.py`-Datei der Integration und fängt Syntaxfehler, aber keine falschen Namen. Dafür prüft Task 3 einmalig jeden benutzten Namen gegen den Quelltext von Home Assistant 2026.4.1, mit Gegenprobe. `tests/test_verdrahtung.py` prüft zwei Regeln der Verdrahtung am Quelltext. Das Verhalten sieht nur die Abnahme.
 
 **Geprüft beim Schreiben dieses Plans, am 2026-09-14,** in einer Kopie gegen die echten Fixtures: Task 1 ohne Modul beim Sammeln rot, mit Modul 40 grün — erst nachdem die 5-%-Grenze als Differenz verglichen wurde; als Quotient ergab `105 / 100 - 1` in Gleitkomma `0.05000000000000004`. `test_uebersetzungen.py` mit den neuen Tests und den alten Texten 10 rot, mit den Texten 44 grün; die Suite danach 312 grün. Die Namensprüfung fand alle 62 Namen und scheiterte mit einem vertippten. Ihr erster Lauf meldete `SensorDeviceClass` fälschlich als fehlend: `sensor/__init__.py` reicht die Klasse aus `const.py` nur weiter. Die Prüfung erkennt seitdem weitergereichte Namen.
 
@@ -1997,13 +1999,32 @@ EOF
 
 ---
 
+### Nachtrag: Befunde der Prüfung
+
+Nach Task 4 hat ein Subagent ohne Vorwissen den Stand geprüft. Zuerst wurde die Spec korrigiert (Brain `55c95b9`), dann der Code, jeder Befund mit Test und grüner Suite. Die Codeblöcke in den Tasks 1 bis 4 zeigen den Stand davor.
+
+| # | Befund | Behoben durch |
+|---|---|---|
+| 1 | Die `lambda` an `async_on_unload` gab ein Objekt zurück. Das Entladen scheiterte, nach dem Neuladen blieben die sechs Sensoren nicht verfügbar. | eine benannte Funktion; `tests/test_verdrahtung.py` |
+| 2 | Eine Ladestand-Meldung speicherte neue Fahrzeugdaten vor dem Vergleich. Messung und Issue blieben. | Vergleich und Entscheidung über das Issue in `ausgabe.py` |
+| 3 | Der Test ohne Anstieg scheiterte schon an der Mindestzahl von drei Punkten. | eine Reihe 50/51, Gegenprobe mit 52 |
+| 4 | Der Pausentest prüfte nur die gemessene Steigung. | auch Zeitpunkt der Bewertung und geplante Rate |
+| 5 | Ein Importfehler in `binary_sensor.py` hätte das Einrichten des ganzen Eintrags abgebrochen. | `fahrzeugbinaersensor.py`, im `try` geladen; `tests/test_verdrahtung.py` |
+| 6 | `ladestand_nicht_lesbar` erscheint erst mit dem nächsten Lauf. | Spec Abschnitt 2.2, Abnahmeschritt 8 |
+| 7 | Der Test der Sperre gegen einen neuen Plan nutzte denselben Plan. | ein Plan, der den Block verlängert |
+| 8 | Die Beispielautomation im README setzte die Ladeleistung nicht. | `number.set_value`, `mode: queued` |
+
+Jeder neue oder geschärfte Test ist gegen eine Mutante geprüft: die Regel verändert, der Test rot. Die Namensprüfung fand danach alle 66 Namen. Suite: 316 grün.
+
+---
+
 ### Task 5: Die Beta
 
 **Files:**
 - Modify: `custom_components/meteo_volt/manifest.json`
 
 **Interfaces:**
-- Consumes: den Stand nach Task 4.
+- Consumes: den Stand nach dem Nachtrag.
 - Produces: den Prerelease `1.1.0-beta.9` auf dem Commit dieses Tasks.
 
 Die Regeln stehen in `CLAUDE.md`, Abschnitt „Betas gehen über HACS". `gh` ist auf diesem Rechner nicht installiert — das Release entsteht in der GitHub-Oberfläche.
@@ -2025,7 +2046,7 @@ durch:
 - [ ] **Step 2: Suite, Kontrakt, Commit**
 
 Run: `.venv/Scripts/python.exe -m pytest -q`
-Expected: `312 passed`
+Expected: `316 passed`
 
 Run: `.venv/Scripts/python.exe scripts/check_contract.py`
 Expected: `Kontrakt in sync (35 Dateien geprueft)`
@@ -2072,7 +2093,7 @@ Expected: der Tag zeigt auf den Commit aus Step 3, das Manifest im Tag nennt `1.
 
 Auf der eigenen Instanz mit Home Assistant 2026.4.1 und `1.1.0-beta.9`. Vorher ist C6 nicht fertig. Die Schritte sind die aus Spec Abschnitt 11.
 
-**Vorbereitung.** In HACS „Repository-Informationen aktualisieren", `1.1.0-beta.9` herunterladen, Home Assistant neu starten. `const_overwrite.json` zeigt wie bei C5 auf eine Umgebung mit Plan-Route. Auf der Seite der Integration „Debug-Logging aktivieren". Für Schritt 6 ein Helfer `input_number` von 0 bis 100 in Schritten von 1, für Schritt 11 ein `input_boolean` als Test-Schalter.
+**Vorbereitung.** In HACS „Repository-Informationen aktualisieren", `1.1.0-beta.9` herunterladen, Home Assistant neu starten. `const_overwrite.json` zeigt wie bei C5 auf eine Umgebung mit Plan-Route. Auf der Seite der Integration „Debug-Logging aktivieren". Für Schritt 6 ein Helfer `input_number` von 0 bis 100 in Schritten von 1. Für Schritt 12 ein `input_boolean` als Test-Schalter und ein `input_number` von 0 bis 22 in Schritten von 0,1 als Sollwert; in der Beispielautomation dann `input_boolean.turn_on`, `input_boolean.turn_off` und `input_number.set_value` statt `switch` und `number`.
 
 **Hinweis zur Ladestand-Entität.** Eingetragen ist `sensor.id_buzz_soc`, das wie `…_battery` nur alle 15 min meldet. `sensor.id_buzz_ladezustand` meldete am 2026-09-10 etwa alle 4 min; damit stoppt „Jetzt laden" genauer.
 
@@ -2083,11 +2104,12 @@ Auf der eigenen Instanz mit Home Assistant 2026.4.1 und `1.1.0-beta.9`. Vorher i
 5. **Slotgrenze:** an einer Slotgrenze wechselt „Jetzt laden" wie der Plan, ohne neuen Aufruf im Debug-Log.
 6. **Stopp am Ladestand:** die Ladestand-Entität des Fahrzeugs auf die `input_number` stellen. Während eines Blocks den Wert auf das Blockziel setzen: „Jetzt laden" geht aus, `ziel_erreicht` ist `true`, die Leistung `0`. Den Wert wieder senken: es bleibt aus bis zum Blockende.
 7. **Ohne Plan,** etwa über eine Überschreibung auf einen nicht erreichbaren Host und einen Neustart: der Ladeplan zeigt `kein_plan` mit `fehler`, die Planwerte sind unbekannt, „Jetzt laden" trägt `quelle: default`.
-8. **Ladestand nicht lesbar:** die Ladestand-Entität meldet `unavailable` — der Ladeplan zeigt `ladestand_nicht_lesbar`.
+8. **Ladestand nicht lesbar:** die Ladestand-Entität meldet `unavailable`, danach `dev_plan` aufrufen — der Ladeplan zeigt `ladestand_nicht_lesbar`. Ohne Aufruf zeigt er das erst nach dem nächsten Lauf, denn dafür löst C5 keinen aus.
 9. **Zweites Fahrzeug:** anlegen — binnen 30 s stehen Gerät und acht Entitäten, und die sechs Sensoren werden dabei nicht unavailable. Wieder löschen — Gerät und Entitäten sind weg.
-10. **Abweichung:** den Wirkungsgrad auf 80 % stellen und mindestens 2 h nach Plan laden — das Issue „lädt schneller" erscheint mit Zahlen. Den Wirkungsgrad zurückstellen — das Issue ist weg.
-11. **README:** die Beispielautomation auf den Test-Schalter — er folgt „Jetzt laden". Die ApexCharts-Karte zeigt Leistung und Ladestand.
-12. **Durchgehend:** die sechs Sensoren laufen in allen Schritten weiter.
+10. **Neu laden:** den Eintrag neu laden (Integration, ⋮, Neu laden) — im Log steht kein Fehler, die sechs Sensoren und die Entitäten der Fahrzeuge sind wieder da.
+11. **Abweichung:** den Wirkungsgrad auf 80 % stellen und mindestens 2 h nach Plan laden — das Issue „lädt schneller" erscheint mit Zahlen. Den Wirkungsgrad zurückstellen — das Issue ist weg.
+12. **README:** die Beispielautomation auf die Test-Helfer — der Schalter folgt „Jetzt laden", der Sollwert „Geplante Ladeleistung". Die ApexCharts-Karte zeigt Leistung und Ladestand.
+13. **Durchgehend:** die sechs Sensoren laufen in allen Schritten weiter.
 
 Den Rückfall bei veraltetem Ladestand prüft die Abnahme nicht: dafür müsste ein Wert über dem Ziel 31 min lang ohne neue Meldung stehen, während der Plan lädt. Das deckt `tests/test_ausgabe.py`.
 
