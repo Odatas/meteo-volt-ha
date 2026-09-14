@@ -1,50 +1,34 @@
 """Binaersensoren je Fahrzeug: Jetzt laden und Plan erfuellbar.
 
-Eine neue Plattform. Scheitert ihr Aufbau, beruehrt das die sechs Sensoren
-der Prognose nicht (Spec C6 Abschnitt 8).
+Home Assistant importiert alle Plattformen eines Eintrags, bevor es eine
+einrichtet, und ein Importfehler bricht das Einrichten des ganzen Eintrags ab,
+die sechs Sensoren der Prognose eingeschlossen. Die Klassen stehen deshalb in
+fahrzeugbinaersensor.py und werden erst hier im try geladen (Spec C6
+Abschnitt 8).
 
 Spec: meteo-volt-brain/docs/features/C6-ausgabe-entitaeten/spec.md
 """
 
 from __future__ import annotations
 
-from homeassistant.components.binary_sensor import (
-    BinarySensorEntity,
-    BinarySensorEntityDescription,
-)
+import logging
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from . import ausgabe
-from .fahrzeugausgabe import FahrzeugEntitaet, Fahrzeugausgabe, fahrzeuge_anbinden
-
-BESCHREIBUNGEN = (
-    BinarySensorEntityDescription(key=ausgabe.JETZT_LADEN, translation_key=ausgabe.JETZT_LADEN),
-    BinarySensorEntityDescription(key=ausgabe.ERFUELLBAR, translation_key=ausgabe.ERFUELLBAR),
-)
-
-
-class FahrzeugBinaersensor(FahrzeugEntitaet, BinarySensorEntity):
-    """Spec Abschnitt 2. Kein Attribut geht in den Recorder (Abschnitt 3)."""
-
-    _unrecorded_attributes = frozenset(
-        {ausgabe.QUELLE, ausgabe.ZIEL_ERREICHT, ausgabe.VIOLATIONS}
-    )
-
-    @property
-    def is_on(self) -> bool | None:
-        return self._wert
-
-
-def _bauen(fahrzeugausgabe: Fahrzeugausgabe) -> list[FahrzeugBinaersensor]:
-    return [FahrzeugBinaersensor(fahrzeugausgabe, b) for b in BESCHREIBUNGEN]
+_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
-    async_add_entities: AddConfigEntryEntitiesCallback,
+    async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Die Binaersensoren aller Fahrzeuge, auch der spaeter angelegten."""
-    fahrzeuge_anbinden(hass, entry, async_add_entities, _bauen)
+    try:
+        from .fahrzeugbinaersensor import fahrzeugbinaersensoren_anbinden
+
+        fahrzeugbinaersensoren_anbinden(hass, entry, async_add_entities)
+    except Exception:  # pylint: disable=broad-except
+        _LOGGER.exception("Binaersensoren je Fahrzeug nicht angelegt, die Prognose laeuft weiter")
