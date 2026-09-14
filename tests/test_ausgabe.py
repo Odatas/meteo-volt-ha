@@ -350,15 +350,18 @@ def test_pause_und_gefahrener_ladestand_zwischen_zwei_bloecken_zaehlen_nicht():
                               GEPLANT, 40.0 + GEPLANT * minute / 60)
     abgleich = _messpunkt(abgleich, beginn + timedelta(minutes=61), None, None)
     zweiter = beginn + timedelta(hours=4)
-    bewertung = None
+    bewertet = []
     for minute in range(0, 61, 5):
         abgleich, bewertung = ausgabe.abgleichen(
             abgleich, zweiter + timedelta(minutes=minute),
             GEPLANT, 35.0 + GEPLANT * minute / 60)
         if bewertung is not None:
-            break
-    assert bewertung is not None
-    assert bewertung.gemessen == pytest.approx(GEPLANT)
+            bewertet.append((minute, bewertung))
+    # 61 min im ersten Block, die 2 h fallen in Minute 59 des zweiten. Zaehlte
+    # die Pause mit, kaeme die Bewertung schon bei Minute 0.
+    assert [minute for minute, _ in bewertet] == [60]
+    assert bewertet[0][1].geplant == pytest.approx(GEPLANT)
+    assert bewertet[0][1].gemessen == pytest.approx(GEPLANT)
 
 
 def test_geaenderte_daten_beginnen_die_messung_neu_und_nehmen_das_issue_zurueck():
