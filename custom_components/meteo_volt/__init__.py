@@ -17,7 +17,7 @@ from .dev import async_dev_action_registrieren
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -50,6 +50,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         entry.runtime_data = None
     else:
         entry.runtime_data = plan_koordinator
+        _ausgaben_starten(hass, entry, plan_koordinator)
 
     # Temporaer, Spec C7 Abschnitt 7: nur wenn const_overwrite.json wirkt.
     if overrides:
@@ -58,6 +59,26 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
+
+
+def _ausgaben_starten(
+    hass: HomeAssistant, entry: ConfigEntry, plan_koordinator: MeteoVoltPlanKoordinator
+) -> None:
+    """Spec C6 Abschnitt 8: die Auswertung je Fahrzeug, fuer beide Plattformen.
+
+    Scheitert sie, fehlen nur die Fahrzeugentitaeten; Prognose und Plan laufen
+    weiter. Der Import steht deshalb mit im try.
+    """
+    try:
+        from .fahrzeugausgabe import AUSGABEN, Fahrzeugausgaben
+
+        ausgaben = Fahrzeugausgaben(hass, entry, plan_koordinator)
+        ausgaben.async_starten()
+    except Exception:  # pylint: disable=broad-except
+        _LOGGER.exception("Ausgabe je Fahrzeug nicht gestartet, die Prognose laeuft weiter")
+        return
+    hass.data.setdefault(AUSGABEN, {})[entry.entry_id] = ausgaben
+    entry.async_on_unload(lambda: hass.data[AUSGABEN].pop(entry.entry_id, None))
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
