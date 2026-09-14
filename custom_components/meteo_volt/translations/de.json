@@ -6,13 +6,21 @@
         "description": "Bitte gib dein API Token und optionale Netzkosten/Abgaben ein, um dich mit Meteo-Volt zu verbinden.",
         "data": {
           "api_token": "API Token",
-          "grid_fees": "Netzkosten & Abgaben (EUR/kWh)"
+          "grid_fees": "Netzkosten & Abgaben (EUR/kWh)",
+          "site_max_power_kw": "Hausanschluss (kW)"
+        },
+        "data_description": {
+          "site_max_power_kw": "Wird erst mit der Planung mehrerer Fahrzeuge berücksichtigt."
         }
       },
       "reconfigure": {
         "data": {
           "api_token": "API Token",
-          "grid_fees": "Netzkosten & Abgaben (EUR/kWh)"
+          "grid_fees": "Netzkosten & Abgaben (EUR/kWh)",
+          "site_max_power_kw": "Hausanschluss (kW)"
+        },
+        "data_description": {
+          "site_max_power_kw": "Wird erst mit der Planung mehrerer Fahrzeuge berücksichtigt."
         }
       }
     },
@@ -99,7 +107,7 @@
                 "plugged_entity": "Angesteckt"
               },
               "data_description": {
-                "station_id": "Optional. Wenn gesetzt, lädt das Fahrzeug nur an diesem Ladepunkt."
+                "station_id": "Optional. Wenn gesetzt, lädt das Fahrzeug nur hier, sonst am zuerst angelegten Ladepunkt. Mehrere Fahrzeuge werden noch nicht gemeinsam geplant."
               }
             }
           }
@@ -129,7 +137,7 @@
                 "plugged_entity": "Angesteckt"
               },
               "data_description": {
-                "station_id": "Optional. Wenn gesetzt, lädt das Fahrzeug nur an diesem Ladepunkt."
+                "station_id": "Optional. Wenn gesetzt, lädt das Fahrzeug nur hier, sonst am zuerst angelegten Ladepunkt. Mehrere Fahrzeuge werden noch nicht gemeinsam geplant."
               }
             }
           }
@@ -141,6 +149,12 @@
       "abort": {
         "reconfigure_successful": "Das Fahrzeug wurde geändert."
       }
+    }
+  },
+  "issues": {
+    "plan_veraltet": {
+      "title": "Ladeplanung ohne neuen Plan",
+      "description": "Seit 12 Stunden kam kein neuer Ladeplan. Letzter Fehler: {fehler}"
     }
   }
 }

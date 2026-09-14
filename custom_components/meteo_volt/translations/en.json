@@ -6,13 +6,21 @@
         "description": "Please enter your API token and optional grid fees to connect to Meteo-Volt.",
         "data": {
           "api_token": "API Token",
-          "grid_fees": "Grid Fees (EUR/kWh)"
+          "grid_fees": "Grid Fees (EUR/kWh)",
+          "site_max_power_kw": "Grid connection (kW)"
+        },
+        "data_description": {
+          "site_max_power_kw": "Only taken into account once several vehicles are planned together."
         }
       },
       "reconfigure": {
         "data": {
           "api_token": "API Token",
-          "grid_fees": "Grid Fees (EUR/kWh)"
+          "grid_fees": "Grid Fees (EUR/kWh)",
+          "site_max_power_kw": "Grid connection (kW)"
+        },
+        "data_description": {
+          "site_max_power_kw": "Only taken into account once several vehicles are planned together."
         }
       }
     },
@@ -99,7 +107,7 @@
                 "plugged_entity": "Plugged in"
               },
               "data_description": {
-                "station_id": "Optional. If set, the vehicle charges only at this charge point."
+                "station_id": "Optional. If set, the vehicle charges only here, otherwise at the charge point created first. Several vehicles are not yet planned together."
               }
             }
           }
@@ -129,7 +137,7 @@
                 "plugged_entity": "Plugged in"
               },
               "data_description": {
-                "station_id": "Optional. If set, the vehicle charges only at this charge point."
+                "station_id": "Optional. If set, the vehicle charges only here, otherwise at the charge point created first. Several vehicles are not yet planned together."
               }
             }
           }
@@ -141,6 +149,12 @@
       "abort": {
         "reconfigure_successful": "The vehicle was updated."
       }
+    }
+  },
+  "issues": {
+    "plan_veraltet": {
+      "title": "Charge planning without a new plan",
+      "description": "No new charge plan for 12 hours. Last error: {fehler}"
     }
   }
 }
