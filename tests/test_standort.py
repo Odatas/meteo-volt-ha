@@ -202,7 +202,7 @@ def test_ein_geloeschter_gebundener_ladepunkt_laesst_das_fahrzeug_aus():
     (planabruf.PlanRateLimit(retry_after=39.0, status=429), (standort.NACHHOLEN, 39.0)),
     (planabruf.PlanNichtVerfuegbar(status=503), (standort.NACHHOLEN, 300.0)),
     (planabruf.PlanAbgelehnt(status=404), (standort.PAUSE, None)),
-    (planabruf.PlanNichtAutorisiert(status=401), (standort.PAUSE, None)),
+    (planabruf.PlanNichtAutorisiert(status=401), (standort.STOPP, None)),
 ], ids=["erfolg", "rate-limit", "nicht-verfuegbar", "abgelehnt", "nicht-autorisiert"])
 def test_jede_fehlerklasse_hat_ihren_naechsten_versuch(fehler, erwartet):
     assert standort.naechster_versuch(fehler) == erwartet
@@ -385,9 +385,11 @@ def test_ein_gescheiterter_nachholversuch_plant_keinen_weiteren(fehler):
         standort.WEITER_IM_GRUNDTAKT, None)
 
 
-def test_nach_abgelehnt_pausiert_der_grundtakt_auch_beim_nachholen():
-    fehler = planabruf.PlanAbgelehnt(status=404)
-    assert standort.naechster_versuch(fehler, nur_nachholen=True) == (standort.PAUSE, None)
+def test_abgelehnt_und_key_fehler_gelten_auch_beim_nachholen():
+    abgelehnt = planabruf.PlanAbgelehnt(status=404)
+    key_fehler = planabruf.PlanNichtAutorisiert(status=401)
+    assert standort.naechster_versuch(abgelehnt, nur_nachholen=True) == (standort.PAUSE, None)
+    assert standort.naechster_versuch(key_fehler, nur_nachholen=True) == (standort.STOPP, None)
 
 
 @pytest.mark.parametrize("grund", [
@@ -446,3 +448,17 @@ def test_geht_die_uhr_im_haus_nach_gilt_der_erste_slot():
         standort.QUELLE_PLAN, True, beginn + timedelta(minutes=15))
     zu_weit = standort.was_gilt(stand, "auto-a", beginn - timedelta(minutes=15), None)
     assert zu_weit["quelle"] == standort.QUELLE_DEFAULT
+
+
+@pytest.mark.parametrize(("takt", "vor", "erwartet"), [
+    ("grundtakt", timedelta(minutes=5), "grundtakt"),
+    ("pause", timedelta(hours=11, minutes=59), None),
+    ("pause", timedelta(hours=12), "herzschlag"),
+    ("pause", None, "herzschlag"),
+    ("stopp", timedelta(days=3), None),
+], ids=["grundtakt", "pause-knapp", "pause-herzschlag", "pause-ohne-versuch", "stopp"])
+def test_nach_abgelehnt_nur_der_herzschlag_nach_key_fehler_nichts(takt, vor, erwartet):
+    """Spec Abschnitt 7, entschieden am 2026-09-14."""
+    jetzt = datetime(2026, 9, 14, 20, 0, tzinfo=timezone.utc)
+    letzter = None if vor is None else jetzt - vor
+    assert standort.takt_ausloeser(takt, letzter, jetzt) == erwartet

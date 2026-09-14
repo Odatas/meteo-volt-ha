@@ -162,6 +162,11 @@ _VIERTELSTUNDE_S = 900
 WEITER_IM_GRUNDTAKT = "grundtakt"
 NACHHOLEN = "nachholen"
 PAUSE = "pause"
+STOPP = "stopp"
+
+# Nach abgelehnt schickt der Takt nur noch diesen Herzschlag. Entschieden am
+# 2026-09-14: ein kurzer Serverfehler soll die Planung nicht tagelang anhalten.
+HERZSCHLAG_NACH = timedelta(hours=12)
 
 # --- Was gerade gilt, Spec Abschnitt 8 -------------------------------------
 
@@ -191,11 +196,14 @@ def naechster_versuch(
 
     ("grundtakt", None)  weiter im Grundtakt
     ("nachholen", s)     einmal nach s Sekunden, danach im Grundtakt
-    ("pause", None)      erst beim naechsten Ausloeser, der Grundtakt pausiert
+    ("pause", None)      der Takt schickt nur noch den Herzschlag, alle 12 h
+    ("stopp", None)      nichts mehr, bis ein neuer Key den Eintrag neu laedt
+                         oder Home Assistant neu startet
 
-    Abgelehnt und nicht autorisiert pausieren, weil dieselbe Anfrage wieder
-    scheitert -- und weil die main-Umgebung heute keine Plan-Route hat: jeder
-    Beta-Nutzer mit Fahrzeug schickte sonst stuendlich einen 404.
+    Abgelehnt pausiert, weil dieselbe Anfrage wieder scheitert -- und weil die
+    main-Umgebung heute keine Plan-Route hat: jeder Beta-Nutzer mit Fahrzeug
+    schickte sonst stuendlich einen 404. Ein Key-Fehler stoppt, weil ohne
+    gueltigen Key jeder Request scheitert.
 
     nur_nachholen heisst: der Lauf war selbst ein Nachholversuch. Scheitert
     er, wird nicht wieder nachgeholt -- sonst liefe bei einem Ausfall alle
@@ -203,13 +211,34 @@ def naechster_versuch(
     """
     if fehler is None:
         return WEITER_IM_GRUNDTAKT, None
-    if isinstance(fehler, (PlanAbgelehnt, PlanNichtAutorisiert)):
+    if isinstance(fehler, PlanNichtAutorisiert):
+        return STOPP, None
+    if isinstance(fehler, PlanAbgelehnt):
         return PAUSE, None
     if nur_nachholen:
         return WEITER_IM_GRUNDTAKT, None
     if isinstance(fehler, PlanRateLimit):
         return NACHHOLEN, fehler.retry_after
     return NACHHOLEN, NACHHOLEN_NICHT_VERFUEGBAR_S
+
+
+def takt_ausloeser(
+    takt: str, letzter_versuch_um: datetime | None, jetzt: datetime
+) -> str | None:
+    """Was der stuendliche Takt ausloest, oder None. Spec Abschnitt 7.
+
+    takt ist die Art aus naechster_versuch nach dem letzten Aufruf. Nach
+    abgelehnt nur noch der Herzschlag, wenn der letzte Versuch 12 h her ist:
+    ohne Angesteckt-Entitaet kaeme sonst erst mit einem Neustart wieder ein
+    Ausloeser. Nach einem Key-Fehler nichts.
+    """
+    if takt == STOPP:
+        return None
+    if takt == PAUSE:
+        if letzter_versuch_um is not None and jetzt - letzter_versuch_um < HERZSCHLAG_NACH:
+            return None
+        return "herzschlag"
+    return "grundtakt"
 
 
 def was_gilt(

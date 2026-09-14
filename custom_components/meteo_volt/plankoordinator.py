@@ -71,7 +71,7 @@ class MeteoVoltPlanKoordinator(DataUpdateCoordinator[standort.Planstand]):
         # Sperre nicht.
         self._sperre = asyncio.Lock()
         self._ausloeser: set[str] = set()
-        self._grundtakt_pausiert = False
+        self._takt = standort.WEITER_IM_GRUNDTAKT
         self._letzte_fehlerklasse: str | None = None
         self._subentries = self._subentry_abbild()
         # Ab hier zaehlt das Repair-Issue, solange kein Plan kam: der Start,
@@ -129,10 +129,12 @@ class MeteoVoltPlanKoordinator(DataUpdateCoordinator[standort.Planstand]):
         self._ausloesen("start")
 
     @callback
-    def _grundtakt(self, _jetzt: datetime) -> None:
-        # Spec Abschnitt 7: nach abgelehnt oder nicht autorisiert pausiert er.
-        if not self._grundtakt_pausiert:
-            self._ausloesen("grundtakt")
+    def _grundtakt(self, jetzt: datetime) -> None:
+        # Spec Abschnitt 7: nach abgelehnt nur der Herzschlag, nach einem
+        # Key-Fehler nichts.
+        kennung = standort.takt_ausloeser(self._takt, self.data.letzter_versuch_um, jetzt)
+        if kennung is not None:
+            self._ausloesen(kennung)
 
     async def _eintrag_geaendert(self, _hass: HomeAssistant, _entry: ConfigEntry) -> None:
         """Nur geaenderte Subentries zaehlen.
@@ -201,6 +203,11 @@ class MeteoVoltPlanKoordinator(DataUpdateCoordinator[standort.Planstand]):
             # Spec Abschnitt 7: ein Nachholversuch entfaellt, wenn vorher ein
             # anderer Aufruf kommt.
             self._nachholen_absagen()
+            if self._takt == standort.STOPP:
+                # Spec Abschnitt 7: nach einem Key-Fehler geht nichts mehr raus,
+                # bis ein neuer Key den Eintrag neu laedt oder HA neu startet.
+                _LOGGER.debug("Plan %s: gestoppt nach einem Key-Fehler, nichts gesendet", kennung)
+                return self.data
 
             anfrage, ausgelassen = standort.anfrage_bauen(
                 self._subentries_vom_typ(stammdaten.TYP_LADEPUNKT),
@@ -241,14 +248,22 @@ class MeteoVoltPlanKoordinator(DataUpdateCoordinator[standort.Planstand]):
     @callback
     def _nach_dem_aufruf(self, stand: standort.Planstand, nur_nachholen: bool) -> None:
         art, sekunden = standort.naechster_versuch(stand.fehler, nur_nachholen)
-        self._grundtakt_pausiert = art == standort.PAUSE
+        # Ein Nachholversuch laeuft neben dem Grundtakt, er ersetzt ihn nicht.
+        self._takt = standort.WEITER_IM_GRUNDTAKT if art == standort.NACHHOLEN else art
         if art == standort.NACHHOLEN:
             self._nachholen_abbrechen = async_call_later(self.hass, sekunden, self._nachholen)
 
         klasse = None if stand.fehler is None else type(stand.fehler).__name__
         if klasse is not None and klasse != self._letzte_fehlerklasse:
             # Spec Abschnitt 7: einmal, wenn er auftritt oder die Klasse wechselt.
-            _LOGGER.warning("Kein neuer Ladeplan: %s: %s", klasse, stand.fehler)
+            _LOGGER.warning(
+                "Kein neuer Ladeplan: %s: %s%s",
+                klasse,
+                stand.fehler,
+                " -- gestoppt bis zu einem neuen API-Key oder einem Neustart"
+                if art == standort.STOPP
+                else "",
+            )
         self._letzte_fehlerklasse = klasse
 
         if stand.fehler is None:
