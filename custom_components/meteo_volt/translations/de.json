@@ -151,10 +151,55 @@
       }
     }
   },
+  "entity": {
+    "binary_sensor": {
+      "charge_now": {
+        "name": "Jetzt laden"
+      },
+      "feasible": {
+        "name": "Plan erfüllbar"
+      }
+    },
+    "sensor": {
+      "charge_now_kw": {
+        "name": "Geplante Ladeleistung"
+      },
+      "next_charge_start": {
+        "name": "Nächster Ladestart"
+      },
+      "total_kwh": {
+        "name": "Geplante Energie"
+      },
+      "total_cost": {
+        "name": "Geplante Kosten"
+      },
+      "soc_end_pct": {
+        "name": "Ladestand am Planende"
+      },
+      "plan": {
+        "name": "Ladeplan",
+        "state": {
+          "kein_ladepunkt": "Kein Ladepunkt",
+          "ladepunkt_geloescht": "Ladepunkt gelöscht",
+          "ladestand_nicht_lesbar": "Ladestand nicht lesbar",
+          "aktuell": "Aktuell",
+          "kein_plan": "Kein Plan"
+        }
+      }
+    }
+  },
   "issues": {
     "plan_veraltet": {
       "title": "Ladeplanung ohne neuen Plan",
       "description": "Seit 12 Stunden kam kein neuer Ladeplan. Letzter Fehler: {fehler}"
+    },
+    "ladung_schneller": {
+      "title": "{fahrzeug} lädt schneller als geplant",
+      "description": "Gemessen {gemessen} %/h, geplant {geplant} %/h, also {abweichung} % schneller. Wahrscheinlich ist der Wirkungsgrad zu niedrig, die Kapazität zu groß oder die Ladeleistung zu klein eingetragen."
+    },
+    "ladung_langsamer": {
+      "title": "{fahrzeug} lädt langsamer als geplant",
+      "description": "Gemessen {gemessen} %/h, geplant {geplant} %/h, also {abweichung} % langsamer. Wahrscheinlich ist der Wirkungsgrad zu hoch, die Kapazität zu klein oder die Ladeleistung zu groß eingetragen. Es kann auch sein, dass die Wallbox weniger liefert, die Automation verspätet schaltet oder das Fahrzeug selbst begrenzt."
     }
   }
 }

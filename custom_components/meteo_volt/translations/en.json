@@ -151,10 +151,55 @@
       }
     }
   },
+  "entity": {
+    "binary_sensor": {
+      "charge_now": {
+        "name": "Charge now"
+      },
+      "feasible": {
+        "name": "Plan feasible"
+      }
+    },
+    "sensor": {
+      "charge_now_kw": {
+        "name": "Planned charging power"
+      },
+      "next_charge_start": {
+        "name": "Next charge start"
+      },
+      "total_kwh": {
+        "name": "Planned energy"
+      },
+      "total_cost": {
+        "name": "Planned cost"
+      },
+      "soc_end_pct": {
+        "name": "State of charge at plan end"
+      },
+      "plan": {
+        "name": "Charge plan",
+        "state": {
+          "kein_ladepunkt": "No charge point",
+          "ladepunkt_geloescht": "Charge point deleted",
+          "ladestand_nicht_lesbar": "State of charge unreadable",
+          "aktuell": "Current",
+          "kein_plan": "No plan"
+        }
+      }
+    }
+  },
   "issues": {
     "plan_veraltet": {
       "title": "Charge planning without a new plan",
       "description": "No new charge plan for 12 hours. Last error: {fehler}"
+    },
+    "ladung_schneller": {
+      "title": "{fahrzeug} charges faster than planned",
+      "description": "Measured {gemessen} %/h, planned {geplant} %/h, {abweichung} % faster. The charging efficiency is probably set too low, the capacity too high or the charging power too low."
+    },
+    "ladung_langsamer": {
+      "title": "{fahrzeug} charges slower than planned",
+      "description": "Measured {gemessen} %/h, planned {geplant} %/h, {abweichung} % slower. The charging efficiency is probably set too high, the capacity too low or the charging power too high. The wallbox may also deliver less, the automation may switch late, or the vehicle may limit charging itself."
     }
   }
 }

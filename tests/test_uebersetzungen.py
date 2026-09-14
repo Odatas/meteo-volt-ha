@@ -186,3 +186,48 @@ def test_das_repair_issue_ist_beschriftet(sprache):
     issue = _laden(sprache).get("issues", {}).get(const.ISSUE_PLAN_VERALTET, {})
     assert issue.get("title"), sprache
     assert "{fehler}" in issue.get("description", ""), sprache
+
+
+# --- Die Entitaeten und das Issue aus C6 ------------------------------------
+# ausgabe.py laedt standort.py relativ und kommt deshalb ueber ein Paket herein,
+# dessen __init__.py nicht laeuft -- wie in test_ausgabe.py.
+
+import importlib  # noqa: E402
+import sys  # noqa: E402
+import types  # noqa: E402
+
+_PAKET = "meteo_volt_c6"
+if _PAKET not in sys.modules:
+    _paket = types.ModuleType(_PAKET)
+    _paket.__path__ = [str(INTEGRATION)]
+    sys.modules[_PAKET] = _paket
+ausgabe = importlib.import_module(f"{_PAKET}.ausgabe")
+
+PLATTFORMEN = (("binary_sensor", ausgabe.BINAERSENSOREN), ("sensor", ausgabe.SENSOREN))
+
+
+@pytest.mark.parametrize("sprache", SPRACHEN)
+@pytest.mark.parametrize(("plattform", "schluessel"), PLATTFORMEN)
+def test_jede_entitaet_hat_einen_namen(sprache, plattform, schluessel):
+    """Spec C6 Abschnitt 11. Ohne Namen leitete Home Assistant die entity_id
+    allein aus dem Geraetenamen ab -- und die bleibt."""
+    entitaeten = _laden(sprache).get("entity", {}).get(plattform, {})
+    fehlend = [s for s in schluessel if not entitaeten.get(s, {}).get("name")]
+    assert not fehlend, f"{sprache}/{plattform}: ohne Namen: {fehlend}"
+
+
+@pytest.mark.parametrize("sprache", SPRACHEN)
+def test_jeder_zustand_des_ladeplans_hat_einen_text(sprache):
+    zustaende = _laden(sprache)["entity"]["sensor"][ausgabe.LADEPLAN].get("state", {})
+    assert set(zustaende) == set(ausgabe.ZUSTAENDE), sprache
+    assert all(zustaende.values()), sprache
+
+
+@pytest.mark.parametrize("sprache", SPRACHEN)
+@pytest.mark.parametrize("schluessel", [const.ISSUE_SCHNELLER, const.ISSUE_LANGSAMER])
+def test_das_abweichungs_issue_ist_beschriftet(sprache, schluessel):
+    """Spec C6 Abschnitt 6: jeder Platzhalter steht im Text, sonst verschwaende er still."""
+    issue = _laden(sprache).get("issues", {}).get(schluessel, {})
+    assert "{fahrzeug}" in issue.get("title", ""), f"{sprache}/{schluessel}"
+    for platzhalter in ("{gemessen}", "{geplant}", "{abweichung}"):
+        assert platzhalter in issue.get("description", ""), f"{sprache}/{schluessel}: {platzhalter}"
