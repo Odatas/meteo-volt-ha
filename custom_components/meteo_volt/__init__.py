@@ -78,7 +78,14 @@ def _ausgaben_starten(
         _LOGGER.exception("Ausgabe je Fahrzeug nicht gestartet, die Prognose laeuft weiter")
         return
     hass.data.setdefault(AUSGABEN, {})[entry.entry_id] = ausgaben
-    entry.async_on_unload(lambda: hass.data[AUSGABEN].pop(entry.entry_id, None))
+
+    def ausgaben_vergessen() -> None:
+        # Spec C6 Abschnitt 8: ohne Rueckgabewert. Aus jedem ausser None macht
+        # Home Assistant einen Task, und ein anderes Objekt liesse das Entladen
+        # scheitern.
+        hass.data[AUSGABEN].pop(entry.entry_id, None)
+
+    entry.async_on_unload(ausgaben_vergessen)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
