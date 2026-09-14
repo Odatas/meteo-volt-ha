@@ -162,6 +162,125 @@ template:
 
 Extend this to pick the cheapest N slots and trigger charging — the raw material (timestamp + value per slot) is all in the attribute.
 
+## Charge planning
+
+Optional. Under the integration entry, add a charge point and a vehicle (**Add charge point**,
+**Add vehicle**). Every vehicle then gets its own device with eight entities. Without a vehicle,
+nothing changes: the six forecast sensors stay exactly as they are.
+
+| Entity | State | Notes |
+|---|---|---|
+| **Charge now** | on / off | Whether to charge now. Attributes `quelle` (`plan` or `default`) and `ziel_erreicht` |
+| **Planned charging power** | kW | The power that goes with Charge now, `0` when it is off |
+| **Next charge start** | timestamp | Start of the next charging block after the current one |
+| **Planned energy** | kWh | Energy drawn from the grid over the whole plan |
+| **Planned cost** | EUR | Including grid fees when you configured them |
+| **State of charge at plan end** | % | |
+| **Plan feasible** | on / off | Attribute `violations` says why not |
+| **Charge plan** | `aktuell`, `kein_plan`, or why the vehicle has no plan | Attributes `slots`, `intervals`, `warnings`, `fehler` |
+
+Energy, cost, state of charge at plan end and Plan feasible show `unknown` while there is no
+usable plan. Charge now then falls back to a safe default: it charges only below the vehicle's
+minimum state of charge.
+
+**The integration does not switch anything.** Charge now is a signal. The automation that
+switches your wallbox is yours, and so is any fine-tuning your hardware allows.
+
+**Charge now follows the measured state of charge, not only the clock.** It switches off as soon
+as the vehicle reaches the target of the current charging block and stays off until that block
+ends. It never charges longer than the plan. How precisely it stops depends on how often your
+state-of-charge entity reports: one that reports every 15 minutes can stop up to 15 minutes late.
+
+**Deviation warning.** After two hours of charging, the integration compares how fast the vehicle
+actually charged with what the plan assumed. More than 5 % off raises a repair issue that names
+the likely cause, usually the charging efficiency, the capacity or the charging power in the
+vehicle settings.
+
+The plan attributes are never written to the database. A plan needs no history, and the full
+slot grid would exceed the recorder's attribute limit.
+
+### Automation: let the wallbox follow Charge now
+
+Replace the entity IDs with yours. Their names follow the language of your Home Assistant.
+
+```yaml
+automation:
+  - alias: "Wallbox follows Meteo-Volt"
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.my_car_charge_now
+        to: "on"
+        id: "an"
+      - trigger: state
+        entity_id: binary_sensor.my_car_charge_now
+        to: "off"
+        id: "aus"
+    actions:
+      - choose:
+          - conditions:
+              - condition: trigger
+                id: "an"
+            sequence:
+              - action: switch.turn_on
+                target:
+                  entity_id: switch.wallbox_charging
+          - conditions:
+              - condition: trigger
+                id: "aus"
+            sequence:
+              - action: switch.turn_off
+                target:
+                  entity_id: switch.wallbox_charging
+```
+
+If your wallbox takes a power or current setpoint, set it from **Planned charging power** in the
+same automation.
+
+> **Two vehicles on one wallbox:** until vehicles are assigned to charge points, both can report
+> Charge now at the same time. Your automation has to decide which one charges.
+
+### Chart the charge plan with ApexCharts
+
+Charging power per slot as columns, the planned state of charge as a line:
+
+```yaml
+type: custom:apexcharts-card
+header:
+  show: true
+  title: Charge plan
+graph_span: 2d
+span:
+  start: hour
+yaxis:
+  - id: kw
+    min: 0
+  - id: soc
+    min: 0
+    max: 100
+    opposite: true
+series:
+  - entity: sensor.my_car_charge_plan
+    name: Charging power
+    type: column
+    yaxis_id: kw
+    unit: kW
+    data_generator: |
+      return (entity.attributes.slots || []).map((slot) => {
+        return [new Date(slot.t).getTime(), slot.kw || 0];
+      });
+  - entity: sensor.my_car_charge_plan
+    name: State of charge
+    type: line
+    yaxis_id: soc
+    unit: "%"
+    data_generator: |
+      return (entity.attributes.slots || []).map((slot) => {
+        return [new Date(slot.t).getTime() + 15 * 60 * 1000, slot.soc_end_pct];
+      });
+```
+
+`soc_end_pct` is the state of charge at the *end* of a slot, hence the 15 minutes.
+
 ## Troubleshooting
 
 - **Setup fails with "invalid auth":** check the token. Note that in this early version a token error and an unreachable server both surface as an auth error.
