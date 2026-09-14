@@ -3,8 +3,9 @@
 Dieses Modul importiert bewusst NICHTS aus Home Assistant und nichts aus
 aiohttp -- wie standort.py, auf dem es aufbaut. Hier steht, was C6
 entscheidet: welche Werte die acht Entitaeten eines Fahrzeugs tragen, wann
-"Jetzt laden" am gemessenen Ladestand abschaltet und wie die
-Ladegeschwindigkeit gegen den Plan gemessen wird. fahrzeugausgabe.py
+"Jetzt laden" am gemessenen Ladestand abschaltet, wie die
+Ladegeschwindigkeit gegen den Plan gemessen wird und wann das Issue kommt
+und geht. fahrzeugausgabe.py
 verdrahtet das mit Home Assistant und entscheidet selbst nichts.
 
 Spec: meteo-volt-brain/docs/features/C6-ausgabe-entitaeten/spec.md
@@ -87,10 +88,15 @@ class Abgleich:
 
 @dataclass(frozen=True)
 class Zustand:
-    """Was von einer Auswertung eines Fahrzeugs zur naechsten bleibt."""
+    """Was von einer Auswertung eines Fahrzeugs zur naechsten bleibt.
+
+    daten sind die Daten des Fahrzeugs bei der letzten Auswertung, vor der
+    ersten None.
+    """
 
     gesperrt_bis: datetime | None = None
     abgleich: Abgleich = field(default_factory=Abgleich)
+    daten: dict | None = None
 
 
 @dataclass(frozen=True)
@@ -117,7 +123,8 @@ class Auswertung:
 
     werte und attribute sind nach den Schluesseln aus Abschnitt 2 geordnet.
     naechste ist, wann spaetestens neu ausgewertet wird. bewertung steht nur,
-    wenn in dieser Auswertung eine Messung bewertet wurde.
+    wenn in dieser Auswertung eine Messung bewertet wurde. issue ist ANLEGEN,
+    ENTFERNEN oder None, wenn das Issue bleibt, wie es ist.
     """
 
     werte: dict
@@ -125,6 +132,7 @@ class Auswertung:
     naechste: datetime
     zustand: Zustand
     bewertung: Bewertung | None = None
+    issue: str | None = None
 
 
 def auswerten(
@@ -134,11 +142,13 @@ def auswerten(
     soc_pct: float | None,
     gemeldet: datetime | None,
     zustand: Zustand,
+    daten: dict,
 ) -> Auswertung:
     """Eine Auswertung fuer ein Fahrzeug. Spec Abschnitte 2 bis 6.
 
     soc_pct ist der Ladestand nach standort.ladestand_lesen, gemeldet sein
-    last_reported. zustand kommt aus der vorigen Auswertung.
+    last_reported. zustand kommt aus der vorigen Auswertung, daten sind die
+    Daten aus dem Subentry des Fahrzeugs.
     """
     gilt = standort.was_gilt(stand, fahrzeug_id, jetzt, soc_pct)
     mit_plan = gilt["quelle"] == standort.QUELLE_PLAN
@@ -158,15 +168,21 @@ def auswerten(
         if gesperrt_bis is not None:
             laden, kw = False, 0.0
 
+    # Abschnitt 6: aendern sich die Daten des Fahrzeugs, beginnt die Messung
+    # neu, und das Issue geht. Das prueft jede Auswertung, gleich aus welchem Anlass.
+    geaendert = zustand.daten is not None and daten != zustand.daten
     rate = _geplante_rate(stand, fahrzeug_id, kw) if mit_plan and laden else None
-    abgleich, bewertung = abgleichen(zustand.abgleich, jetzt, rate, soc_pct if frisch else None)
+    abgleich, bewertung = abgleichen(
+        Abgleich() if geaendert else zustand.abgleich, jetzt, rate, soc_pct if frisch else None
+    )
 
     return Auswertung(
         werte=_werte(stand, fahrzeug_id, gilt, fahrzeugplan, laden, kw),
         attribute=_attribute(stand, fahrzeug_id, gilt, fahrzeugplan, mit_plan and gesperrt_bis is not None),
         naechste=_naechste(stand, jetzt, gilt["current_slot_end"]),
-        zustand=Zustand(gesperrt_bis=gesperrt_bis, abgleich=abgleich),
+        zustand=Zustand(gesperrt_bis=gesperrt_bis, abgleich=abgleich, daten=daten),
         bewertung=bewertung,
+        issue=_issue(bewertung, geaendert),
     )
 
 
@@ -365,6 +381,16 @@ def _naechste(stand: standort.Planstand, jetzt: datetime, slot_ende: datetime) -
 
 
 # --- Das Issue, Spec Abschnitt 6 --------------------------------------------
+
+ANLEGEN = "anlegen"
+ENTFERNEN = "entfernen"
+
+
+def _issue(bewertung: Bewertung | None, geaendert: bool) -> str | None:
+    """Ueber 5 % anlegen. Hoechstens 5 % und geaenderte Daten nehmen es zurueck."""
+    if bewertung is not None:
+        return ANLEGEN if bewertung.ausserhalb else ENTFERNEN
+    return ENTFERNEN if geaendert else None
 
 
 def issue_uebersetzung(bewertung: Bewertung) -> str:

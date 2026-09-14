@@ -2,7 +2,7 @@
 
 Was C6 entscheidet, steht in ausgabe.py und ist dort ohne Home Assistant
 geprueft. Hier steht nur die Verdrahtung: wann ein Fahrzeug ausgewertet wird,
-wie seine Entitaeten davon erfahren, wann das Abweichungs-Issue kommt und geht
+wie seine Entitaeten davon erfahren, wie das Abweichungs-Issue kommt und geht
 und wie Entitaeten fuer spaeter angelegte Fahrzeuge entstehen. Das sieht kein
 automatischer Test, nur die Abnahme.
 
@@ -12,7 +12,6 @@ Spec: meteo-volt-brain/docs/features/C6-ausgabe-entitaeten/spec.md
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import replace
 from datetime import datetime
 
 from homeassistant.config_entries import ConfigEntry
@@ -52,7 +51,6 @@ class Fahrzeugausgabe:
         self.fahrzeug_id = fahrzeug_id
         self.auswertung: ausgabe.Auswertung | None = None
         self._zustand = ausgabe.Zustand()
-        self._daten: dict | None = None
         self._zuhoerer: list[Callable[[], None]] = []
         self._koordinator_abmelden: CALLBACK_TYPE | None = None
         self._ladestand: tuple[str, CALLBACK_TYPE] | None = None
@@ -75,7 +73,7 @@ class Fahrzeugausgabe:
 
     @callback
     def async_starten(self) -> None:
-        self._koordinator_abmelden = self.koordinator.async_add_listener(self._koordinator_meldet)
+        self._koordinator_abmelden = self.koordinator.async_add_listener(self._auswerten)
         self._auswerten()
 
     @callback
@@ -99,18 +97,7 @@ class Fahrzeugausgabe:
         return abmelden
 
     # --- Anlaesse, Spec Abschnitt 4 ------------------------------------------
-
-    @callback
-    def _koordinator_meldet(self) -> None:
-        daten = self._fahrzeugdaten()
-        if daten is None:
-            return  # geloescht; Fahrzeugausgaben raeumt auf
-        if self._daten is not None and daten != self._daten:
-            # Spec Abschnitt 6: aendern sich die Daten des Fahrzeugs, beginnt
-            # die Messung neu, und das Issue geht.
-            self._zustand = replace(self._zustand, abgleich=ausgabe.Abgleich())
-            ir.async_delete_issue(self.hass, DOMAIN, self._issue_id)
-        self._auswerten()
+    # Dazu jedes Update des Plan-Koordinators, angemeldet in async_starten.
 
     @callback
     def _ladestand_meldet(self, _event: Event[EventStateChangedData]) -> None:
@@ -127,8 +114,7 @@ class Fahrzeugausgabe:
     def _auswerten(self) -> None:
         daten = self._fahrzeugdaten()
         if daten is None:
-            return
-        self._daten = daten
+            return  # geloescht; Fahrzeugausgaben raeumt auf
         entitaet = daten.get(stammdaten.FELD_SOC_ENTITAET)
         self._ladestand_anmelden(entitaet)
         zustand = self.hass.states.get(entitaet) if entitaet else None
@@ -139,10 +125,10 @@ class Fahrzeugausgabe:
             None if zustand is None else standort.ladestand_lesen(zustand.state),
             None if zustand is None else zustand.last_reported,
             self._zustand,
+            daten,
         )
         self._zustand = self.auswertung.zustand
-        if self.auswertung.bewertung is not None:
-            self._issue(self.auswertung.bewertung)
+        self._issue(self.auswertung)
         self._timer_absagen()
         self._timer = async_track_point_in_utc_time(
             self.hass, self._timer_meldet, self.auswertung.naechste
@@ -151,25 +137,25 @@ class Fahrzeugausgabe:
             zuhoerer()
 
     @callback
-    def _issue(self, bewertung: ausgabe.Bewertung) -> None:
-        """Spec Abschnitt 6: ueber 5 % anlegen, sonst entfernen."""
-        if not bewertung.ausserhalb:
+    def _issue(self, auswertung: ausgabe.Auswertung) -> None:
+        """Spec Abschnitt 6. Ob das Issue kommt oder geht, entscheidet ausgabe.py."""
+        if auswertung.issue == ausgabe.ENTFERNEN:
             ir.async_delete_issue(self.hass, DOMAIN, self._issue_id)
-            return
-        subentry = self.entry.subentries.get(self.fahrzeug_id)
-        ir.async_create_issue(
-            self.hass,
-            DOMAIN,
-            self._issue_id,
-            is_fixable=False,
-            severity=ir.IssueSeverity.WARNING,
-            translation_key=ausgabe.issue_uebersetzung(bewertung),
-            translation_placeholders=ausgabe.issue_platzhalter(
-                bewertung,
-                self.fahrzeug_id if subentry is None else subentry.title,
-                self.hass.config.language,
-            ),
-        )
+        elif auswertung.issue == ausgabe.ANLEGEN:
+            subentry = self.entry.subentries.get(self.fahrzeug_id)
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                self._issue_id,
+                is_fixable=False,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key=ausgabe.issue_uebersetzung(auswertung.bewertung),
+                translation_placeholders=ausgabe.issue_platzhalter(
+                    auswertung.bewertung,
+                    self.fahrzeug_id if subentry is None else subentry.title,
+                    self.hass.config.language,
+                ),
+            )
 
     # --- Hilfen -----------------------------------------------------------------
 

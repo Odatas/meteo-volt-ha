@@ -40,6 +40,8 @@ const = importlib.import_module(f"{_PAKET}.const")
 
 JETZT = datetime.fromisoformat("2026-08-18T22:00:00+02:00")
 LEER = ausgabe.Zustand()
+# Die Daten aus dem Subentry. ausgabe.py vergleicht sie nur, ein Ausschnitt genuegt.
+DATEN = {"name": "Auto A", "capacity_kwh": 58.0, "efficiency_pct": 94}
 
 
 def _laden(pfad: Path) -> dict:
@@ -71,8 +73,10 @@ def _abend(uhrzeit: str) -> datetime:
     return datetime.fromisoformat(f"{tag}T{uhrzeit}:00+02:00")
 
 
-def _auswerten(stand, jetzt, soc=None, gemeldet=None, zustand=LEER, fahrzeug_id="auto-a"):
-    return ausgabe.auswerten(stand, fahrzeug_id, jetzt, soc, gemeldet, zustand)
+def _auswerten(stand, jetzt, soc=None, gemeldet=None, zustand=LEER, fahrzeug_id="auto-a",
+               daten=DATEN):
+    # Jedes Mal eine neue Kopie: verglichen wird der Inhalt, nicht das Objekt.
+    return ausgabe.auswerten(stand, fahrzeug_id, jetzt, soc, gemeldet, zustand, dict(daten))
 
 
 # --- Die Entitaeten, Spec Abschnitt 2 ---------------------------------------
@@ -273,23 +277,30 @@ def _bewertungen(auswertungen):
     return [a.bewertung for a in auswertungen if a.bewertung is not None]
 
 
+def _issues(auswertungen):
+    return [a.issue for a in auswertungen if a.issue is not None]
+
+
 def test_genau_nach_plan_gibt_es_keine_warnung():
-    bewertungen = _bewertungen(_laden_ueber(_stand("infeasible"), GEPLANT, 30.0, _abend("00:00")))
+    auswertungen = _laden_ueber(_stand("infeasible"), GEPLANT, 30.0, _abend("00:00"))
+    bewertungen = _bewertungen(auswertungen)
     assert len(bewertungen) == 1
     assert bewertungen[0].gemessen == pytest.approx(GEPLANT)
     assert bewertungen[0].geplant == pytest.approx(GEPLANT)
     assert not bewertungen[0].ausserhalb
+    assert _issues(auswertungen) == [ausgabe.ENTFERNEN]
 
 
 @pytest.mark.parametrize(("faktor", "uebersetzung"), [
     (1.08, "ladung_schneller"), (0.92, "ladung_langsamer")])
 def test_acht_prozent_daneben_warnt_mit_richtung(faktor, uebersetzung):
-    bewertungen = _bewertungen(
-        _laden_ueber(_stand("infeasible"), GEPLANT * faktor, 30.0, _abend("00:00")))
+    auswertungen = _laden_ueber(_stand("infeasible"), GEPLANT * faktor, 30.0, _abend("00:00"))
+    bewertungen = _bewertungen(auswertungen)
     assert len(bewertungen) == 1
     assert bewertungen[0].abweichung == pytest.approx(faktor - 1)
     assert bewertungen[0].ausserhalb
     assert ausgabe.issue_uebersetzung(bewertungen[0]) == uebersetzung
+    assert _issues(auswertungen) == [ausgabe.ANLEGEN]
 
 
 def test_ganzzahlig_alle_15_minuten_nach_plan_gibt_es_keine_warnung():
@@ -339,6 +350,29 @@ def test_pause_und_gefahrener_ladestand_zwischen_zwei_bloecken_zaehlen_nicht():
             break
     assert bewertung is not None
     assert bewertung.gemessen == pytest.approx(GEPLANT)
+
+
+def test_geaenderte_daten_beginnen_die_messung_neu_und_nehmen_das_issue_zurueck():
+    """Wirkungsgrad um 23:00 geaendert: bis Mitternacht kommt die neue Messung nicht auf 2 h.
+
+    Dieselben Daten in einem neuen Objekt aendern nichts. Das zeigt
+    test_genau_nach_plan_gibt_es_keine_warnung, deren Messung durchlaeuft.
+    """
+    stand, zustand = _stand("infeasible"), ausgabe.Zustand()
+    geaendert = {**DATEN, "efficiency_pct": 80}
+    issues, bewertungen = [], []
+    jetzt = JETZT
+    while jetzt <= _abend("00:00"):
+        soc = 30.0 + GEPLANT * (jetzt - JETZT).total_seconds() / 3600
+        auswertung = _auswerten(stand, jetzt, soc, jetzt, zustand,
+                                daten=DATEN if jetzt < _abend("23:00") else geaendert)
+        zustand = auswertung.zustand
+        issues.append((jetzt, auswertung.issue))
+        bewertungen.append(auswertung.bewertung)
+        jetzt += timedelta(minutes=5)
+    assert [(t, issue) for t, issue in issues if issue is not None] == [
+        (_abend("23:00"), ausgabe.ENTFERNEN)]
+    assert bewertungen == [None] * len(bewertungen)
 
 
 @pytest.mark.parametrize(("gemessen", "ausserhalb"), [(105.0, False), (95.0, False),
