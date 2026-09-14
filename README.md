@@ -202,39 +202,62 @@ slot grid would exceed the recorder's attribute limit.
 ### Automation: let the wallbox follow Charge now
 
 Replace the entity IDs with yours. Their names follow the language of your Home Assistant.
+`number.wallbox_charging_power` stands for the power setpoint of your wallbox, in kW.
 
 ```yaml
 automation:
   - alias: "Wallbox follows Meteo-Volt"
+    mode: queued
     triggers:
       - trigger: state
         entity_id: binary_sensor.my_car_charge_now
         to: "on"
-        id: "an"
+        id: "start"
       - trigger: state
         entity_id: binary_sensor.my_car_charge_now
         to: "off"
-        id: "aus"
+        id: "stop"
+      - trigger: state
+        entity_id: sensor.my_car_planned_charging_power
+        not_to:
+          - "unavailable"
+          - "unknown"
+        id: "power"
     actions:
       - choose:
           - conditions:
               - condition: trigger
-                id: "an"
+                id:
+                  - "start"
+                  - "power"
+              - condition: state
+                entity_id: binary_sensor.my_car_charge_now
+                state: "on"
             sequence:
+              - action: number.set_value
+                target:
+                  entity_id: number.wallbox_charging_power
+                data:
+                  value: "{{ states('sensor.my_car_planned_charging_power') }}"
               - action: switch.turn_on
                 target:
                   entity_id: switch.wallbox_charging
           - conditions:
               - condition: trigger
-                id: "aus"
+                id: "stop"
+              - condition: state
+                entity_id: binary_sensor.my_car_charge_now
+                state: "off"
             sequence:
               - action: switch.turn_off
                 target:
                   entity_id: switch.wallbox_charging
 ```
 
-If your wallbox takes a power or current setpoint, set it from **Planned charging power** in the
-same automation.
+The setpoint is set before the wallbox switches on and follows **Planned charging power** while
+charging. `mode: queued` keeps the runs in order, and every branch checks Charge now again, so a
+late run never undoes a newer one. For a current setpoint instead of power: amperes = kW × 1000 ÷
+(230 V × phases).
 
 > **Two vehicles on one wallbox:** until vehicles are assigned to charge points, both can report
 > Charge now at the same time. Your automation has to decide which one charges.
