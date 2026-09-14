@@ -19,7 +19,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import selector
 
 from . import stammdaten
-from .const import DOMAIN, CONF_API_TOKEN, CONF_GRID_FEES, API_URL
+from .const import DOMAIN, CONF_API_TOKEN, CONF_GRID_FEES, CONF_SITE_MAX_POWER, API_URL
 from .overrides import load_overrides
 from .api import MeteoVoltApiClient
 
@@ -29,6 +29,11 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_API_TOKEN): str,
         vol.Optional(CONF_GRID_FEES, default=0.0): vol.Coerce(float),
+        # Spec C5 Abschnitt 5: ohne Vorbelegung. Leer heisst, der Request traegt
+        # kein site.max_power_kw -- der Planer nutzt es erst mit E1.
+        vol.Optional(CONF_SITE_MAX_POWER): vol.All(
+            vol.Coerce(float), vol.Range(min=0, min_included=False)
+        ),
     }
 )
 
@@ -137,11 +142,17 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
             else:
+                # Ersetzen statt zusammenfuehren, Spec C5 Abschnitt 5: ein
+                # geleertes optionales Feld fehlt in user_input, und mit
+                # data_updates bliebe der alte Wert stehen.
+                daten = {**entry.data, **user_input}
+                if CONF_SITE_MAX_POWER not in user_input:
+                    daten.pop(CONF_SITE_MAX_POWER, None)
                 # Die unique_id ueber async_update_entry: dieser Weg ist belegt,
                 # ein unique_id-Parameter am Helfer darunter nicht.
                 self.hass.config_entries.async_update_entry(entry, unique_id=neuer_key)
                 return self.async_update_reload_and_abort(
-                    entry, data_updates=user_input, reason="reconfigure_successful"
+                    entry, data=daten, reason="reconfigure_successful"
                 )
 
         return self.async_show_form(

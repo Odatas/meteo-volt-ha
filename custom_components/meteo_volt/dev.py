@@ -1,4 +1,4 @@
-"""Temporaer: eine Action, die einen festen Plan-Request schickt.
+"""Temporaer: eine Action, die sofort einen Plan ueber den Koordinator holt.
 
 Nur fuer die Entwicklung, und sie fliegt wieder raus: dann gehen diese Datei,
 ihr Eintrag in services.yaml sowie Import und Aufruf in __init__.py -- bleibt
@@ -6,43 +6,38 @@ der Import stehen, laedt die ganze Integration nicht mehr. Registriert wird
 sie nur, wenn const_overwrite.json wirkt (siehe overrides.py) -- ein normaler
 Nutzer sieht sie nie.
 
-Keine Felder, keine Uebersetzung, keine Entitaet. Die Antwort erscheint in den
-Entwicklerwerkzeugen unter der Action, ein PlanFehler als Fehlermeldung.
+Keine Felder, keine Uebersetzung, keine Entitaet. Die Antwort zeigt den
+Planstand und je Fahrzeug, was gerade gilt. Bis C5 schickte sie einen festen
+Request (C7-Spec Abschnitt 7).
 
-Spec: meteo-volt-brain/docs/features/C7-plan-client/spec.md, Abschnitt 7
+Spec: meteo-volt-brain/docs/features/C5-standort-koordinator/spec.md, Abschnitt 10
 """
 
 from __future__ import annotations
+
+from datetime import datetime
+from typing import Any
 
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError
 
 from .const import DOMAIN
-from .planabruf import PlanFehler
 
 DEV_ACTION = "dev_plan"
 
-# Der kleinste Request, der einen echten Plan ergibt: ein Ladepunkt, ein
-# Fahrzeug daran angesteckt. Ohne now -- dann gilt die Serverzeit --, ohne
-# model und ohne Constraints.
-DEV_ANFRAGE = {
-    "schema_version": 1,
-    "stations": [{"id": "dev-wallbox", "max_power_kw": 11.0}],
-    "vehicles": [
-        {
-            "id": "dev-auto",
-            "capacity_kwh": 58.0,
-            "soc_pct": 50.0,
-            "max_charge_kw": 11.0,
-            "efficiency_curve": [{"kw": 11.0, "eta": 0.92}],
-            "soc_min_pct": 15.0,
-            "soc_max_pct": 80.0,
-            "consumption_kwh_per_100km": 19.5,
-            "connection": {"station_id": "dev-wallbox"},
-            "consumption": {"type": "none"},
-        }
-    ],
-}
+
+def _json(wert: Any) -> Any:
+    """datetime als ISO-Text, rekursiv durch dict und list.
+
+    Die Antwort einer Action muss JSON sein, der Planstand traegt Zeitpunkte.
+    """
+    if isinstance(wert, datetime):
+        return wert.isoformat()
+    if isinstance(wert, dict):
+        return {schluessel: _json(inhalt) for schluessel, inhalt in wert.items()}
+    if isinstance(wert, list):
+        return [_json(inhalt) for inhalt in wert]
+    return wert
 
 
 def async_dev_action_registrieren(hass: HomeAssistant) -> None:
@@ -51,13 +46,29 @@ def async_dev_action_registrieren(hass: HomeAssistant) -> None:
         return
 
     async def _plan_holen(call: ServiceCall) -> ServiceResponse:
-        koordinatoren = list(hass.data.get(DOMAIN, {}).values())
+        koordinatoren = [
+            eintrag.runtime_data
+            for eintrag in hass.config_entries.async_loaded_entries(DOMAIN)
+            if getattr(eintrag, "runtime_data", None) is not None
+        ]
         if not koordinatoren:
-            raise HomeAssistantError("Kein Meteo-Volt-Eintrag geladen")
-        try:
-            return await koordinatoren[0].client.async_create_plan(hass, DEV_ANFRAGE)
-        except PlanFehler as err:
-            raise HomeAssistantError(f"{type(err).__name__}: {err}") from err
+            raise HomeAssistantError("Kein Standort-Koordinator geladen")
+        koordinator = koordinatoren[0]
+        stand = await koordinator.async_jetzt_planen()
+        fehler = None
+        if stand.fehler is not None:
+            fehler = {"klasse": type(stand.fehler).__name__, "meldung": str(stand.fehler)}
+        return _json(
+            {
+                "anfrage": stand.anfrage,
+                "ausgelassen": stand.ausgelassen,
+                "plan": stand.plan,
+                "erhalten_um": stand.erhalten_um,
+                "fehler": fehler,
+                "letzter_versuch_um": stand.letzter_versuch_um,
+                "jetzt": koordinator.was_gilt_jetzt(),
+            }
+        )
 
     hass.services.async_register(
         DOMAIN, DEV_ACTION, _plan_holen, supports_response=SupportsResponse.ONLY

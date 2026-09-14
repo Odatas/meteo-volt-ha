@@ -11,6 +11,7 @@ from .api import MeteoVoltApiClient
 from .const import DOMAIN, CONF_API_TOKEN, API_URL
 from .overrides import load_overrides
 from .coordinator import MeteoVoltDataUpdateCoordinator
+from .plankoordinator import MeteoVoltPlanKoordinator
 # Temporaer, Spec C7 Abschnitt 7: geht zusammen mit dev.py und dem Aufruf unten.
 from .dev import async_dev_action_registrieren
 
@@ -35,6 +36,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await coordinator.async_config_entry_first_refresh()
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
+
+    # Spec C5 Abschnitt 6: der Standort-Koordinator wartet auf nichts, und
+    # scheitert sein Start, laeuft die Prognose trotzdem weiter -- sie hat
+    # zahlende Nutzer (Bestandsschutz). Er haengt an runtime_data; hass.data
+    # und sensor.py bleiben, wie sie sind.
+    try:
+        plan_koordinator = MeteoVoltPlanKoordinator(hass, entry, client)
+        plan_koordinator.async_starten()
+    except Exception:  # pylint: disable=broad-except
+        _LOGGER.exception("Standort-Koordinator nicht gestartet, die Prognose laeuft weiter")
+        # None statt eines fehlenden Attributs: C6 darf daran nicht scheitern.
+        entry.runtime_data = None
+    else:
+        entry.runtime_data = plan_koordinator
 
     # Temporaer, Spec C7 Abschnitt 7: nur wenn const_overwrite.json wirkt.
     if overrides:

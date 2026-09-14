@@ -64,5 +64,5 @@ Alles Übergreifende liegt im Brain: `https://github.com/Odatas/meteo-volt-brain
 `beta`.
 
 Dort: `docs/PROJEKT.md` für den Überblick, `docs/normen/basiskontrakt.md` für die
-Kontraktregeln, `docs/FEATURES.md` für den Stand. Dieses Repo betreffen `S1`, `S2`, `C1`–`C7` und
-`D2`.
+Kontraktregeln, `docs/FEATURES.md` für den Stand. Dieses Repo betreffen `S1`, `S2`, `C1`–`C7`,
+`D2` und `E1`.

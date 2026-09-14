@@ -40,6 +40,13 @@ _SPEC = importlib.util.spec_from_file_location(
 stammdaten = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(stammdaten)
 
+# const.py importiert ebenfalls nichts aus Home Assistant. Die Schluessel
+# des Hausanschlusses und des Repair-Issues kommen von dort, damit ein
+# umbenannter Schluessel hier auffaellt.
+_CONST = importlib.util.spec_from_file_location("meteo_volt_const", INTEGRATION / "const.py")
+const = importlib.util.module_from_spec(_CONST)
+_CONST.loader.exec_module(const)
+
 SPRACHEN = ("de", "en")
 SCHRITTE = ("user", "reconfigure")
 
@@ -161,3 +168,21 @@ def test_beide_sprachen_haben_denselben_schluesselbaum():
     en = _schluesselbaum(_laden("en"))
     assert de == en, (
         f"nur de: {sorted(de - en)}; nur en: {sorted(en - de)}")
+
+
+@pytest.mark.parametrize("sprache", SPRACHEN)
+@pytest.mark.parametrize("schritt", SCHRITTE)
+def test_der_hausanschluss_ist_beschriftet_und_erklaert(sprache, schritt):
+    """Spec C5 Abschnitt 5: das Feld wirkt noch nicht, und der Hinweis sagt es."""
+    daten = _laden(sprache)["config"]["step"][schritt]
+    assert const.CONF_SITE_MAX_POWER in daten.get("data", {}), f"{sprache}/{schritt}"
+    assert const.CONF_SITE_MAX_POWER in daten.get("data_description", {}), f"{sprache}/{schritt}"
+
+
+@pytest.mark.parametrize("sprache", SPRACHEN)
+def test_das_repair_issue_ist_beschriftet(sprache):
+    """Spec C5 Abschnitt 8. Ohne Uebersetzung zeigte HA den rohen Schluessel,
+    und ohne {fehler} im Text verschwaende der Grund still."""
+    issue = _laden(sprache).get("issues", {}).get(const.ISSUE_PLAN_VERALTET, {})
+    assert issue.get("title"), sprache
+    assert "{fehler}" in issue.get("description", ""), sprache
