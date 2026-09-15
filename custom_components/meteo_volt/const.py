@@ -22,3 +22,10 @@ CONF_SITE_MAX_POWER = "site_max_power_kw"
 
 # Spec C5 Abschnitt 8: das Repair-Issue nach 12 h ohne neuen Plan.
 ISSUE_PLAN_VERALTET = "plan_veraltet"
+
+# Spec C6 Abschnitt 6: das Issue, wenn die Ladegeschwindigkeit mehr als 5 % vom
+# Plan abweicht. Die Kennung traegt dahinter die Fahrzeug-ID, die Uebersetzung
+# haengt an der Richtung.
+ISSUE_ABWEICHUNG = "ladung_abweichung"
+ISSUE_SCHNELLER = "ladung_schneller"
+ISSUE_LANGSAMER = "ladung_langsamer"
