@@ -43,6 +43,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # und sensor.py bleiben, wie sie sind.
     try:
         plan_koordinator = MeteoVoltPlanKoordinator(hass, entry, client)
+        # Spec C3 Abschnitt 8: vor dem Start, damit schon der erste Request die
+        # Termine traegt. Scheitert C3, plant C5 ohne sie.
+        await _termine_starten(hass, entry, plan_koordinator)
         plan_koordinator.async_starten()
     except Exception:  # pylint: disable=broad-except
         _LOGGER.exception("Standort-Koordinator nicht gestartet, die Prognose laeuft weiter")
@@ -86,6 +89,36 @@ def _ausgaben_starten(
         hass.data[AUSGABEN].pop(entry.entry_id, None)
 
     entry.async_on_unload(ausgaben_vergessen)
+
+
+async def _termine_starten(
+    hass: HomeAssistant, entry: ConfigEntry, plan_koordinator: MeteoVoltPlanKoordinator
+) -> None:
+    """Spec C3 Abschnitt 8: Store, Actions und Websocket-Befehle nur im try.
+
+    Der Import steht mit im try. Scheitert etwas, laufen Prognose, Plan und die
+    Entitaeten aus C6 weiter, und der Request geht ohne Termine raus.
+    """
+    try:
+        from .aktionen import async_aktionen_registrieren
+        from .terminverwaltung import async_termine_starten
+        from .terminwebsocket import async_websocket_registrieren
+
+        await async_termine_starten(hass, entry, plan_koordinator)
+        async_aktionen_registrieren(hass)
+        async_websocket_registrieren(hass)
+    except Exception:  # pylint: disable=broad-except
+        _LOGGER.exception("Termine nicht gestartet, Prognose und Plan laufen weiter")
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Spec C3 Abschnitt 3: entfernt der Nutzer die Integration, geht der Store mit."""
+    try:
+        from .terminverwaltung import async_speicher_entfernen
+
+        await async_speicher_entfernen(hass, entry.entry_id)
+    except Exception:  # pylint: disable=broad-except
+        _LOGGER.exception("Terminspeicher nicht entfernt")
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
