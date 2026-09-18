@@ -24,6 +24,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.debounce import Debouncer
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import (
     async_call_later,
     async_track_point_in_utc_time,
@@ -36,7 +37,7 @@ from homeassistant.util import dt as dt_util
 
 from . import stammdaten, standort
 from .api import MeteoVoltApiClient
-from .const import DOMAIN, ISSUE_PLAN_VERALTET
+from .const import DOMAIN, ISSUE_PLAN_VERALTET, SIGNAL_PLANUNG
 from .planabruf import PlanFehler
 
 _LOGGER = logging.getLogger(__name__)
@@ -80,6 +81,13 @@ class MeteoVoltPlanKoordinator(DataUpdateCoordinator[standort.Planstand]):
         self._nachholen_abbrechen: Callable[[], None] | None = None
         self._issue_abbrechen: Callable[[], None] | None = None
         self._entitaeten_abbrechen: list[Callable[[], None]] = []
+        # C3-Spec Abschnitt 4: Termin-Fragmente je Fahrzeug und Risiko. C3 setzt
+        # die Quelle, wenn es laeuft; ohne sie geht der Request wie vor C3 raus.
+        self.termine_quelle: (
+            Callable[[standort.Planstand, datetime], tuple[dict[str, dict], int]] | None
+        ) = None
+        # C3-Spec Abschnitt 7: ob gerade ein Lauf rechnet.
+        self.plant = False
 
     # --- Start und Ende ---------------------------------------------------
 
@@ -190,60 +198,99 @@ class MeteoVoltPlanKoordinator(DataUpdateCoordinator[standort.Planstand]):
         await self.async_refresh()
         return self.data
 
+    # --- Ausloeser aus C3, C3-Spec Abschnitt 7 ------------------------------
+
+    @callback
+    def termine_geaendert(self) -> None:
+        """Ein Schritt: anlegen, aendern, loeschen, absagen, rueckgaengig. Gebuendelt."""
+        self._ausloesen("termine")
+
+    @callback
+    def risiko_geaendert(self) -> None:
+        self._ausloesen("risiko")
+
+    async def async_neu_planen(self) -> standort.Planstand:
+        """meteo_volt.replan: sofort, ohne Buendelung, wartet einen laufenden Aufruf ab."""
+        self._ausloeser.add("replan")
+        await self.async_refresh()
+        return self.data
+
     # --- Der Lauf ----------------------------------------------------------
 
     async def _async_update_data(self) -> standort.Planstand:
-        """Ein Lauf. Wirft nie fuer einen PlanFehler, der steht im Planstand."""
+        """Ein Lauf. Meldet Beginn und Ende an C3 (C3-Spec Abschnitt 7)."""
         async with self._sperre:
-            kennung = ",".join(sorted(self._ausloeser)) or "grundtakt"
-            # Spec Abschnitt 7: ein Nachholversuch, der selbst scheitert, plant
-            # keinen weiteren.
-            nur_nachholen = self._ausloeser == {"nachholen"}
-            self._ausloeser.clear()
-            # Spec Abschnitt 7: ein Nachholversuch entfaellt, wenn vorher ein
-            # anderer Aufruf kommt.
-            self._nachholen_absagen()
-            if self._takt == standort.STOPP:
-                # Spec Abschnitt 7: nach einem Key-Fehler geht nichts mehr raus,
-                # bis ein neuer Key den Eintrag neu laedt oder HA neu startet.
-                _LOGGER.debug("Plan %s: gestoppt nach einem Key-Fehler, nichts gesendet", kennung)
-                return self.data
-
-            anfrage, ausgelassen = standort.anfrage_bauen(
-                self._subentries_vom_typ(stammdaten.TYP_LADEPUNKT),
-                self._subentries_vom_typ(stammdaten.TYP_FAHRZEUG),
-                self._messungen(),
-                dict(self.config_entry.data),
-                self.hass.config.time_zone,
-            )
-            stand = replace(self.data, anfrage=anfrage, ausgelassen=ausgelassen)
-            if anfrage is None:
-                # Spec Abschnitt 3: kein Request, der gehaltene Plan bleibt.
-                _LOGGER.debug("Plan %s: kein planbares Fahrzeug, nichts gesendet", kennung)
-                return stand
-
-            versuch_um = dt_util.utcnow()
+            self._planung_melden(True)
             try:
-                plan = await self.client.async_create_plan(self.hass, anfrage)
-            except PlanFehler as fehler:
-                stand = replace(stand, fehler=fehler, letzter_versuch_um=versuch_um)
-            else:
-                stand = replace(
-                    stand,
-                    plan=plan,
-                    erhalten_um=dt_util.utcnow(),
-                    fehler=None,
-                    letzter_versuch_um=versuch_um,
-                )
-            # Kennung und Ergebnisklasse, nie Inhalt: im Request stehen
-            # Ladestaende (Basiskontrakt 3.7).
-            _LOGGER.debug(
-                "Plan %s: %s",
-                kennung,
-                "erhalten" if stand.fehler is None else type(stand.fehler).__name__,
-            )
-            self._nach_dem_aufruf(stand, nur_nachholen)
+                return await self._lauf()
+            finally:
+                self._planung_melden(False)
+
+    @callback
+    def _planung_melden(self, plant: bool) -> None:
+        self.plant = plant
+        async_dispatcher_send(self.hass, SIGNAL_PLANUNG.format(self.config_entry.entry_id), plant)
+
+    async def _lauf(self) -> standort.Planstand:
+        """Wirft nie fuer einen PlanFehler, der steht im Planstand."""
+        kennung = ",".join(sorted(self._ausloeser)) or "grundtakt"
+        # Spec Abschnitt 7: ein Nachholversuch, der selbst scheitert, plant
+        # keinen weiteren.
+        nur_nachholen = self._ausloeser == {"nachholen"}
+        self._ausloeser.clear()
+        # Spec Abschnitt 7: ein Nachholversuch entfaellt, wenn vorher ein
+        # anderer Aufruf kommt.
+        self._nachholen_absagen()
+        if self._takt == standort.STOPP:
+            # Spec Abschnitt 7: nach einem Key-Fehler geht nichts mehr raus,
+            # bis ein neuer Key den Eintrag neu laedt oder HA neu startet.
+            _LOGGER.debug("Plan %s: gestoppt nach einem Key-Fehler, nichts gesendet", kennung)
+            return self.data
+
+        # C3-Spec Abschnitt 4: ausgerollt wird ab jetzt. Scheitert das, scheitert
+        # der Lauf laut -- ein Plan ohne die Termine laede in der Abwesenheit.
+        termine, risiko = (
+            (None, None)
+            if self.termine_quelle is None
+            else self.termine_quelle(self.data, dt_util.utcnow())
+        )
+        anfrage, ausgelassen = standort.anfrage_bauen(
+            self._subentries_vom_typ(stammdaten.TYP_LADEPUNKT),
+            self._subentries_vom_typ(stammdaten.TYP_FAHRZEUG),
+            self._messungen(),
+            dict(self.config_entry.data),
+            self.hass.config.time_zone,
+            termine=termine,
+            risiko=risiko,
+        )
+        stand = replace(self.data, anfrage=anfrage, ausgelassen=ausgelassen)
+        if anfrage is None:
+            # Spec Abschnitt 3: kein Request, der gehaltene Plan bleibt.
+            _LOGGER.debug("Plan %s: kein planbares Fahrzeug, nichts gesendet", kennung)
             return stand
+
+        versuch_um = dt_util.utcnow()
+        try:
+            plan = await self.client.async_create_plan(self.hass, anfrage)
+        except PlanFehler as fehler:
+            stand = replace(stand, fehler=fehler, letzter_versuch_um=versuch_um)
+        else:
+            stand = replace(
+                stand,
+                plan=plan,
+                erhalten_um=dt_util.utcnow(),
+                fehler=None,
+                letzter_versuch_um=versuch_um,
+            )
+        # Kennung und Ergebnisklasse, nie Inhalt: im Request stehen
+        # Ladestaende (Basiskontrakt 3.7).
+        _LOGGER.debug(
+            "Plan %s: %s",
+            kennung,
+            "erhalten" if stand.fehler is None else type(stand.fehler).__name__,
+        )
+        self._nach_dem_aufruf(stand, nur_nachholen)
+        return stand
 
     @callback
     def _nach_dem_aufruf(self, stand: standort.Planstand, nur_nachholen: bool) -> None:
