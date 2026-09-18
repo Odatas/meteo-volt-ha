@@ -3,14 +3,14 @@
     "generated_by": "meteo-volt-brain/scripts/export_contract.py",
     "do_not_edit": true,
     "schema_version": 1,
-    "brain_commit": "28bfefa",
-    "sha256": "d9f6a6fa6de7ffa57b1ce090749abfd02777d115b85e08b3a722184ffdce1463"
+    "brain_commit": "c287303",
+    "sha256": "b51d0bc594d324d476569c6d643eb4d9ffd9d23c5ab71c56e404503a1fa5292b"
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$defs": {
     "Connection": {
       "additionalProperties": false,
-      "description": "Wo das Fahrzeug gerade angesteckt ist.",
+      "description": "An welcher Wallbox das Fahrzeug laedt.",
       "properties": {
         "station_id": {
           "anyOf": [
@@ -22,7 +22,7 @@
             }
           ],
           "default": null,
-          "description": "ID der Wallbox, an der das Fahrzeug steckt. null heisst: nicht angesteckt.",
+          "description": "ID der Wallbox, an der das Fahrzeug laedt, ob es gerade steckt oder nicht. null heisst: es laedt in keinem Slot.",
           "title": "Station Id"
         },
         "since": {
@@ -36,7 +36,7 @@
             }
           ],
           "default": null,
-          "description": "Zeitpunkt, seit dem das Fahrzeug an dieser Wallbox steckt.",
+          "description": "Zeitpunkt, seit dem das Fahrzeug an dieser Wallbox steckt. Der Plan rechnet nicht damit.",
           "title": "Since"
         }
       },
@@ -80,11 +80,12 @@
       "description": "Wie viel das Fahrzeug zwischen den Ladevorgaengen verbraucht.",
       "properties": {
         "type": {
-          "description": "none rechnet ohne Verbrauch, daily mit einer Tagesstrecke, detailed mit einzelnen Fahrten im Wochenraster.",
+          "description": "none rechnet ohne Verbrauch, daily mit einer Tagesstrecke, detailed mit einzelnen Fahrten im Wochenraster, trips mit einzelnen Fahrten zu festen Zeitpunkten.",
           "enum": [
             "none",
             "daily",
-            "detailed"
+            "detailed",
+            "trips"
           ],
           "title": "Type",
           "type": "string"
@@ -119,6 +120,22 @@
           "description": "Die einzelnen Fahrten im Wochenraster. Pflicht bei type detailed; gebucht wird nur, was nach dem Planungsbeginn liegt.",
           "title": "Entries"
         },
+        "trips": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ConsumptionTrip"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Die einzelnen Fahrten zu festen Zeitpunkten. Pflicht bei type trips, die Liste darf leer sein; gebucht wird nur, was nach dem Planungsbeginn liegt.",
+          "title": "Trips"
+        },
         "daily_floor_compensation": {
           "default": true,
           "description": "Hebt den Ladeboden um den Tagesverbrauch an, damit soc_min_pct auch nach der Fahrt noch gilt. Der angehobene Boden wird bei soc_max_pct gedeckelt und wirkt nur bei type daily.",
@@ -130,6 +147,30 @@
         "type"
       ],
       "title": "ConsumptionModel",
+      "type": "object"
+    },
+    "ConsumptionTrip": {
+      "additionalProperties": false,
+      "description": "Eine Fahrt zu einem festen Zeitpunkt.",
+      "properties": {
+        "departure": {
+          "description": "Abfahrt der Fahrt. Ihr Verbrauch wird in dem Slot gebucht, in den dieser Zeitpunkt faellt.",
+          "format": "date-time",
+          "title": "Departure",
+          "type": "string"
+        },
+        "km": {
+          "description": "Strecke dieser Fahrt in Kilometern.",
+          "minimum": 0,
+          "title": "Km",
+          "type": "number"
+        }
+      },
+      "required": [
+        "departure",
+        "km"
+      ],
+      "title": "ConsumptionTrip",
       "type": "object"
     },
     "EfficiencyPoint": {

@@ -3,8 +3,8 @@
     "generated_by": "meteo-volt-brain/scripts/export_contract.py",
     "do_not_edit": true,
     "schema_version": 1,
-    "brain_commit": "28bfefa",
-    "sha256": "32cc2fd1dc139c87bcdaf88937100891792b93dac0f125d80348e4b15a44717d"
+    "brain_commit": "c287303",
+    "sha256": "c1dd0e8957bf134eb5e1767451c5a5a4d6eb9858b6afb9960ca4b93eb834661c"
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$defs": {
@@ -521,7 +521,7 @@
       "description": "Eine Anforderung, die der Plan fuer dieses Fahrzeug nicht erfuellen kann.",
       "properties": {
         "type": {
-          "description": "Was nicht aufgeht: ein unerreichbares Ziel, ein unterschrittener Ladeboden, kein verfuegbarer Slot, ein zu hoher Ladestand schon am Start oder ein nicht angestecktes Fahrzeug.",
+          "description": "Was nicht aufgeht: ein unerreichbares Ziel, ein unterschrittener Ladeboden, kein verfuegbarer Slot, ein zu hoher Ladestand schon am Start oder ein Fahrzeug, das nirgends laden kann.",
           "enum": [
             "target_unreachable",
             "soc_floor_violated",
