@@ -201,5 +201,192 @@
       "title": "{fahrzeug} lädt langsamer als geplant",
       "description": "Gemessen {gemessen} %/h, geplant {geplant} %/h, also {abweichung} % langsamer. Wahrscheinlich ist der Wirkungsgrad zu hoch, die Kapazität zu klein oder die Ladeleistung zu groß eingetragen. Es kann auch sein, dass die Wallbox weniger liefert, die Automation verspätet schaltet oder das Fahrzeug selbst begrenzt."
     }
+  },
+  "services": {
+    "create_appointment": {
+      "name": "Termin anlegen",
+      "description": "Das Fahrzeug ist von der Abfahrt bis zur Rückkehr weg.",
+      "fields": {
+        "vehicle": {
+          "name": "Fahrzeug"
+        },
+        "departure": {
+          "name": "Abfahrt"
+        },
+        "return": {
+          "name": "Rückkehr"
+        },
+        "repeat": {
+          "name": "Wiederholung",
+          "description": "once, daily, weekdays, weekly, monthly oder yearly. Fehlt sie, beim Anlegen once, beim Ändern wie bisher."
+        },
+        "distance_km": {
+          "name": "Strecke (km)"
+        },
+        "driver": {
+          "name": "Fahrer",
+          "description": "Nur zur Anzeige."
+        },
+        "soc": {
+          "name": "Ladestand bei Abfahrt (%)",
+          "description": "Ab dem Min-SoC plant Meteo-Volt ihn als Ziel."
+        }
+      }
+    },
+    "update_appointment": {
+      "name": "Termin ändern",
+      "description": "Bei einer Serie im gewählten Umfang.",
+      "fields": {
+        "entry": {
+          "name": "Eintrag"
+        },
+        "date": {
+          "name": "Datum",
+          "description": "Das Datum der ursprünglichen Abfahrt."
+        },
+        "scope": {
+          "name": "Umfang",
+          "description": "this, following oder all. Fehlt er, this."
+        },
+        "vehicle": {
+          "name": "Fahrzeug"
+        },
+        "departure": {
+          "name": "Abfahrt"
+        },
+        "return": {
+          "name": "Rückkehr"
+        },
+        "repeat": {
+          "name": "Wiederholung",
+          "description": "once, daily, weekdays, weekly, monthly oder yearly. Fehlt sie, beim Anlegen once, beim Ändern wie bisher."
+        },
+        "distance_km": {
+          "name": "Strecke (km)"
+        },
+        "driver": {
+          "name": "Fahrer",
+          "description": "Nur zur Anzeige."
+        },
+        "soc": {
+          "name": "Ladestand bei Abfahrt (%)",
+          "description": "Ab dem Min-SoC plant Meteo-Volt ihn als Ziel."
+        }
+      }
+    },
+    "delete_appointment": {
+      "name": "Termin löschen",
+      "description": "Bei einer Serie im gewählten Umfang.",
+      "fields": {
+        "entry": {
+          "name": "Eintrag"
+        },
+        "date": {
+          "name": "Datum",
+          "description": "Das Datum der ursprünglichen Abfahrt."
+        },
+        "scope": {
+          "name": "Umfang",
+          "description": "this, following oder all. Fehlt er, this."
+        }
+      }
+    },
+    "cancel_appointments": {
+      "name": "Termine absagen",
+      "description": "Bei einer Serie nur diesen Termin, ein einmaliger wird gelöscht.",
+      "fields": {
+        "appointments": {
+          "name": "Termine",
+          "description": "Eine Liste aus entry und date."
+        },
+        "step": {
+          "name": "Schritt",
+          "description": "Optional der Schritt des Speicherns davor. Rückgängig nimmt dann beides zurück."
+        }
+      }
+    },
+    "undo": {
+      "name": "Rückgängig",
+      "description": "Nimmt einen Schritt zurück, solange seine Termine seitdem nicht geändert wurden.",
+      "fields": {
+        "step": {
+          "name": "Schritt"
+        }
+      }
+    },
+    "set_risk": {
+      "name": "Risiko setzen",
+      "description": "Gilt für alle Fahrzeuge.",
+      "fields": {
+        "risk": {
+          "name": "Risiko",
+          "description": "1 Sparsam, 2 Ausgewogen, 3 Sicher."
+        },
+        "config_entry": {
+          "name": "Standort",
+          "description": "Nur bei mehreren Standorten nötig."
+        }
+      }
+    },
+    "replan": {
+      "name": "Neu planen",
+      "description": "Plant sofort neu.",
+      "fields": {
+        "config_entry": {
+          "name": "Standort",
+          "description": "Nur bei mehreren Standorten nötig."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "zeit_fehlt": {
+      "message": "Abfahrt und Rückkehr brauchen Datum und Uhrzeit."
+    },
+    "rueckkehr_vor_abfahrt": {
+      "message": "Die Rückkehr muss nach der Abfahrt liegen."
+    },
+    "rueckkehr_vorbei": {
+      "message": "Die Rückkehr liegt in der Vergangenheit."
+    },
+    "dauer_zu_lang": {
+      "message": "Der Termin dauert länger, als bis er sich wiederholt."
+    },
+    "strecke_fehlt": {
+      "message": "Strecke fehlt."
+    },
+    "strecke_negativ": {
+      "message": "Die Strecke kann nicht negativ sein."
+    },
+    "ladestand_bereich": {
+      "message": "Der Ladestand liegt zwischen 0 und 100 %."
+    },
+    "ladestand_unter_min": {
+      "message": "Liegt unter dem Min-SoC von {min} % und wird ignoriert."
+    },
+    "fahrer_doppelt": {
+      "message": "{fahrer} ist {datum} zur selben Zeit mit {fahrzeug} unterwegs."
+    },
+    "fahrzeug_unbekannt": {
+      "message": "Das ist kein Fahrzeug von Meteo-Volt."
+    },
+    "eintrag_unbekannt": {
+      "message": "Diesen Termin gibt es nicht mehr."
+    },
+    "termin_unbekannt": {
+      "message": "An diesem Datum gibt es den Termin nicht."
+    },
+    "umfang_unzulaessig": {
+      "message": "Eine geänderte Wiederholung gilt nicht nur für diesen Termin."
+    },
+    "rueckgaengig_unmoeglich": {
+      "message": "Das lässt sich nicht mehr rückgängig machen."
+    },
+    "plan_pause": {
+      "message": "Neu planen geht erst in {sekunden} s wieder."
+    },
+    "plan_gestoppt": {
+      "message": "Der API-Key wurde abgelehnt. Neu planen geht erst nach einem neuen Key oder einem Neustart."
+    }
   }
 }

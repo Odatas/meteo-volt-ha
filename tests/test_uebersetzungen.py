@@ -231,3 +231,67 @@ def test_das_abweichungs_issue_ist_beschriftet(sprache, schluessel):
     assert "{fahrzeug}" in issue.get("title", ""), f"{sprache}/{schluessel}"
     for platzhalter in ("{gemessen}", "{geplant}", "{abweichung}"):
         assert platzhalter in issue.get("description", ""), f"{sprache}/{schluessel}: {platzhalter}"
+
+
+# --- Die Actions und Meldungen aus C3 ------------------------------------------
+# pruefungen.py ist die Quelle: welche Actions es gibt, welche Felder sie
+# nehmen und welche Meldungen mit welchen Platzhaltern.
+
+_PAKET_C3 = "meteo_volt_c3"
+if _PAKET_C3 not in sys.modules:
+    _paket_c3 = types.ModuleType(_PAKET_C3)
+    _paket_c3.__path__ = [str(INTEGRATION)]
+    sys.modules[_PAKET_C3] = _paket_c3
+pruefungen = importlib.import_module(f"{_PAKET_C3}.pruefungen")
+
+
+def _services_yaml() -> dict[str, list[str]]:
+    """Action -> Felder aus services.yaml, ohne YAML-Parser.
+
+    Eine Action steht ohne Einrueckung, ihre Felder mit vier Leerzeichen unter
+    'fields:'. PyYAML steckt nicht in den Testabhaengigkeiten.
+    """
+    aktionen: dict[str, list[str]] = {}
+    aktuell = None
+    for zeile in (INTEGRATION / "services.yaml").read_text(encoding="utf-8").splitlines():
+        if zeile and not zeile.startswith((" ", "#")) and zeile.endswith(":"):
+            aktuell = zeile[:-1]
+            aktionen[aktuell] = []
+        elif aktuell and zeile.startswith("    ") and not zeile.startswith("     ") and zeile.endswith(":"):
+            aktionen[aktuell].append(zeile.strip()[:-1])
+    return aktionen
+
+
+def test_services_yaml_nennt_jede_action_mit_ihren_feldern():
+    yaml = _services_yaml()
+    for aktion, felder in pruefungen.AKTIONEN.items():
+        assert yaml.get(aktion) == list(felder), aktion
+
+
+@pytest.mark.parametrize("sprache", SPRACHEN)
+@pytest.mark.parametrize("aktion", sorted(pruefungen.AKTIONEN))
+def test_jede_action_ist_mit_ihren_feldern_beschriftet(sprache, aktion):
+    """Spec C3 Abschnitt 10. Ohne Namen zeigte Home Assistant den rohen Schluessel."""
+    dienst = _laden(sprache).get("services", {}).get(aktion, {})
+    assert dienst.get("name") and dienst.get("description"), f"{sprache}/{aktion}"
+    felder = dienst.get("fields", {})
+    assert set(felder) == set(pruefungen.AKTIONEN[aktion]), f"{sprache}/{aktion}"
+    assert all(feld.get("name") for feld in felder.values()), f"{sprache}/{aktion}"
+
+
+@pytest.mark.parametrize("sprache", SPRACHEN)
+def test_keine_uebersetzung_ohne_action(sprache):
+    """Die Dev-Action traegt ihren Text in services.yaml und steht hier nicht."""
+    assert set(_laden(sprache).get("services", {})) == set(pruefungen.AKTIONEN)
+
+
+@pytest.mark.parametrize("sprache", SPRACHEN)
+def test_jede_meldung_hat_einen_text_mit_ihren_platzhaltern(sprache):
+    """Spec C3 Abschnitt 2.3: ServiceValidationError sucht exceptions.<schluessel>.message."""
+    meldungen = _laden(sprache).get("exceptions", {})
+    assert set(meldungen) == set(pruefungen.MELDUNGEN), sprache
+    for schluessel, platzhalter in pruefungen.MELDUNGEN.items():
+        text = meldungen[schluessel].get("message", "")
+        assert text, f"{sprache}/{schluessel}"
+        for name in platzhalter:
+            assert f"{{{name}}}" in text, f"{sprache}/{schluessel}: {{{name}}}"

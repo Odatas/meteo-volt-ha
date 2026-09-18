@@ -201,5 +201,192 @@
       "title": "{fahrzeug} charges slower than planned",
       "description": "Measured {gemessen} %/h, planned {geplant} %/h, {abweichung} % slower. The charging efficiency is probably set too high, the capacity too low or the charging power too high. The wallbox may also deliver less, the automation may switch late, or the vehicle may limit charging itself."
     }
+  },
+  "services": {
+    "create_appointment": {
+      "name": "Create appointment",
+      "description": "The vehicle is away from departure to return.",
+      "fields": {
+        "vehicle": {
+          "name": "Vehicle"
+        },
+        "departure": {
+          "name": "Departure"
+        },
+        "return": {
+          "name": "Return"
+        },
+        "repeat": {
+          "name": "Repeat",
+          "description": "once, daily, weekdays, weekly, monthly or yearly. If missing, once when creating, unchanged when updating."
+        },
+        "distance_km": {
+          "name": "Distance (km)"
+        },
+        "driver": {
+          "name": "Driver",
+          "description": "For display only."
+        },
+        "soc": {
+          "name": "State of charge at departure (%)",
+          "description": "From the minimum state of charge on, Meteo-Volt plans it as a target."
+        }
+      }
+    },
+    "update_appointment": {
+      "name": "Update appointment",
+      "description": "For a series in the chosen scope.",
+      "fields": {
+        "entry": {
+          "name": "Entry"
+        },
+        "date": {
+          "name": "Date",
+          "description": "The date of the original departure."
+        },
+        "scope": {
+          "name": "Scope",
+          "description": "this, following or all. If missing, this."
+        },
+        "vehicle": {
+          "name": "Vehicle"
+        },
+        "departure": {
+          "name": "Departure"
+        },
+        "return": {
+          "name": "Return"
+        },
+        "repeat": {
+          "name": "Repeat",
+          "description": "once, daily, weekdays, weekly, monthly or yearly. If missing, once when creating, unchanged when updating."
+        },
+        "distance_km": {
+          "name": "Distance (km)"
+        },
+        "driver": {
+          "name": "Driver",
+          "description": "For display only."
+        },
+        "soc": {
+          "name": "State of charge at departure (%)",
+          "description": "From the minimum state of charge on, Meteo-Volt plans it as a target."
+        }
+      }
+    },
+    "delete_appointment": {
+      "name": "Delete appointment",
+      "description": "For a series in the chosen scope.",
+      "fields": {
+        "entry": {
+          "name": "Entry"
+        },
+        "date": {
+          "name": "Date",
+          "description": "The date of the original departure."
+        },
+        "scope": {
+          "name": "Scope",
+          "description": "this, following or all. If missing, this."
+        }
+      }
+    },
+    "cancel_appointments": {
+      "name": "Cancel appointments",
+      "description": "In a series only this appointment, a single one is deleted.",
+      "fields": {
+        "appointments": {
+          "name": "Appointments",
+          "description": "A list of entry and date."
+        },
+        "step": {
+          "name": "Step",
+          "description": "Optionally the step of the save before. Undo then reverts both."
+        }
+      }
+    },
+    "undo": {
+      "name": "Undo",
+      "description": "Reverts a step as long as its appointments have not changed since.",
+      "fields": {
+        "step": {
+          "name": "Step"
+        }
+      }
+    },
+    "set_risk": {
+      "name": "Set risk",
+      "description": "Applies to all vehicles.",
+      "fields": {
+        "risk": {
+          "name": "Risk",
+          "description": "1 economical, 2 balanced, 3 safe."
+        },
+        "config_entry": {
+          "name": "Site",
+          "description": "Only needed with several sites."
+        }
+      }
+    },
+    "replan": {
+      "name": "Replan",
+      "description": "Plans again right away.",
+      "fields": {
+        "config_entry": {
+          "name": "Site",
+          "description": "Only needed with several sites."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "zeit_fehlt": {
+      "message": "Departure and return need a date and a time."
+    },
+    "rueckkehr_vor_abfahrt": {
+      "message": "The return must be after the departure."
+    },
+    "rueckkehr_vorbei": {
+      "message": "The return is in the past."
+    },
+    "dauer_zu_lang": {
+      "message": "The trip lasts longer than the time until it repeats."
+    },
+    "strecke_fehlt": {
+      "message": "Distance missing."
+    },
+    "strecke_negativ": {
+      "message": "The distance cannot be negative."
+    },
+    "ladestand_bereich": {
+      "message": "The state of charge is between 0 and 100 %."
+    },
+    "ladestand_unter_min": {
+      "message": "Below the minimum state of charge of {min} % and ignored."
+    },
+    "fahrer_doppelt": {
+      "message": "{fahrer} is on the road with {fahrzeug} at the same time on {datum}."
+    },
+    "fahrzeug_unbekannt": {
+      "message": "This is not a Meteo-Volt vehicle."
+    },
+    "eintrag_unbekannt": {
+      "message": "This trip no longer exists."
+    },
+    "termin_unbekannt": {
+      "message": "There is no such trip on this date."
+    },
+    "umfang_unzulaessig": {
+      "message": "A changed repeat cannot apply to this trip only."
+    },
+    "rueckgaengig_unmoeglich": {
+      "message": "This can no longer be undone."
+    },
+    "plan_pause": {
+      "message": "Replanning is possible again in {sekunden} s."
+    },
+    "plan_gestoppt": {
+      "message": "The API key was rejected. Replanning works again after a new key or a restart."
+    }
   }
 }
