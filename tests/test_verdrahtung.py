@@ -1,4 +1,4 @@
-"""Prueft die Verdrahtung von C6 am Quelltext. Spec C6 Abschnitt 8.
+"""Prueft die Verdrahtung von C6 und C3 am Quelltext. Spec C6 Abschnitt 8, C3 Abschnitt 8.
 
 __init__.py, sensor.py und binary_sensor.py importieren Home Assistant und
 lassen sich hier nicht laden. Die Fehler, um die es geht, stehen aber im AST.
@@ -7,6 +7,8 @@ Was im Lauf passiert, sieht nur die Abnahme.
 
 import ast
 from pathlib import Path
+
+import pytest
 
 INTEGRATION = Path(__file__).resolve().parents[1] / "custom_components" / "meteo_volt"
 
@@ -36,8 +38,10 @@ def test_kein_rueckruf_fuers_entladen_ist_eine_lambda():
     assert mit_lambda == []
 
 
-# Die Module von C6. Jedes andere Modul laedt sie nur im try.
+# Die Module von C6 und C3. Jedes andere Modul laedt sie nur im try.
 C6 = {"ausgabe", "fahrzeugausgabe", "fahrzeugsensor", "fahrzeugbinaersensor"}
+C3 = {"termine", "pruefungen", "terminbuch", "terminanfrage", "ansicht",
+      "terminverwaltung", "aktionen", "terminwebsocket"}
 
 
 def _importe(knoten: ast.AST, im_try: bool = False):
@@ -51,24 +55,26 @@ def _importe(knoten: ast.AST, im_try: bool = False):
                 yield from _importe(kind, geschuetzt)
 
 
-def _laedt_c6(knoten: ast.Import | ast.ImportFrom) -> bool:
+def _laedt(knoten: ast.Import | ast.ImportFrom, gruppe: set[str]) -> bool:
     if not isinstance(knoten, ast.ImportFrom) or knoten.level != 1:
         return False
     if knoten.module is None:  # from . import ausgabe
-        return any(alias.name in C6 for alias in knoten.names)
-    return knoten.module.split(".")[0] in C6
+        return any(alias.name in gruppe for alias in knoten.names)
+    return knoten.module.split(".")[0] in gruppe
 
 
-def test_c6_wird_ausserhalb_von_c6_nur_im_try_importiert():
+@pytest.mark.parametrize(("name", "gruppe"), [("C6", C6), ("C3", C3)])
+def test_die_module_werden_ausserhalb_ihrer_gruppe_nur_im_try_importiert(name, gruppe):
     """Home Assistant 2026.4.1 importiert alle Plattformen, bevor es eine einrichtet.
 
     Ein Importfehler bricht dann das Einrichten des ganzen Eintrags ab, die
     sechs Sensoren der Prognose eingeschlossen. Im try steht er nur im Log.
+    Fuer C3 verlangt das die C3-Spec Abschnitt 8 auch ohne Plattform.
     """
     importe = [
-        (f"{name}:{knoten.lineno}", geschuetzt)
-        for name, baum in _module() if name.removesuffix(".py") not in C6
-        for knoten, geschuetzt in _importe(baum) if _laedt_c6(knoten)
+        (f"{datei}:{knoten.lineno}", geschuetzt)
+        for datei, baum in _module() if datei.removesuffix(".py") not in gruppe
+        for knoten, geschuetzt in _importe(baum) if _laedt(knoten, gruppe)
     ]
-    assert importe, "kein Import von C6 gefunden; prueft der Test noch etwas?"
+    assert importe, f"kein Import von {name} gefunden; prueft der Test noch etwas?"
     assert [stelle for stelle, geschuetzt in importe if not geschuetzt] == []
