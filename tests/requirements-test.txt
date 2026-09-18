@@ -1,3 +1,6 @@
 pytest>=8
 jsonschema>=4.21
 rfc8785>=0.1.4
+# Ohne tzdata ist ZoneInfo("Europe/Berlin") unter Windows nicht baubar, und die Tests
+# der Zeitumstellung scheitern schon beim Laden. Wie im Brain, requirements-dev.txt.
+tzdata>=2024.1; sys_platform == "win32"
