@@ -4926,6 +4926,27 @@ EOF
 
 ---
 
+### Nachtrag: Befunde der Prüfung
+
+Nach Task 10 hat ein Prüfer ohne Vorwissen den Stand geprüft, am 2026-09-19. Zuerst wurde die Spec korrigiert (Brain `eab5152`), dann der Code, jeder Befund mit Test und grüner Suite. Die Codeblöcke in den Tasks 1 bis 10 zeigen den Stand davor.
+
+| # | Befund | Behoben durch |
+|---|---|---|
+| 1 | An einem einzeln verlegten Termin nur die Strecke geändert, `all`: die ganze Serie wanderte auf den neuen Wochentag, ihre Ausnahmen fielen weg | Spec 2.1: verschoben ist ein Datum gegen das angezeigte; `_angezeigt` in `terminbuch.py` |
+| 2 | Eine neue Wiederholung mit `all` begann am alten Serienbeginn; ein einmaliger Termin landete so in der Vergangenheit | Spec 2.1: sie beginnt am Termin aus dem Formular |
+| 3 | Erster Termin abgesagt: `following` am zweiten hinterließ einen Eintrag ohne sichtbaren Termin | `erster_termin` zählt nur Termine, die nicht abgesagt sind |
+| 4 | Termin löschen, Fahrzeug löschen, Rückgängig: der Termin des gelöschten Fahrzeugs kam zurück | `fahrzeuge_bereinigen` entfernt die Schritte mit; Spec 2.2 |
+| 5 | `site` meldete kein neues Fahrzeuggerät und keine umbenannte Person | `terminverwaltung.py` beobachtet Register und Namen der Personen |
+| 6 | Ohne `config_entry` folgte der erste Standort der Reihenfolge in `hass.data`, die ein Neuladen ändert | `async_loaded_entries`, wie die Dev-Action |
+| 7 | Eine Strecke `nan` oder `inf` gab einen allgemeinen Fehler | gilt als `strecke_fehlt`; Spec 2.3 |
+| 8 | Ein Test zählte nur die Meldungen | er prüft ihre Platzhalter |
+| – | Täglich einen Termin mit `following` einen Tag früher: am Vortag stehen zwei Termine | so gewollt, das Panel zeigt `overlap` |
+| – | Beim Umbau gefunden: werktags auf einen Samstag gelegt, verschwand der Termin mit `all` oder `following` | er bleibt als einmaliger Termin stehen |
+
+Jede Behebung ist gegen eine Verfälschung geprüft, alle 7 Gegenproben rot. Die Namensprüfung fand danach alle 76 Namen. Suite: 453 grün. Die Ideen der Prüfung zum Alltag stehen im Brain als `C9` (`b64553b`), die Beschriftung „hin und zurück" in C8.
+
+---
+
 ### Task 11: Übergabe — Push nach Rückfrage, Deployment vorlegen
 
 **Files:** keine.
@@ -4943,7 +4964,7 @@ git log --oneline beta..HEAD
 git -C ../meteo-volt-brain-c3 log --oneline beta..HEAD
 ```
 
-Expected: im ha-Repo elf Commits (Plan und zehn Tasks), im Brain einer.
+Expected: im ha-Repo 15 Commits (Plan, zehn Tasks, drei Behebungen, der Nachtrag), im Brain drei.
 
 - [ ] **Step 2: Patrick fragen, dann pushen**
 
