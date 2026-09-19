@@ -80,6 +80,7 @@ class Terminverwaltung:
         self._fahrzeuge: set[str] = set()
         self._soc_entitaeten: set[str] = set()
         self._c6_entitaeten: set[str] = set()
+        self._personen: set[str] = set()
         self._zustaende_abmelden: CALLBACK_TYPE | None = None
 
     # --- Start ------------------------------------------------------------------
@@ -311,17 +312,27 @@ class Terminverwaltung:
 
     @callback
     def _person_geaendert(self, _event: Event) -> None:
+        """Eine Person kam oder ging: neu beobachten, damit auch ihr Name zaehlt."""
+        self._zustaende_bestellen()
         self._melden(STANDORT)
 
     @callback
     def _register_geaendert(self, event: Event) -> None:
-        """Legt C6 die Entitaeten eines Fahrzeugs an, werden sie ab jetzt beobachtet."""
-        if event.data.get("action") in ("create", "remove", "update"):
-            self._zustaende_bestellen()
+        """Legt C6 die Entitaeten eines Fahrzeugs an, werden sie ab jetzt beobachtet.
+
+        Mit ihnen entsteht das Geraet, und erst mit ihm steht das Fahrzeug in site.
+        """
+        if event.data.get("action") not in ("create", "remove", "update"):
+            return
+        vorher = self._c6_entitaeten
+        self._zustaende_bestellen()
+        if self._c6_entitaeten != vorher:
+            self._melden(STANDORT)
+            self._melden(PLAN)
 
     @callback
     def _zustaende_bestellen(self) -> None:
-        """Ladestand-Entitaeten melden site, die drei Entitaeten aus C6 melden plan."""
+        """Ladestand-Entitaeten und Personen melden site, die drei Entitaeten aus C6 plan."""
         self._zustaende_abbestellen()
         register = er.async_get(self.hass)
         fahrzeuge = self.fahrzeugdaten()
@@ -329,13 +340,14 @@ class Terminverwaltung:
             daten[stammdaten.FELD_SOC_ENTITAET] for daten in fahrzeuge.values()
             if daten.get(stammdaten.FELD_SOC_ENTITAET)
         }
+        self._personen = set(self.hass.states.async_entity_ids("person"))
         self._c6_entitaeten = set()
         for fahrzeug_id in fahrzeuge:
             for plattform, schluessel in C6_WERTE:
                 entity_id = register.async_get_entity_id(plattform, DOMAIN, f"{DOMAIN}_{fahrzeug_id}_{schluessel}")
                 if entity_id:
                     self._c6_entitaeten.add(entity_id)
-        alle = sorted(self._soc_entitaeten | self._c6_entitaeten)
+        alle = sorted(self._soc_entitaeten | self._c6_entitaeten | self._personen)
         if alle:
             self._zustaende_abmelden = async_track_state_change_event(self.hass, alle, self._zustand_geaendert)
 
@@ -347,10 +359,16 @@ class Terminverwaltung:
 
     @callback
     def _zustand_geaendert(self, event: Event[EventStateChangedData]) -> None:
-        if event.data["entity_id"] in self._soc_entitaeten:
+        entity_id = event.data["entity_id"]
+        if entity_id in self._soc_entitaeten:
             self._melden(STANDORT)
-        if event.data["entity_id"] in self._c6_entitaeten:
+        if entity_id in self._c6_entitaeten:
             self._melden(PLAN)
+        if entity_id in self._personen:
+            # Nur ein neuer Name aendert site, nicht wer gerade zu Hause ist.
+            alt, neu = event.data["old_state"], event.data["new_state"]
+            if alt is None or neu is None or alt.name != neu.name:
+                self._melden(STANDORT)
 
 
 # --- Start, Standorte, Ende ----------------------------------------------------------------
@@ -407,8 +425,15 @@ def nach_schritt(hass: HomeAssistant, schritt: str | None) -> Terminverwaltung:
 
 
 def nach_standort(hass: HomeAssistant, entry_id: str | None) -> Terminverwaltung | None:
-    """Ohne config_entry der zuerst geladene Standort, wie bei der Dev-Action."""
+    """Ohne config_entry der zuerst geladene Standort, wie bei der Dev-Action.
+
+    In der Reihenfolge der Eintraege, nicht in der von hass.data: nach dem
+    Neuladen eines Standorts stuende der sonst hinten.
+    """
     alle = verwaltungen(hass)
-    if entry_id is None:
-        return next(iter(alle.values()), None)
-    return alle.get(entry_id)
+    if entry_id is not None:
+        return alle.get(entry_id)
+    for eintrag in hass.config_entries.async_loaded_entries(DOMAIN):
+        if eintrag.entry_id in alle:
+            return alle[eintrag.entry_id]
+    return None
