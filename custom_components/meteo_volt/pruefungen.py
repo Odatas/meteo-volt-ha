@@ -182,7 +182,8 @@ def werte_pruefen(
     if wiederholung != termine.EINMALIG and timedelta(minutes=dauer) >= termine.ABSTAND[wiederholung]:
         raise fehler(DAUER_ZU_LANG, "return")
     strecke = felder.get("distance_km")
-    if strecke is None:
+    if strecke is None or not math.isfinite(strecke):
+        # nan und inf aus YAML oder Templates sind keine Strecke.
         raise fehler(STRECKE_FEHLT, "distance_km")
     if strecke < 0:
         raise fehler(STRECKE_NEGATIV, "distance_km")

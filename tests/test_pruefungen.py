@@ -47,6 +47,7 @@ def _fehler(schluessel, feld, **felder):
     with pytest.raises(pruefungen.Terminfehler) as info:
         _pruefen(**felder)
     assert (info.value.meldung.schluessel, info.value.meldung.feld) == (schluessel, feld)
+    assert set(info.value.meldung.platzhalter) == set(pruefungen.MELDUNGEN[schluessel])
 
 
 # --- Die Werte --------------------------------------------------------------
@@ -116,6 +117,13 @@ def test_eine_minute_unter_dem_abstand_geht():
 def test_strecke_fehlt_und_negativ():
     _fehler("strecke_fehlt", "distance_km", distance_km=None)
     _fehler("strecke_negativ", "distance_km", distance_km=-1)
+
+
+def test_eine_strecke_ohne_endliche_zahl_fehlt():
+    """nan und inf kommen ueber YAML oder Templates. math.floor wuerfe sonst einen allgemeinen Fehler."""
+    for wert in (float("nan"), float("inf"), float("-inf")):
+        _fehler("strecke_fehlt", "distance_km", distance_km=wert)
+    _fehler("ladestand_bereich", "soc", soc=float("nan"))
 
 
 def test_ladestand_bereich():
@@ -218,6 +226,18 @@ def test_jeder_andere_fehler_steht_im_plan():
         assert pruefungen.neu_planen_pruefen(VORHER, nachher) is None
 
 
-def test_jeder_schluessel_hat_seine_platzhalter():
-    """Die Tabelle in pruefungen.py ist die Quelle fuer tests/test_uebersetzungen.py."""
-    assert len(pruefungen.MELDUNGEN) == 16
+def test_jede_meldung_mit_platzhaltern_traegt_genau_diese():
+    """MELDUNGEN ist die Quelle fuer tests/test_uebersetzungen.py.
+
+    Sendet der Code andere Platzhalter als die Tabelle nennt, fehlt im Text ein
+    Wert oder bleibt ein {name} stehen. Die Fehler ohne Platzhalter prueft _fehler.
+    """
+    werte = _pruefen(soc=10, driver="person.anna", repeat="weekly")
+    eigener = _eintrag("neu", "auto-1", "2026-09-17T08:00:00", "person.anna", "weekly")
+    anderer = _eintrag("alt", "auto-2", "2026-09-17T12:00:00", "person.anna")
+    gesendet = _warnungen(werte, [eigener, anderer])
+    nachher = standort.Planstand(fehler=planabruf.PlanRateLimit(retry_after=5.0), letzter_versuch_um=VERSUCHT)
+    gesendet.append(pruefungen.neu_planen_pruefen(VORHER, nachher))
+    assert {m.schluessel for m in gesendet} == {k for k, namen in pruefungen.MELDUNGEN.items() if namen}
+    for meldung in gesendet:
+        assert set(meldung.platzhalter) == set(pruefungen.MELDUNGEN[meldung.schluessel]), meldung.schluessel
