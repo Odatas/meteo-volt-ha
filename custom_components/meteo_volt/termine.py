@@ -186,9 +186,18 @@ def hat_termin(eintrag: dict, datum: date) -> bool:
 
 
 def erster_termin(eintrag: dict) -> date | None:
-    """Das Datum des ersten regulaeren Termins. Werktags ab einem Samstag der Montag."""
-    start = _start(eintrag)
-    return next(regeldaten(eintrag, start, start + timedelta(days=7)), None)
+    """Das Datum des ersten Termins, der nicht abgesagt ist. Werktags ab einem Samstag der Montag.
+
+    Spec Abschnitt 2.1: an ihm wirkt following wie all. Ein abgesagter zaehlt
+    nicht, sonst bliebe nach following am ersten sichtbaren ein Eintrag ohne
+    sichtbaren Termin zurueck. Die Suche endet: Ausnahmen gibt es endlich viele.
+    """
+    ausnahmen = eintrag.get(AUSNAHMEN) or {}
+    for datum in regeldaten(eintrag, _start(eintrag), date.max):
+        tag = datum.isoformat()
+        if not (tag in ausnahmen and ausnahmen[tag] is None):
+            return datum
+    return None
 
 
 # --- Termine ----------------------------------------------------------------

@@ -129,6 +129,12 @@ def _datum(text: str) -> date:
     return date.fromisoformat(text[:10])
 
 
+def _angezeigt(eintrag: dict, datum: date) -> date:
+    """Das Datum, das der Termin zeigt: bei einer geaenderten Ausnahme ihre Abfahrt."""
+    werte = eintrag[AUSNAHMEN].get(datum.isoformat())
+    return datum if werte is None else _datum(werte[ABFAHRT])
+
+
 def _anwenden(
     buch: Buch,
     aenderungen: dict[str, dict | None],
@@ -188,7 +194,6 @@ def aendern(
 
     umfang = umfang or DIESER
     regel_neu = werte.wiederholung != eintrag[WIEDERHOLUNG]
-    tag_neu = _datum(werte.abfahrt) != datum
 
     if umfang == DIESER:
         if regel_neu:
@@ -201,29 +206,42 @@ def aendern(
         aenderungen = {eintrag_id: _mit_ausnahme(eintrag, datum, _ausnahme(werte))}
         return _anwenden(buch, aenderungen, neue_id), [eintrag_id]
 
-    if umfang == FOLGENDE and datum != termine.erster_termin(eintrag):
-        # Die Serie endet vor dem Datum, ab ihm beginnt ein neuer Eintrag.
-        folge = _neuer_eintrag(neue_id(), werte)
-        folge[BIS] = eintrag[BIS]
-        if not (regel_neu or tag_neu):
-            # Die Ausnahmen danach wandern mit. Die am Datum selbst nicht: der
-            # Termin traegt jetzt die neuen Werte.
-            folge[AUSNAHMEN] = {
-                tag: copy.deepcopy(w) for tag, w in eintrag[AUSNAHMEN].items() if tag > datum.isoformat()}
-        aenderungen = {folge[ID]: folge, eintrag_id: _beendet(eintrag, datum)}
-        return _anwenden(buch, aenderungen, neue_id), [folge[ID], eintrag_id]
+    # FOLGENDE: die Serie endet vor dem Datum, ab ihm beginnt ein neuer
+    # Eintrag. Am ersten Termin wirkt es wie ALLE: neue Werte fuer die Serie.
+    folgende = umfang == FOLGENDE and datum != termine.erster_termin(eintrag)
+    neu = _neuer_eintrag(neue_id() if folgende else eintrag_id, werte)
+    if regel_neu:
+        # Eine neue Wiederholung beginnt am Termin aus dem Formular, ohne die
+        # Ausnahmen der alten.
+        tag = _datum(werte.abfahrt)
+        neu[BIS] = eintrag[BIS]
+    else:
+        # Verschoben ist das Datum gegen das, das der Termin zeigt; entschieden
+        # am 2026-09-19. Um dieselben Tage wandern die uebrigen Termine.
+        verschiebung = _datum(werte.abfahrt) - _angezeigt(eintrag, datum)
+        tag = datum + verschiebung
+        anker = datum if folgende else _datum(eintrag[ABFAHRT])
+        neu[ABFAHRT] = (anker + verschiebung).isoformat() + werte.abfahrt[10:]
+        if eintrag[BIS] is not None:
+            neu[BIS] = (date.fromisoformat(eintrag[BIS]) + verschiebung).isoformat()
+        if not verschiebung:
+            # Ohne neuen Tag bleiben die Ausnahmen, bei FOLGENDE die danach.
+            neu[AUSNAHMEN] = {
+                t: copy.deepcopy(w) for t, w in eintrag[AUSNAHMEN].items()
+                if t != datum.isoformat() and (t > datum.isoformat() or not folgende)}
 
-    # ALLE, oder FOLGENDE am ersten Termin: neue Werte fuer die Serie. Ein
-    # verschobenes Datum verschiebt ihren Beginn um dieselben Tage.
-    verschiebung = _datum(werte.abfahrt) - datum
-    neu = _neuer_eintrag(eintrag_id, werte)
-    neu[ABFAHRT] = (_datum(eintrag[ABFAHRT]) + verschiebung).isoformat() + werte.abfahrt[10:]
-    if eintrag[BIS] is not None:
-        neu[BIS] = (date.fromisoformat(eintrag[BIS]) + verschiebung).isoformat()
-    if not (regel_neu or tag_neu):
-        neu[AUSNAHMEN] = {
-            tag: copy.deepcopy(w) for tag, w in eintrag[AUSNAHMEN].items() if tag != datum.isoformat()}
-    return _anwenden(buch, {eintrag_id: neu}, neue_id), [eintrag_id]
+    # Der bearbeitete Termin steht so da wie im Formular: als Ausnahme, wenn er
+    # einzeln verlegt war; als einmaliger Termin, wenn die Serie keinen Platz
+    # fuer ihn hat, etwa werktags auf einen Samstag gelegt.
+    aenderungen: dict[str, dict | None] = {neu[ID]: neu}
+    if not termine.ist_regeldatum(neu, tag):
+        einmalig = _neuer_eintrag(neue_id(), replace(werte, wiederholung=EINMALIG))
+        aenderungen[einmalig[ID]] = einmalig
+    elif _datum(werte.abfahrt) != tag:
+        neu[AUSNAHMEN][tag.isoformat()] = _ausnahme(werte)
+    if folgende:
+        aenderungen[eintrag_id] = _beendet(eintrag, datum)
+    return _anwenden(buch, aenderungen, neue_id), list(aenderungen)
 
 
 def loeschen(
@@ -283,8 +301,19 @@ def rueckgaengig(buch: Buch, kennung: str) -> None:
 
 
 def fahrzeuge_bereinigen(buch: Buch, fahrzeuge: set[str]) -> bool:
-    """Entfernt die Eintraege geloeschter Fahrzeuge. Kein Schritt. True, wenn einer ging."""
-    weg = [eintrag_id for eintrag_id, e in buch.eintraege.items() if e[FAHRZEUG] not in fahrzeuge]
+    """Entfernt die Eintraege geloeschter Fahrzeuge. Kein Schritt. True, wenn einer ging.
+
+    Die Schritte, die einen davon beruehren, gehen mit (Spec Abschnitt 2.2).
+    Sonst holte Rueckgaengig einen schon geloeschten Termin eines geloeschten
+    Fahrzeugs zurueck.
+    """
+    def fremd(eintrag: dict | None) -> bool:
+        return eintrag is not None and eintrag[FAHRZEUG] not in fahrzeuge
+
+    for schritt in list(buch.schritte):
+        if any(fremd(e) for e in (*schritt.vorher.values(), *schritt.nachher.values())):
+            buch.schritte.remove(schritt)
+    weg = [eintrag_id for eintrag_id, e in buch.eintraege.items() if fremd(e)]
     for eintrag_id in weg:
         del buch.eintraege[eintrag_id]
     return bool(weg)

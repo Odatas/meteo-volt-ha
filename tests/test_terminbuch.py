@@ -49,6 +49,7 @@ def _fehler(schluessel, feld, aufruf, *argumente):
     with pytest.raises(pruefungen.Terminfehler) as info:
         aufruf(*argumente)
     assert (info.value.meldung.schluessel, info.value.meldung.feld) == (schluessel, feld)
+    assert set(info.value.meldung.platzhalter) == set(pruefungen.MELDUNGEN[schluessel])
 
 
 # --- Anlegen und einmalige Termine ------------------------------------------
@@ -182,6 +183,84 @@ def test_all_mit_neuer_regel_setzt_die_ausnahmen_zurueck():
     assert buch.eintraege[eintrag]["exceptions"] == {}
 
 
+def _ausnahme(abfahrt, strecke_km=42):
+    return {"departure": abfahrt, "duration_min": 600, "distance_km": strecke_km,
+            "driver": None, "soc": None}
+
+
+def _verlegte_serie():
+    """Woechentlich ab Mi 16.09., der 30.09. einzeln auf Do 01.10. verlegt, der 14.10. abgesagt."""
+    buch, neue_id, serie = _buch_mit_serie(wiederholung="weekly")
+    terminbuch.aendern(buch, serie, date(2026, 9, 30), "this",
+                       _werte("2026-10-01T08:00:00", wiederholung="weekly"), neue_id)
+    terminbuch.absagen(buch, [(serie, date(2026, 10, 14))], None, neue_id)
+    return buch, neue_id, serie
+
+
+def test_all_an_einem_verlegten_termin_behaelt_die_serie():
+    """Spec 2.1, entschieden am 2026-09-19: verschoben ist ein Datum gegen das angezeigte."""
+    buch, neue_id, serie = _verlegte_serie()
+    terminbuch.aendern(buch, serie, date(2026, 9, 30), "all",
+                       _werte("2026-10-01T08:00:00", wiederholung="weekly", strecke_km=50), neue_id)
+    eintrag = buch.eintraege[serie]
+    assert (eintrag["departure"], eintrag["distance_km"]) == ("2026-09-16T08:00:00", 50)
+    assert eintrag["exceptions"] == {
+        "2026-09-30": _ausnahme("2026-10-01T08:00:00", 50), "2026-10-14": None}
+
+
+def test_following_an_einem_verlegten_termin_behaelt_den_wochentag():
+    buch, neue_id, serie = _verlegte_serie()
+    _, (folge, _) = terminbuch.aendern(
+        buch, serie, date(2026, 9, 30), "following",
+        _werte("2026-10-01T08:00:00", wiederholung="weekly", strecke_km=50), neue_id)
+    assert buch.eintraege[serie]["until"] == "2026-09-30"
+    assert buch.eintraege[folge]["departure"] == "2026-09-30T08:00:00"
+    assert buch.eintraege[folge]["exceptions"] == {
+        "2026-09-30": _ausnahme("2026-10-01T08:00:00", 50), "2026-10-14": None}
+
+
+def test_all_verschiebt_um_die_aenderung_gegen_das_angezeigte_datum():
+    """Do 01.10. im Formular auf Fr 02.10.: die Serie wandert einen Tag, der Termin steht am Freitag."""
+    buch, neue_id, serie = _verlegte_serie()
+    terminbuch.aendern(buch, serie, date(2026, 9, 30), "all",
+                       _werte("2026-10-02T08:00:00", wiederholung="weekly"), neue_id)
+    eintrag = buch.eintraege[serie]
+    assert eintrag["departure"] == "2026-09-17T08:00:00"
+    assert eintrag["exceptions"] == {"2026-10-01": _ausnahme("2026-10-02T08:00:00")}
+
+
+def test_werktags_auf_einen_samstag_bleibt_der_termin_einmalig():
+    """In einer Werktags-Serie hat ein Samstag keinen Platz. Verschwinden darf der Termin nicht."""
+    buch, neue_id, serie = _buch_mit_serie()
+    _, eintraege = terminbuch.aendern(buch, serie, FR, "all", _werte("2026-09-19T08:00:00"), neue_id)
+    assert eintraege[0] == serie and len(eintraege) == 2
+    einmalig = buch.eintraege[eintraege[1]]
+    assert (einmalig["departure"], einmalig["repeat"]) == ("2026-09-19T08:00:00", "once")
+    assert buch.eintraege[serie]["departure"] == "2026-09-17T08:00:00"
+
+
+def test_eine_neue_wiederholung_beginnt_am_termin_aus_dem_formular():
+    for wiederholung in ("once", "yearly"):
+        buch, neue_id, serie = _buch_mit_serie(wiederholung="weekly", abfahrt="2026-09-02T08:00:00")
+        terminbuch.aendern(buch, serie, date(2026, 9, 23), "all",
+                           _werte("2026-09-23T08:00:00", wiederholung=wiederholung), neue_id)
+        eintrag = buch.eintraege[serie]
+        assert (eintrag["departure"], eintrag["repeat"]) == ("2026-09-23T08:00:00", wiederholung)
+
+
+def test_following_am_ersten_nicht_abgesagten_termin_wirkt_wie_all():
+    buch, neue_id, serie = _buch_mit_serie()
+    terminbuch.absagen(buch, [(serie, MI)], None, neue_id)
+    _, eintraege = terminbuch.aendern(buch, serie, DO, "following", _werte("2026-09-17T09:00:00"), neue_id)
+    assert eintraege == [serie] and list(buch.eintraege) == [serie]
+    assert buch.eintraege[serie]["departure"] == "2026-09-16T09:00:00"
+    assert buch.eintraege[serie]["exceptions"] == {"2026-09-16": None}
+    buch, neue_id, serie = _buch_mit_serie()
+    terminbuch.absagen(buch, [(serie, MI)], None, neue_id)
+    terminbuch.loeschen(buch, serie, DO, "following", neue_id)
+    assert buch.eintraege == {}
+
+
 def test_aendern_ohne_eintrag_oder_termin():
     buch, neue_id, eintrag = _buch_mit_serie()
     _fehler("eintrag_unbekannt", "entry", terminbuch.aendern, buch, "weg", DO, "this", _werte(), neue_id)
@@ -282,6 +361,14 @@ def test_rueckgaengig_nach_geloeschtem_fahrzeug_geht_nicht():
     schritt = terminbuch.loeschen(buch, serie, DO, "this", neue_id)
     assert terminbuch.fahrzeuge_bereinigen(buch, {"auto-2"})
     assert buch.eintraege == {}
+    _fehler("rueckgaengig_unmoeglich", "step", terminbuch.rueckgaengig, buch, schritt)
+
+
+def test_rueckgaengig_nach_geloeschtem_termin_und_fahrzeug_geht_nicht():
+    """Das Fahrzeug nimmt auch die Schritte seiner Termine mit (Spec 2.2)."""
+    buch, neue_id, eintrag = _buch_mit_serie(wiederholung="once")
+    schritt = terminbuch.loeschen(buch, eintrag, MI, None, neue_id)
+    assert not terminbuch.fahrzeuge_bereinigen(buch, {"auto-2"})
     _fehler("rueckgaengig_unmoeglich", "step", terminbuch.rueckgaengig, buch, schritt)
 
 
