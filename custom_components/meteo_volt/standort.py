@@ -85,6 +85,8 @@ def anfrage_bauen(
     messungen: dict[str, Messung | None],
     haupteintrag: dict,
     zeitzone: str,
+    termine: dict[str, dict] | None = None,
+    risiko: int | None = None,
 ) -> tuple[dict | None, dict[str, str]]:
     """Der Request und die ausgelassenen Fahrzeuge. Spec Abschnitte 2 bis 4.
 
@@ -92,6 +94,10 @@ def anfrage_bauen(
     messungen bildet die Fahrzeug-ID auf die Messung ihrer Ladestand-Entitaet
     ab, None wenn die Entitaet fehlt. Bleibt kein Fahrzeug uebrig, ist der
     Request None.
+
+    termine und risiko kommen aus C3 (C3-Spec Abschnitt 4): je Fahrzeug
+    consumption und constraints, dazu risk. Laeuft C3 nicht, sind beide None,
+    und der Request geht wie vor C3 raus.
 
     now fehlt mit Absicht: die Uhr hat der Dienst, und eine falsch gehende
     Uhr im Haus verschoebe den Beginn des Plans.
@@ -108,22 +114,26 @@ def anfrage_bauen(
         if grund is not None:
             ausgelassen[fahrzeug_id] = grund
             continue
-        fragmente.append(
-            stammdaten.zu_fahrzeug(
-                daten,
-                fahrzeug_id,
-                soc,
-                soc_measured_at=messung.gemeldet.isoformat(),
-                station_id=station_id,
-            )
+        fragment = stammdaten.zu_fahrzeug(
+            daten,
+            fahrzeug_id,
+            soc,
+            soc_measured_at=messung.gemeldet.isoformat(),
+            station_id=station_id,
         )
+        if termine is not None:
+            # Ohne Termin eine leere trips-Liste, nie none: so bleibt die Form
+            # gleich, ob ein Fahrzeug Termine hat oder nicht.
+            fragment.update(termine.get(fahrzeug_id) or {"consumption": {"type": "trips", "trips": []}})
+        fragmente.append(fragment)
     if not fragmente:
         return None, ausgelassen
 
     anfrage = {
         "schema_version": 1,
-        # Wirkt mit consumption none noch nicht. Ohne sie stimmte der Default
-        # Europe/Berlin still nicht, sobald Z3 Fahrten nach Wochentag schickt.
+        # trips tragen Zeitpunkte mit Offset und brauchen sie nicht. Ohne sie
+        # stimmte der Default Europe/Berlin aber still nicht, sobald ein
+        # Verbrauch nach Tagesgrenzen gebucht wird.
         "timezone": zeitzone,
         "stations": [
             stammdaten.zu_ladepunkt(daten, ladepunkt_id)
@@ -131,6 +141,8 @@ def anfrage_bauen(
         ],
         "vehicles": fragmente,
     }
+    if risiko is not None:
+        anfrage["risk"] = risiko
     site = {}
     if CONF_GRID_FEES in haupteintrag and float(haupteintrag[CONF_GRID_FEES]) >= 0:
         # Der Kontrakt verlangt >= 0. Ein negativer Wert aus einem alten Eintrag

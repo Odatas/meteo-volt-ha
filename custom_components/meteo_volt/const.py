@@ -29,3 +29,7 @@ ISSUE_PLAN_VERALTET = "plan_veraltet"
 ISSUE_ABWEICHUNG = "ladung_abweichung"
 ISSUE_SCHNELLER = "ladung_schneller"
 ISSUE_LANGSAMER = "ladung_langsamer"
+
+# C3-Spec Abschnitt 7: C5 meldet Beginn und Ende jedes Laufs, je Eintrag. Nutzlast
+# ist True oder False. format(entry_id).
+SIGNAL_PLANUNG = "meteo_volt_planung_{}"
