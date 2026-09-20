@@ -55,6 +55,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         entry.runtime_data = plan_koordinator
         _ausgaben_starten(hass, entry, plan_koordinator)
 
+    # Spec C8 Abschnitt 2: das Panel, im try wie C3. Scheitert es, fehlt nur das Panel.
+    await _panel_anmelden(hass)
+
     # Temporaer, Spec C7 Abschnitt 7: nur wenn const_overwrite.json wirkt.
     if overrides:
         async_dev_action_registrieren(hass)
@@ -111,14 +114,37 @@ async def _termine_starten(
         _LOGGER.exception("Termine nicht gestartet, Prognose und Plan laufen weiter")
 
 
+async def _panel_anmelden(hass: HomeAssistant) -> None:
+    """Spec C8 Abschnitt 2: das Panel in der Seitenleiste, nur im try.
+
+    Der Import steht mit im try. Scheitert etwas, laufen Prognose, Plan, die
+    Entitaeten aus C6 und die Termine weiter.
+    """
+    try:
+        from .panel import async_panel_anmelden
+
+        await async_panel_anmelden(hass)
+    except Exception:  # pylint: disable=broad-except
+        _LOGGER.exception("Panel nicht angemeldet, Prognose und Plan laufen weiter")
+
+
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Spec C3 Abschnitt 3: entfernt der Nutzer die Integration, geht der Store mit."""
+    """Spec C3 Abschnitt 3: entfernt der Nutzer die Integration, geht der Store mit.
+
+    Spec C8 Abschnitt 2: war es der letzte Eintrag, geht auch das Panel.
+    """
     try:
         from .terminverwaltung import async_speicher_entfernen
 
         await async_speicher_entfernen(hass, entry.entry_id)
     except Exception:  # pylint: disable=broad-except
         _LOGGER.exception("Terminspeicher nicht entfernt")
+    try:
+        from .panel import panel_abmelden
+
+        panel_abmelden(hass, entry.entry_id)
+    except Exception:  # pylint: disable=broad-except
+        _LOGGER.exception("Panel nicht abgemeldet")
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
