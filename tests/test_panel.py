@@ -141,6 +141,59 @@ def test_das_panel_rollt_aus_wie_termine_py():
     assert json.loads(lauf.stdout) == erwartet
 
 
+# Gegenprobe: das Panel rechnet den gesicherten Ladestand wie ladereserve.py.
+# (km, soc oder None, Haken, soc_min, Kapazitaet, Verbrauch)
+RESERVE_FAELLE = [
+    (175, None, True, 15.0, 58.0, 19.5),
+    (175, 40, False, 15.0, 58.0, 19.5),
+    (175, 100, False, 15.0, 58.0, 19.5),
+    (400, None, True, 15.0, 58.0, 19.5),
+    (0, None, True, 15.0, 58.0, 19.5),
+    (42, 10, False, 15.0, 58.0, 19.5),
+    (42, None, False, 15.0, 58.0, 19.5),
+    (101, None, True, 15.0, 100.0, 10.0),
+    (85, 100, False, 15.0, 100.0, 100.0),
+    (7, None, True, 15.5, 58.0, 19.5),
+]
+
+RESERVE_SKRIPT = """
+import { gesichert, fahrtPct, befund } from %s;
+let text = '';
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', (teil) => { text += teil; });
+process.stdin.on('end', () => {
+  const aus = JSON.parse(text).map(([km, soc, sichern, socMin, kwh, verbrauch]) => {
+    const v = { soc_min_pct: socMin, capacity_kwh: kwh, consumption_kwh_per_100km: verbrauch };
+    return [gesichert(km, v), fahrtPct(km, v), befund(km, soc, sichern, v)];
+  });
+  process.stdout.write(JSON.stringify(aus));
+});
+"""
+
+
+def test_das_panel_rechnet_die_reserve_wie_ladereserve_py():
+    ladereserve = _modul("ladereserve")
+    erwartet = []
+    for km, soc, sichern, soc_min, kwh, verbrauch in RESERVE_FAELLE:
+        werte = ladereserve.Fahrzeugwerte(
+            soc_min_pct=soc_min, capacity_kwh=kwh, consumption_kwh_per_100km=verbrauch)
+        erwartet.append([
+            ladereserve.gesichert(km, werte),
+            ladereserve.fahrt_pct(km, werte),
+            ladereserve.befund(km, soc, sichern, werte),
+        ])
+    assert {fall[2] for fall in erwartet} == {
+        None, "fahrt_zu_weit", "fahrt_unter_min", "ladestand_offen"
+    }, "die Faelle decken nicht jeden Befund ab; dann prueft die Gegenprobe zu wenig"
+    skript = RESERVE_SKRIPT % json.dumps((FRONTEND / "ladereserve.js").as_uri())
+    lauf = subprocess.run(
+        [_node(), "--input-type=module", "-e", skript], input=json.dumps(RESERVE_FAELLE),
+        capture_output=True, text=True, encoding="utf-8", cwd=WURZEL,
+    )
+    assert lauf.returncode == 0, lauf.stderr[-4000:]
+    assert json.loads(lauf.stdout) == erwartet
+
+
 # --- Anmeldung, Spec Abschnitte 2 und 3 --------------------------------------------------
 
 
