@@ -52,7 +52,7 @@ export function oeffneTermin(panel, termin) {
           <div class="paar"><input type="date" id="f-ab-datum" aria-labelledby="l-ab" value="${abfahrt.slice(0, 10)}"><input type="time" id="f-ab-zeit" aria-labelledby="l-ab" value="${abfahrt.slice(11, 16)}"></div></div>
         <div class="feld" id="feld-rueckkehr"><span class="label" id="l-zu">${f.t('f_rueckkehr')}</span>
           <div class="paar"><input type="date" id="f-zu-datum" aria-labelledby="l-zu" value="${rueckkehr.slice(0, 10)}"><input type="time" id="f-zu-zeit" aria-labelledby="l-zu" value="${rueckkehr.slice(11, 16)}"></div>
-          <span class="fehler" data-ort="rueckkehr" hidden></span></div>
+          <span class="warnhinweis" data-warnung="rueckkehr" hidden></span><span class="fehler" data-ort="rueckkehr" hidden></span></div>
         <div class="feld"><label for="f-regel">${f.t('f_wiederholung')}</label><select id="f-regel"></select>
           <span class="fehler" data-ort="wiederholung" hidden></span></div>
         <div class="feld" id="feld-strecke"><label for="f-km">${f.t('f_strecke')}</label>
@@ -75,6 +75,9 @@ export function oeffneTermin(panel, termin) {
 
   const q = (s) => scrim.querySelector(s);
   let dauer = Math.round((zuMs(rueckkehr, tz) - zuMs(abfahrt, tz)) / MINUTE);
+  // Spec 7.1: die Rueckkehr wandert mit der Abfahrt mit. Das bleibt sichtbar,
+  // bis jemand die Rueckkehr selbst anfasst.
+  let mitverschoben = false;
   let versucht = false;
   let dienstFehler = null;
   let andere = [];
@@ -111,6 +114,9 @@ export function oeffneTermin(panel, termin) {
     if (dienstFehler && !orte[dienstFehler.ort]) orte[dienstFehler.ort] = dienstFehler.text;
     for (const [ort, text] of Object.entries(orte)) zeige(q(`.fehler[data-ort="${ort}"]`), text);
     q('#feld-rueckkehr').classList.toggle('falsch', Boolean(orte.rueckkehr));
+    q('#feld-rueckkehr').classList.toggle('warnt', !orte.rueckkehr && mitverschoben);
+    zeige(q('[data-warnung="rueckkehr"]'), !orte.rueckkehr && mitverschoben
+      ? html`${symbol('warnung')}<span>${f.t('rueckkehr_mit')}</span>` : '');
     q('#feld-strecke').classList.toggle('falsch', Boolean(orte.strecke));
     zeige(q('[data-warnung="ladestand"]'), !orte.ladestand && warnung ? html`${symbol('warnung')}<span>${warnung}</span>` : '');
     const konflikt = fahrerKonflikt(e.werte, w.fahrer, w.fahrzeug, andere, termin ? termin.entry : null, Date.now(), tz);
@@ -191,6 +197,7 @@ export function oeffneTermin(panel, termin) {
       const ab = zuMs(lokal('#f-ab-datum', '#f-ab-zeit'), tz);
       if (ab !== null) {
         const zu = naiv(ab + dauer * MINUTE, tz);
+        if (zu.slice(0, 10) !== q('#f-zu-datum').value || zu.slice(11, 16) !== q('#f-zu-zeit').value) mitverschoben = true;
         q('#f-zu-datum').value = zu.slice(0, 10);
         q('#f-zu-zeit').value = zu.slice(11, 16);
       }
@@ -199,6 +206,7 @@ export function oeffneTermin(panel, termin) {
     if (id === 'f-zu-datum' || id === 'f-zu-zeit') {
       const ab = zuMs(lokal('#f-ab-datum', '#f-ab-zeit'), tz);
       const zu = zuMs(lokal('#f-zu-datum', '#f-zu-zeit'), tz);
+      mitverschoben = false;
       if (ab !== null && zu !== null) dauer = Math.round((zu - ab) / MINUTE);
     }
     pruefenZeigen();

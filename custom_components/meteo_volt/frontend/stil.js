@@ -173,6 +173,7 @@ svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-widt
 .feld .warnhinweis { color: var(--mv-warn); font-size: 13px; display: flex; gap: 6px; }
 .feld .warnhinweis svg.i { width: 16px; height: 16px; color: var(--mv-warn-icon); margin-top: 1px; }
 .feld.falsch input { border-color: var(--mv-error); }
+.feld.warnt input { border-color: var(--mv-warn-icon); }
 
 .optionen { display: flex; flex-direction: column; gap: 2px; }
 .optionen label { display: flex; align-items: center; gap: 12px; padding: 10px 4px; border-radius: 8px; }
