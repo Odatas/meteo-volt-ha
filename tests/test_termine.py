@@ -224,3 +224,32 @@ def test_ueberschneiden_ist_halboffen():
     assert not termine.ueberschneiden(a, b)
     (c,) = termine.termine_von({**anschluss, "departure": "2026-09-16T08:59:00"}, BERLIN, von, bis)
     assert termine.ueberschneiden(a, c)
+
+
+# --- Der Haken "Min-SoC sichern", Spec C10 Abschnitte 3 und 8 ---------------
+
+
+def test_ein_eintrag_ohne_das_feld_hat_den_haken_nicht_gesetzt():
+    """Spec C10 Abschnitt 8: bestehende Termine planen wie vorher."""
+    termin = termine.termin_am(_eintrag(), date(2026, 9, 16), BERLIN)
+    assert termin.sichern is False
+
+
+def test_der_haken_des_eintrags_steht_am_termin():
+    eintrag = _eintrag(wiederholung="daily", keep_min_soc=True)
+    assert termine.termin_am(eintrag, date(2026, 9, 16), BERLIN).sichern is True
+
+
+def test_eine_ausnahme_traegt_ihren_eigenen_haken():
+    eintrag = _eintrag(wiederholung="daily", keep_min_soc=True, exceptions={
+        "2026-09-17": {"departure": "2026-09-17T08:00:00", "duration_min": 600,
+                       "distance_km": 42, "driver": None, "soc": None, "keep_min_soc": False}})
+    assert termine.termin_am(eintrag, date(2026, 9, 16), BERLIN).sichern is True
+    assert termine.termin_am(eintrag, date(2026, 9, 17), BERLIN).sichern is False
+
+
+def test_eine_ausnahme_aus_der_zeit_vor_c10_hat_den_haken_nicht_gesetzt():
+    eintrag = _eintrag(wiederholung="daily", keep_min_soc=True, exceptions={
+        "2026-09-17": {"departure": "2026-09-17T08:00:00", "duration_min": 600,
+                       "distance_km": 42, "driver": None, "soc": None}})
+    assert termine.termin_am(eintrag, date(2026, 9, 17), BERLIN).sichern is False

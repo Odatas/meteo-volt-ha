@@ -111,6 +111,7 @@ class Werte:
     strecke_km: int
     fahrer: str | None
     ladestand: float | None
+    sichern: bool
 
 
 # --- Die Pruefung beim Speichern ----------------------------------------------
@@ -156,12 +157,17 @@ def werte_pruefen(
     jetzt: datetime,
     tz: tzinfo,
     vorgabe_wiederholung: str = termine.EINMALIG,
+    vorgabe_sichern: bool = True,
 ) -> Werte:
     """Die Felder eines Termins, geprueft in der Reihenfolge der Tabelle 2.3.
 
     fahrzeug ist schon aufgeloest: die subentry_id eines Fahrzeugs dieses
     Standorts. Fehlt repeat, gilt vorgabe_wiederholung -- beim Anlegen
     once, beim Aendern die Wiederholung des Eintrags.
+
+    Fehlt keep_min_soc, gilt vorgabe_sichern -- beim Anlegen True, beim
+    Aendern der bisherige Wert des Termins (C10-Spec Abschnitt 8). Sonst
+    naehme ein Aendern ohne das Feld einem Termin still seine Sicherung.
     """
     abfahrt_text = _lokal_text(felder.get("departure"), tz)
     rueckkehr_text = _lokal_text(felder.get("return"), tz)
@@ -199,6 +205,7 @@ def werte_pruefen(
         strecke_km=math.floor(strecke + 0.5),
         fahrer=felder.get("driver") or None,
         ladestand=None if ladestand is None else float(ladestand),
+        sichern=vorgabe_sichern if felder.get(termine.SICHERN) is None else bool(felder[termine.SICHERN]),
     )
 
 

@@ -31,7 +31,7 @@ FR = date(2026, 9, 18)
 def _werte(abfahrt="2026-09-16T08:00:00", wiederholung="weekdays", fahrzeug="auto-1", **felder):
     return pruefungen.Werte(**{
         "fahrzeug": fahrzeug, "abfahrt": abfahrt, "dauer_min": 600, "wiederholung": wiederholung,
-        "strecke_km": 42, "fahrer": None, "ladestand": None, **felder})
+        "strecke_km": 42, "fahrer": None, "ladestand": None, "sichern": True, **felder})
 
 
 def _ids():
@@ -59,8 +59,8 @@ def test_anlegen_legt_einen_eintrag_und_einen_schritt_an():
     buch, _, eintrag = _buch_mit_serie()
     assert buch.eintraege[eintrag] == {
         "id": eintrag, "vehicle": "auto-1", "departure": "2026-09-16T08:00:00", "duration_min": 600,
-        "repeat": "weekdays", "distance_km": 42, "driver": None, "soc": None, "until": None,
-        "exceptions": {}}
+        "repeat": "weekdays", "distance_km": 42, "driver": None, "soc": None, "keep_min_soc": True,
+        "until": None, "exceptions": {}}
     assert len(buch.schritte) == 1
 
 
@@ -89,7 +89,7 @@ def test_this_legt_eine_ausnahme_an():
     assert eintraege == [eintrag]
     assert buch.eintraege[eintrag]["exceptions"] == {"2026-09-17": {
         "departure": "2026-09-17T09:00:00", "duration_min": 600, "distance_km": 7,
-        "driver": None, "soc": None}}
+        "driver": None, "soc": None, "keep_min_soc": True}}
     assert buch.eintraege[eintrag]["departure"] == "2026-09-16T08:00:00"
 
 
@@ -183,9 +183,9 @@ def test_all_mit_neuer_regel_setzt_die_ausnahmen_zurueck():
     assert buch.eintraege[eintrag]["exceptions"] == {}
 
 
-def _ausnahme(abfahrt, strecke_km=42):
+def _ausnahme(abfahrt, strecke_km=42, keep_min_soc=True):
     return {"departure": abfahrt, "duration_min": 600, "distance_km": strecke_km,
-            "driver": None, "soc": None}
+            "driver": None, "soc": None, "keep_min_soc": keep_min_soc}
 
 
 def _verlegte_serie():

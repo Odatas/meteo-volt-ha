@@ -57,7 +57,7 @@ def test_gueltige_werte_so_wie_der_store_sie_traegt():
     werte = _pruefen(driver="person.anna", soc=80)
     assert werte == pruefungen.Werte(
         fahrzeug="auto-1", abfahrt="2026-09-17T08:00:00", dauer_min=600,
-        wiederholung="once", strecke_km=42, fahrer="person.anna", ladestand=80.0)
+        wiederholung="once", strecke_km=42, fahrer="person.anna", ladestand=80.0, sichern=True)
 
 
 def test_ohne_wiederholung_gilt_die_vorgabe():

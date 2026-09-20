@@ -52,10 +52,21 @@ WIEDERHOLUNG = "repeat"
 STRECKE = "distance_km"
 FAHRER = "driver"
 LADESTAND = "soc"
+SICHERN = "keep_min_soc"  # der Haken "Min-SoC sichern", Spec C10 Abschnitt 3
 BIS = "until"  # lokales Datum, ab dem die Serie endet, oder None
 AUSNAHMEN = "exceptions"  # Datum -> None (abgesagt) oder die Werte unten
 
-AUSNAHME_FELDER = (ABFAHRT, DAUER, STRECKE, FAHRER, LADESTAND)
+AUSNAHME_FELDER = (ABFAHRT, DAUER, STRECKE, FAHRER, LADESTAND, SICHERN)
+
+
+def sichern_von(werte: dict) -> bool:
+    """Der Haken eines Eintrags oder einer Ausnahme; fehlt er, ist er nicht gesetzt.
+
+    Ein Eintrag aus der Zeit vor C10 traegt das Feld nicht und plant weiter
+    wie bisher (C10-Spec Abschnitt 8). Kein Default True: das aenderte den
+    Plan bestehender Termine, ohne dass jemand etwas angefasst haette.
+    """
+    return bool(werte.get(SICHERN, False))
 
 
 @dataclass(frozen=True)
@@ -72,6 +83,7 @@ class Termin:
     ladestand: float | None
     wiederholung: str
     geaendert: bool  # eine geaenderte Ausnahme
+    sichern: bool  # der Haken "Min-SoC sichern", Spec C10 Abschnitt 3
 
 
 def lokal(text: str, tz: tzinfo) -> datetime:
@@ -209,7 +221,10 @@ def termin_am(eintrag: dict, datum: date, tz: tzinfo) -> Termin | None:
         return None
     werte = (eintrag.get(AUSNAHMEN) or {}).get(datum.isoformat())
     if werte is None:
-        werte = {feld: eintrag[feld] for feld in AUSNAHME_FELDER}
+        # SICHERN getrennt: ein Eintrag von vor C10 traegt das Feld nicht,
+        # die uebrigen Felder sind Pflicht und sollen laut fehlen.
+        werte = {feld: eintrag[feld] for feld in AUSNAHME_FELDER if feld != SICHERN}
+        werte[SICHERN] = sichern_von(eintrag)
         werte[ABFAHRT] = datum.isoformat() + eintrag[ABFAHRT][10:]
         geaendert = False
     else:
@@ -226,6 +241,7 @@ def termin_am(eintrag: dict, datum: date, tz: tzinfo) -> Termin | None:
         ladestand=werte[LADESTAND],
         wiederholung=eintrag[WIEDERHOLUNG],
         geaendert=geaendert,
+        sichern=sichern_von(werte),
     )
 
 
