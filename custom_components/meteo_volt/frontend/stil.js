@@ -171,6 +171,11 @@ svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-widt
 @container (max-width: 340px) { .zwei { grid-template-columns: 1fr; } }
 .feld .fehler { color: var(--mv-error); font-size: 13px; }
 .feld .warnhinweis { color: var(--mv-warn); font-size: 13px; display: flex; gap: 6px; }
+/* Der Haken "Min-SoC sichern" und seine Hinweiszeile, C10-Spec Abschnitt 5. */
+.feld .haken { flex-direction: row; align-items: center; gap: 8px; display: flex;
+  font-size: 14px; color: var(--mv-text); }
+.feld .haken input { width: auto; min-width: 0; height: auto; margin: 0; }
+.feld .hinweis { color: var(--mv-text2); font-size: 13px; }
 .feld .warnhinweis svg.i { width: 16px; height: 16px; color: var(--mv-warn-icon); margin-top: 1px; }
 .feld.falsch input { border-color: var(--mv-error); }
 .feld.warnt input { border-color: var(--mv-warn-icon); }

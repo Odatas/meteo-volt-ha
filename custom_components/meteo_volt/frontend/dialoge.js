@@ -6,6 +6,7 @@
 
 import { fahrzeugTitel, personName } from './ansichten.js';
 import { html } from './html.js';
+import { hinweis } from './ladereserve.js';
 import { termineAus } from './plan.js';
 import { FAHRER_VORAUS, FEHLERORTE, fahrerKonflikt, fehlerOrt, pruefen } from './pruefung.js';
 import { symbol } from './symbole.js';
@@ -67,6 +68,8 @@ export function oeffneTermin(panel, termin) {
         <div class="feld" id="zeile-fahrer" hidden><span class="warnhinweis" data-ort="fahrer"></span></div>
         <div class="feld" id="feld-ladestand"><label for="f-soc">${f.t('f_ladestand')}</label>
           <input type="number" id="f-soc" inputmode="numeric" min="0" max="100" step="1" placeholder="${f.t('f_optional')}" value="${termin && termin.soc !== null && termin.soc !== undefined ? termin.soc : ''}">
+          <label class="haken"><input type="checkbox" id="f-sichern"${!termin || termin.keep_min_soc ? html` checked` : ''}><span>${f.t('f_sichern')}</span></label>
+          <span class="hinweis" id="sichern-hinweis" hidden></span>
           <span class="warnhinweis" data-warnung="ladestand" hidden></span><span class="fehler" data-ort="ladestand" hidden></span></div>
         ${termin ? html`<div class="unten-loeschen">${loeschen}</div>` : ''}
       </div>
@@ -88,6 +91,7 @@ export function oeffneTermin(panel, termin) {
     regel: q('#f-regel').value || regel,
     km: q('#f-km').value,
     soc: q('#f-soc').value,
+    sichern: q('#f-sichern').checked,
     fahrzeug: q('#f-fahrzeug').value,
     fahrer: q('#f-fahrer').value || null,
   });
@@ -103,12 +107,16 @@ export function oeffneTermin(panel, termin) {
   };
   const pruefenZeigen = () => {
     const w = lese();
-    const socMin = (z.fahrzeuge.find((v) => v.vehicle === w.fahrzeug) || {}).soc_min_pct ?? 0;
-    const e = pruefen(w, { jetzt: Date.now(), tz, socMin, versucht });
+    const fahrzeug = z.fahrzeuge.find((v) => v.vehicle === w.fahrzeug) || {};
+    const e = pruefen(w, { jetzt: Date.now(), tz, fahrzeug, versucht });
     const orte = Object.fromEntries(FEHLERORTE.map((ort) => [ort, '']));
     let warnung = '';
     for (const m of e.meldungen) {
-      if (m.art === 'warnung') warnung = f.t(m.key, { min: f.zahlKurz(m.platzhalter.min) });
+      // Jeder Platzhalter, nicht nur {min}: fahrt_zu_weit traegt {km}.
+      if (m.art === 'warnung') {
+        warnung = f.t(m.key, Object.fromEntries(
+          Object.entries(m.platzhalter).map(([name, wert]) => [name, f.zahlKurz(wert)])));
+      }
       else if (!orte[m.ort]) orte[m.ort] = f.t(m.key);
     }
     if (dienstFehler && !orte[dienstFehler.ort]) orte[dienstFehler.ort] = dienstFehler.text;
@@ -119,6 +127,13 @@ export function oeffneTermin(panel, termin) {
       ? html`${symbol('warnung')}<span>${f.t('rueckkehr_mit')}</span>` : '');
     q('#feld-strecke').classList.toggle('falsch', Boolean(orte.strecke));
     zeige(q('[data-warnung="ladestand"]'), !orte.ladestand && warnung ? html`${symbol('warnung')}<span>${warnung}</span>` : '');
+    // Spec C10 Abschnitt 5: die Hinweiszeile steht, solange der Haken gesetzt
+    // ist und eine Strecke dasteht. Was sie nennt, rechnet ladereserve.js.
+    const h = w.sichern && w.km !== '' ? hinweis(Number(w.km), fahrzeug) : null;
+    zeige(q('#sichern-hinweis'), h ? f.t('f_sichern_hinweis', {
+      ziel: f.zahlKurz(h.ziel), min: f.zahlKurz(h.min),
+      fahrt: f.zahlKurz(h.fahrt), km: f.zahlKurz(h.km),
+    }) : '');
     const konflikt = fahrerKonflikt(e.werte, w.fahrer, w.fahrzeug, andere, termin ? termin.entry : null, Date.now(), tz);
     const fahrerText = konflikt ? f.t('fahrer_doppelt', {
       fahrer: personName(z, w.fahrer) ?? '', datum: f.tag(konflikt.eigen.abfahrt),
@@ -171,7 +186,7 @@ export function oeffneTermin(panel, termin) {
     if (!e.ok) return;
     const daten = {
       vehicle: w.fahrzeug, departure: w.abfahrt, return: w.rueckkehr, repeat: w.regel, distance_km: Number(w.km),
-      driver: w.fahrer, soc: w.soc === '' ? null : Number(w.soc),
+      driver: w.fahrer, soc: w.soc === '' ? null : Number(w.soc), keep_min_soc: w.sichern,
     };
     if (termin && termin.repeat !== 'once') oeffneUmfang(panel, 'speichern', termin, w, (umfang) => senden(daten, umfang));
     else senden(daten, null);

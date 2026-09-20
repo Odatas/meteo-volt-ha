@@ -6,10 +6,14 @@ import { ORT, fahrerKonflikt, fehlerOrt, pruefen } from '../../custom_components
 
 const TZ = 'Europe/Berlin';
 const JETZT = Date.UTC(2026, 8, 16, 12, 35); // Mi 16.09.2026 14:35 in Berlin
-const K = { jetzt: JETZT, tz: TZ, socMin: 15, versucht: false };
+// Die Defaults aus C1-C2: 58 kWh, 19,5 kWh/100 km, Min-SoC 15 %.
+const AUTO = { soc_min_pct: 15, capacity_kwh: 58, consumption_kwh_per_100km: 19.5 };
+const K = { jetzt: JETZT, tz: TZ, fahrzeug: AUTO, versucht: false };
 
 const formular = (felder = {}) => ({
-  abfahrt: '2026-09-17T08:00:00', rueckkehr: '2026-09-17T18:00:00', regel: 'once', km: 45, soc: null, ...felder,
+  // sichern: true ist die Vorgabe eines neuen Termins (C10-Spec Abschnitt 3).
+  abfahrt: '2026-09-17T08:00:00', rueckkehr: '2026-09-17T18:00:00', regel: 'once', km: 45, soc: null,
+  sichern: true, ...felder,
 });
 const schluessel = (ergebnis) => ergebnis.meldungen.map((m) => m.key);
 
@@ -75,7 +79,8 @@ test('die Reihenfolge der Tabelle 2.3', () => {
   assert.deepEqual(schluessel(e), ['rueckkehr_vor_abfahrt', 'strecke_negativ', 'ladestand_bereich']);
   assert.deepEqual(Object.keys(ORT), [
     'zeit_fehlt', 'rueckkehr_vor_abfahrt', 'rueckkehr_vorbei', 'dauer_zu_lang', 'strecke_fehlt', 'strecke_negativ',
-    'ladestand_bereich', 'ladestand_unter_min', 'fahrer_doppelt',
+    'ladestand_bereich', 'ladestand_unter_min', 'fahrt_zu_weit', 'fahrt_unter_min', 'ladestand_offen',
+    'fahrer_doppelt',
   ]);
 });
 
@@ -126,4 +131,47 @@ test('der Fahrer wird acht Wochen voraus geprueft', () => {
   assert.equal(fahrerKonflikt(w, 'person.anna', 'dev-buzz', [spaet], null, JETZT, TZ).eigen.datum, '2026-11-11');
   const zuSpaet = termin({ departure: '2026-11-12T10:00:00+01:00', return: '2026-11-12T12:00:00+01:00' });
   assert.equal(fahrerKonflikt(w, 'person.anna', 'dev-buzz', [zuSpaet], null, JETZT, TZ), null);
+});
+
+
+// --- Die Warnungen zur Fahrt, Spec C10 Abschnitt 5 -------------------------
+
+const warnungen = (felder) => pruefen(formular(felder), K).meldungen.filter((m) => m.art === 'warnung');
+
+test('der Haken allein warnt nicht', () => {
+  assert.deepEqual(warnungen({}), []);
+});
+
+test('ohne Haken und ohne Ziel ist der Ladestand offen', () => {
+  assert.deepEqual(warnungen({ sichern: false }).map((m) => [m.key, m.ort]),
+    [['ladestand_offen', 'ladestand']]);
+});
+
+test('ein zu kleines eigenes Ziel zieht unter den Min-SoC', () => {
+  assert.deepEqual(warnungen({ sichern: false, soc: 40, km: 175 }).map((m) => [m.key, m.platzhalter.min]),
+    [['fahrt_unter_min', 15]]);
+});
+
+test('auch voll geladen reicht es nicht', () => {
+  assert.deepEqual(warnungen({ km: 400 }).map((m) => [m.key, m.platzhalter.km]),
+    [['fahrt_zu_weit', 400]]);
+});
+
+test('der zu kleine Ladestand steht vor dem offenen', () => {
+  assert.deepEqual(warnungen({ sichern: false, soc: 10 }).map((m) => m.key), ['ladestand_unter_min']);
+});
+
+test('am Platz Ladestand steht hoechstens eine Warnung', () => {
+  assert.equal(warnungen({ sichern: false, soc: 10, km: 400 }).length, 1);
+});
+
+test('ohne Strecke wird nicht gerechnet', () => {
+  assert.deepEqual(warnungen({ km: '' }), []);
+  assert.deepEqual(warnungen({ km: '', sichern: false }), []);
+});
+
+test('ohne die Werte des Fahrzeugs wird nicht gerechnet', () => {
+  const leer = { jetzt: JETZT, tz: TZ, fahrzeug: {}, versucht: false };
+  assert.deepEqual(pruefen(formular({ sichern: false }), leer).meldungen, []);
+  assert.deepEqual(pruefen(formular({ km: 400 }), leer).meldungen, []);
 });

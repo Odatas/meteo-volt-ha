@@ -4,6 +4,7 @@
 // Reihenfolge. C3 prueft beim Speichern dasselbe noch einmal; was das Panel
 // hier meldet, haelt nur das Formular auf.
 
+import { FAHRT_UNTER_MIN, FAHRT_ZU_WEIT, LADESTAND_OFFEN, befund } from './ladereserve.js';
 import { ABSTAND_MIN, ausrollen, ueberschneiden } from './wiederholung.js';
 import { MINUTE, TAG, ausIso, zuMs } from './zeit.js';
 
@@ -17,6 +18,9 @@ export const ORT = {
   strecke_negativ: 'strecke',
   ladestand_bereich: 'ladestand',
   ladestand_unter_min: 'ladestand',
+  fahrt_zu_weit: 'ladestand',
+  fahrt_unter_min: 'ladestand',
+  ladestand_offen: 'ladestand',
   fahrer_doppelt: 'fahrer',
 };
 
@@ -31,8 +35,9 @@ export const FAHRER_VORAUS = 56 * TAG;
 
 const zahlOderNull = (x) => (x === null || x === undefined || x === '' || !Number.isFinite(Number(x)) ? null : Number(x));
 
-// f: { abfahrt, rueckkehr (lokal ohne Offset oder null), regel, km, soc }
-// k: { jetzt, tz, socMin, versucht } -- versucht: einmal auf Speichern gedrueckt
+// f: { abfahrt, rueckkehr (lokal ohne Offset oder null), regel, km, soc, sichern }
+// k: { jetzt, tz, fahrzeug, versucht } -- fahrzeug aus meteo_volt/site,
+//     versucht: einmal auf Speichern gedrueckt
 // Liefert { meldungen: [{ key, ort, art, platzhalter }], ok, werte }. werte ist
 // { abfahrt, dauerMin, regel }, wenn die Zeiten gelten, sonst null.
 export function pruefen(f, k) {
@@ -57,9 +62,23 @@ export function pruefen(f, k) {
     melden('strecke_negativ');
   }
   const soc = zahlOderNull(f.soc);
-  if (soc !== null) {
-    if (soc < 0 || soc > 100) melden('ladestand_bereich');
-    else if (soc < k.socMin) melden('ladestand_unter_min', 'warnung', { min: k.socMin });
+  const socMin = k.fahrzeug.soc_min_pct;
+  // Ohne die Werte des Fahrzeugs wird nicht gerechnet -- etwa solange site
+  // noch laedt. Eine Warnung aus NaN waere eine Pruefung, die still das
+  // Falsche sagt.
+  const bekannt = Number.isFinite(socMin)
+    && k.fahrzeug.capacity_kwh > 0 && Number.isFinite(k.fahrzeug.consumption_kwh_per_100km);
+  if (soc !== null && (soc < 0 || soc > 100)) {
+    melden('ladestand_bereich');
+  } else if (bekannt) {
+    // Am Platz "Ladestand" steht hoechstens eine Warnung, in der Reihenfolge
+    // aus C10-Spec Abschnitt 5. Ohne Strecke wird nicht gerechnet: dort steht
+    // dann schon strecke_fehlt.
+    const b = km === null ? null : befund(km, soc, Boolean(f.sichern), k.fahrzeug);
+    if (b === FAHRT_ZU_WEIT) melden(FAHRT_ZU_WEIT, 'warnung', { km });
+    else if (b === FAHRT_UNTER_MIN) melden(FAHRT_UNTER_MIN, 'warnung', { min: socMin });
+    else if (soc !== null && soc < socMin) melden('ladestand_unter_min', 'warnung', { min: socMin });
+    else if (b === LADESTAND_OFFEN) melden(LADESTAND_OFFEN, 'warnung');
   }
   const ok = km !== null && !meldungen.some((m) => m.art === 'fehler');
   return { meldungen, ok, werte };
