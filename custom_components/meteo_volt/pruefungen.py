@@ -73,7 +73,8 @@ FAHRER_VORAUS = timedelta(weeks=8)
 
 # --- Die Actions und ihre Felder, Spec Abschnitt 5 ---------------------------
 
-TERMIN_FELDER = ("vehicle", "departure", "return", "repeat", "distance_km", "driver", "soc")
+TERMIN_FELDER = ("vehicle", "departure", "return", "repeat", "distance_km", "driver", "soc",
+                 "keep_min_soc")
 AKTIONEN = {
     "create_appointment": TERMIN_FELDER,
     "update_appointment": ("entry", "date", "scope", *TERMIN_FELDER),

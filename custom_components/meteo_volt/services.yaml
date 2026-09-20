@@ -36,6 +36,9 @@ create_appointment:
           max: 100
           unit_of_measurement: "%"
           mode: box
+    keep_min_soc:
+      selector:
+        boolean:
 
 update_appointment:
   fields:
@@ -81,6 +84,9 @@ update_appointment:
           max: 100
           unit_of_measurement: "%"
           mode: box
+    keep_min_soc:
+      selector:
+        boolean:
 
 delete_appointment:
   fields:

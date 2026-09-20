@@ -40,6 +40,7 @@ _FELDER = {
     "distance_km": _ZAHL,
     "driver": _TEXT,
     "soc": _ZAHL,
+    "keep_min_soc": vol.Any(None, cv.boolean),
     "entry": _TEXT,
     "date": _TEXT,
     "scope": vol.Any(None, vol.In(terminbuch.UMFAENGE)),

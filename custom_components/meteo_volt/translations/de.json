@@ -230,6 +230,10 @@
         "soc": {
           "name": "Ladestand bei Abfahrt (%)",
           "description": "Ab dem Min-SoC plant Meteo-Volt ihn als Ziel."
+        },
+        "keep_min_soc": {
+          "name": "Min-SoC sichern",
+          "description": "Hebt die Abfahrt auf den Min-SoC plus den Verbrauch der Fahrt. Fehlt das Feld, beim Anlegen an, beim Ändern wie bisher."
         }
       }
     },
@@ -271,6 +275,10 @@
         "soc": {
           "name": "Ladestand bei Abfahrt (%)",
           "description": "Ab dem Min-SoC plant Meteo-Volt ihn als Ziel."
+        },
+        "keep_min_soc": {
+          "name": "Min-SoC sichern",
+          "description": "Hebt die Abfahrt auf den Min-SoC plus den Verbrauch der Fahrt. Fehlt das Feld, beim Anlegen an, beim Ändern wie bisher."
         }
       }
     },

@@ -230,6 +230,10 @@
         "soc": {
           "name": "State of charge at departure (%)",
           "description": "From the minimum state of charge on, Meteo-Volt plans it as a target."
+        },
+        "keep_min_soc": {
+          "name": "Keep minimum SoC",
+          "description": "Raises the departure to the minimum state of charge plus the trip. If the field is missing: on when creating, unchanged when editing."
         }
       }
     },
@@ -271,6 +275,10 @@
         "soc": {
           "name": "State of charge at departure (%)",
           "description": "From the minimum state of charge on, Meteo-Volt plans it as a target."
+        },
+        "keep_min_soc": {
+          "name": "Keep minimum SoC",
+          "description": "Raises the departure to the minimum state of charge plus the trip. If the field is missing: on when creating, unchanged when editing."
         }
       }
     },
