@@ -1,4 +1,4 @@
-"""Prueft die Verdrahtung von C6 und C3 am Quelltext. Spec C6 Abschnitt 8, C3 Abschnitt 8.
+"""Prueft die Verdrahtung von C6, C3 und C8 am Quelltext. Spec C6 Abschnitt 8, C3 Abschnitt 8, C8 Abschnitt 2.
 
 __init__.py, sensor.py und binary_sensor.py importieren Home Assistant und
 lassen sich hier nicht laden. Die Fehler, um die es geht, stehen aber im AST.
@@ -38,10 +38,11 @@ def test_kein_rueckruf_fuers_entladen_ist_eine_lambda():
     assert mit_lambda == []
 
 
-# Die Module von C6 und C3. Jedes andere Modul laedt sie nur im try.
+# Die Module von C6, C3 und C8. Jedes andere Modul laedt sie nur im try.
 C6 = {"ausgabe", "fahrzeugausgabe", "fahrzeugsensor", "fahrzeugbinaersensor"}
 C3 = {"termine", "pruefungen", "terminbuch", "terminanfrage", "ansicht",
       "terminverwaltung", "aktionen", "terminwebsocket"}
+C8 = {"panel"}
 
 
 def _importe(knoten: ast.AST, im_try: bool = False):
@@ -63,13 +64,14 @@ def _laedt(knoten: ast.Import | ast.ImportFrom, gruppe: set[str]) -> bool:
     return knoten.module.split(".")[0] in gruppe
 
 
-@pytest.mark.parametrize(("name", "gruppe"), [("C6", C6), ("C3", C3)])
+@pytest.mark.parametrize(("name", "gruppe"), [("C6", C6), ("C3", C3), ("C8", C8)])
 def test_die_module_werden_ausserhalb_ihrer_gruppe_nur_im_try_importiert(name, gruppe):
     """Home Assistant 2026.4.1 importiert alle Plattformen, bevor es eine einrichtet.
 
     Ein Importfehler bricht dann das Einrichten des ganzen Eintrags ab, die
     sechs Sensoren der Prognose eingeschlossen. Im try steht er nur im Log.
-    Fuer C3 verlangt das die C3-Spec Abschnitt 8 auch ohne Plattform.
+    Fuer C3 verlangt das die C3-Spec Abschnitt 8 auch ohne Plattform, fuer
+    das Panel die C8-Spec Abschnitt 2.
     """
     importe = [
         (f"{datei}:{knoten.lineno}", geschuetzt)

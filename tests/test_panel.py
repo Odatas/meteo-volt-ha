@@ -139,3 +139,22 @@ def test_das_panel_rollt_aus_wie_termine_py():
     )
     assert lauf.returncode == 0, lauf.stderr[-4000:]
     assert json.loads(lauf.stdout) == erwartet
+
+
+# --- Anmeldung, Spec Abschnitte 2 und 3 --------------------------------------------------
+
+
+def test_die_parameter_der_anmeldung():
+    panel = _modul("panel")
+    assert panel.parameter("1.1.0-beta.10") == {
+        "frontend_url_path": "meteo-volt",
+        "webcomponent_name": "meteo-volt-panel",
+        "sidebar_title": "Meteo-Volt",
+        "sidebar_icon": "mdi:lightning-bolt",
+        "module_url": "/meteo_volt_panel/1.1.0-beta.10/meteo-volt-panel.js",
+        "embed_iframe": False,
+        "require_admin": False,
+    }
+    assert panel.adresse("1.1.0-beta.10") == "/meteo_volt_panel/1.1.0-beta.10"
+    assert panel.VERZEICHNIS == FRONTEND
+    assert panel.ANGEMELDET != panel.DOMAIN, "nicht unter hass.data[DOMAIN]: das lesen die sechs Sensoren"

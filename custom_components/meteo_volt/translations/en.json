@@ -221,7 +221,7 @@
           "description": "once, daily, weekdays, weekly, monthly or yearly. If missing, once when creating, unchanged when updating."
         },
         "distance_km": {
-          "name": "Distance (km)"
+          "name": "Round-trip distance (km)"
         },
         "driver": {
           "name": "Driver",
@@ -262,7 +262,7 @@
           "description": "once, daily, weekdays, weekly, monthly or yearly. If missing, once when creating, unchanged when updating."
         },
         "distance_km": {
-          "name": "Distance (km)"
+          "name": "Round-trip distance (km)"
         },
         "driver": {
           "name": "Driver",

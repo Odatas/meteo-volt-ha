@@ -221,7 +221,7 @@
           "description": "once, daily, weekdays, weekly, monthly oder yearly. Fehlt sie, beim Anlegen once, beim Ändern wie bisher."
         },
         "distance_km": {
-          "name": "Strecke (km)"
+          "name": "Strecke hin und zurück (km)"
         },
         "driver": {
           "name": "Fahrer",
@@ -262,7 +262,7 @@
           "description": "once, daily, weekdays, weekly, monthly oder yearly. Fehlt sie, beim Anlegen once, beim Ändern wie bisher."
         },
         "distance_km": {
-          "name": "Strecke (km)"
+          "name": "Strecke hin und zurück (km)"
         },
         "driver": {
           "name": "Fahrer",
