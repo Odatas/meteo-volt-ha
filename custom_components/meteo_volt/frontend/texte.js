@@ -159,6 +159,7 @@ export const TEXTE = {
     f_ladestand: 'Ladestand bei Abfahrt (%)',
     f_sichern: 'Min-SoC sichern',
     f_sichern_hinweis: 'Sichert {ziel} % — Min-SoC {min} % plus {fahrt} % für {km} km',
+    f_sichern_voll: 'Lädt voll — {km} km übersteigen die Reichweite.',
     f_optional: 'optional',
 
     // Umfang
@@ -367,6 +368,7 @@ export const TEXTE = {
     f_ladestand: 'State of charge at departure (%)',
     f_sichern: 'Keep minimum SoC',
     f_sichern_hinweis: 'Secures {ziel} % — minimum {min} % plus {fahrt} % for {km} km',
+    f_sichern_voll: 'Charges to full — {km} km exceed the range.',
     f_optional: 'optional',
 
     umfang_aendern: 'Change recurring trip',

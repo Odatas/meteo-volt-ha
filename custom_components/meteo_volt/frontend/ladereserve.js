@@ -36,7 +36,15 @@ export function befund(km, soc, sichern, v) {
 // Die Platzhalter der Hinweiszeile unter dem Haken, oder null: ohne brauchbare
 // Strecke gibt es nichts zu rechnen, und die Zeile bleibt weg.
 // Spec C10 Abschnitt 5. Nur fuers Panel -- das Backend zeigt keine Zeile.
+//
+// voll: die Fahrt liegt ueber der Reichweite, derselbe Fall wie fahrt_zu_weit.
+// Die Zeile sagt dann nur, dass voll geladen wird -- Min-SoC plus Fahrt ergaebe
+// eine Summe weit ueber dem Deckel, den ziel nennt.
 export function hinweis(km, v) {
   if (km === null || !Number.isFinite(km) || km < 0) return null;
-  return { ziel: gesichert(km, v), min: v.soc_min_pct, fahrt: Math.round(fahrtPct(km, v)), km: Math.round(km) };
+  const fahrt = fahrtPct(km, v);
+  return {
+    ziel: gesichert(km, v), min: v.soc_min_pct, fahrt: Math.round(fahrt), km: Math.round(km),
+    voll: fahrt > 100 - v.soc_min_pct,
+  };
 }

@@ -69,6 +69,24 @@ def test_ohne_wiederholung_gilt_die_vorgabe():
     assert werte.wiederholung == "weekly"
 
 
+def test_ohne_haken_feld_gilt_die_vorgabe():
+    """C10-Spec Abschnitt 8: beim Anlegen True, beim Aendern der bisherige Wert des Termins.
+
+    Sonst naehme ein update_appointment ohne das Feld einem Termin still seine
+    Sicherung -- dieselbe Regel wie bei repeat.
+    """
+    assert _pruefen().sichern is True
+    assert pruefungen.werte_pruefen(_felder(), "auto-1", JETZT, BERLIN, vorgabe_sichern=False).sichern is False
+    # Steht das Feld, zaehlt es, auch gegen die Vorgabe.
+    assert pruefungen.werte_pruefen(
+        _felder(keep_min_soc=False), "auto-1", JETZT, BERLIN, vorgabe_sichern=True).sichern is False
+    assert pruefungen.werte_pruefen(
+        _felder(keep_min_soc=True), "auto-1", JETZT, BERLIN, vorgabe_sichern=False).sichern is True
+    # None heisst "nicht angegeben", nicht "aus": so kommt ein leeres Feld aus den Actions an.
+    assert pruefungen.werte_pruefen(
+        _felder(keep_min_soc=None), "auto-1", JETZT, BERLIN, vorgabe_sichern=False).sichern is False
+
+
 def test_eine_zeit_mit_offset_wird_lokal():
     werte = _pruefen(departure="2026-09-17T06:00:00+00:00")
     assert werte.abfahrt == "2026-09-17T08:00:00"

@@ -128,12 +128,18 @@ export function oeffneTermin(panel, termin) {
     q('#feld-strecke').classList.toggle('falsch', Boolean(orte.strecke));
     zeige(q('[data-warnung="ladestand"]'), !orte.ladestand && warnung ? html`${symbol('warnung')}<span>${warnung}</span>` : '');
     // Spec C10 Abschnitt 5: die Hinweiszeile steht, solange der Haken gesetzt
-    // ist und eine Strecke dasteht. Was sie nennt, rechnet ladereserve.js.
+    // ist und eine Strecke dasteht. Was sie nennt, rechnet ladereserve.js;
+    // ueber der Reichweite sagt sie nur noch, dass voll geladen wird.
     const h = w.sichern && w.km !== '' ? hinweis(Number(w.km), fahrzeug) : null;
-    zeige(q('#sichern-hinweis'), h ? f.t('f_sichern_hinweis', {
-      ziel: f.zahlKurz(h.ziel), min: f.zahlKurz(h.min),
-      fahrt: f.zahlKurz(h.fahrt), km: f.zahlKurz(h.km),
-    }) : '');
+    let hinweisText = '';
+    if (h && h.voll) hinweisText = f.t('f_sichern_voll', { km: f.zahlKurz(h.km) });
+    else if (h) {
+      hinweisText = f.t('f_sichern_hinweis', {
+        ziel: f.zahlKurz(h.ziel), min: f.zahlKurz(h.min),
+        fahrt: f.zahlKurz(h.fahrt), km: f.zahlKurz(h.km),
+      });
+    }
+    zeige(q('#sichern-hinweis'), hinweisText);
     const konflikt = fahrerKonflikt(e.werte, w.fahrer, w.fahrzeug, andere, termin ? termin.entry : null, Date.now(), tz);
     const fahrerText = konflikt ? f.t('fahrer_doppelt', {
       fahrer: personName(z, w.fahrer) ?? '', datum: f.tag(konflikt.eigen.abfahrt),
