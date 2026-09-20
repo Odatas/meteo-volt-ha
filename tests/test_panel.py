@@ -55,3 +55,87 @@ def test_im_frontend_steht_nichts_aus_dem_netz():
     assert dateien, "kein Modul unter frontend/; prueft der Test noch etwas?"
     for datei in dateien:
         assert not re.search(r"https?://", datei.read_text(encoding="utf-8")), datei.name
+
+
+# --- Die Module ohne Home Assistant ------------------------------------------------------
+
+# Geladen ueber ein Paket, dessen __init__.py NICHT laeuft -- die zieht homeassistant
+# herein. termine.py und panel.py importieren Home Assistant nicht beim Laden.
+_PAKET = "meteo_volt_c3"
+
+
+def _modul(name: str):
+    if _PAKET not in sys.modules:
+        paket = types.ModuleType(_PAKET)
+        paket.__path__ = [str(INTEGRATION)]
+        sys.modules[_PAKET] = paket
+    return importlib.import_module(f"{_PAKET}.{name}")
+
+
+IMPORT = re.compile(r"""^\s*(?:import|export)\b[^'"]*?\bfrom\s+['"](\.[^'"]+)['"]""", re.MULTILINE)
+
+
+def test_jeder_relative_import_im_frontend_hat_ein_ziel():
+    """Ein vertippter Modulname fiele sonst erst im Browser auf, und das Panel bliebe leer."""
+    gefunden = 0
+    for datei in sorted(FRONTEND.glob("*.js")):
+        for ziel in IMPORT.findall(datei.read_text(encoding="utf-8")):
+            gefunden += 1
+            assert (datei.parent / ziel).resolve().is_file(), f"{datei.name}: {ziel} fehlt"
+    assert gefunden, "kein Import gefunden; prueft der Test noch etwas?"
+
+
+# Gegenprobe: das Panel rollt aus wie termine.py, in Europe/Berlin mit Zeitumstellung.
+FAELLE = [
+    # (Abfahrt, Dauer in min, Wiederholung, von, bis)
+    ("2026-09-16T08:00:00", 600, "once", "2026-09-14T00:00:00", "2026-10-12T00:00:00"),
+    ("2026-09-16T08:00:00", 600, "daily", "2026-09-14T00:00:00", "2026-09-30T00:00:00"),
+    ("2026-09-19T08:00:00", 600, "weekdays", "2026-09-14T00:00:00", "2026-10-12T00:00:00"),
+    ("2026-09-16T19:00:00", 150, "weekly", "2026-09-20T00:00:00", "2026-11-20T00:00:00"),
+    ("2026-09-16T07:30:00", 60, "monthly", "2026-09-01T00:00:00", "2027-09-01T00:00:00"),
+    ("2026-09-30T07:30:00", 60, "monthly", "2026-09-01T00:00:00", "2027-09-01T00:00:00"),
+    ("2026-09-28T07:30:00", 60, "monthly", "2026-09-01T00:00:00", "2027-09-01T00:00:00"),
+    ("2028-02-29T10:00:00", 120, "yearly", "2028-01-01T00:00:00", "2034-01-01T00:00:00"),
+    ("2026-03-28T02:30:00", 60, "daily", "2026-03-27T00:00:00", "2026-03-31T00:00:00"),
+    ("2026-10-24T02:30:00", 60, "daily", "2026-10-23T00:00:00", "2026-10-27T00:00:00"),
+    ("2026-10-24T22:00:00", 480, "daily", "2026-10-24T00:00:00", "2026-10-27T00:00:00"),
+    ("2026-09-14T20:00:00", 2940, "weekly", "2026-09-16T12:00:00", "2026-09-30T12:00:00"),
+]
+
+SKRIPT = """
+import { ausrollen } from %s;
+import { zuMs } from %s;
+let text = '';
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', (teil) => { text += teil; });
+process.stdin.on('end', () => {
+  const tz = 'Europe/Berlin';
+  const aus = JSON.parse(text).map(([abfahrt, dauerMin, regel, von, bis]) =>
+    ausrollen({ abfahrt, dauerMin, regel }, tz, zuMs(von, tz), zuMs(bis, tz))
+      .map((t) => [t.datum, t.abfahrt, t.rueckkehr]));
+  process.stdout.write(JSON.stringify(aus));
+});
+"""
+
+
+def test_das_panel_rollt_aus_wie_termine_py():
+    termine = _modul("termine")
+    berlin = ZoneInfo("Europe/Berlin")
+    ms = lambda zeitpunkt: round(zeitpunkt.timestamp() * 1000)  # noqa: E731
+    erwartet = []
+    for abfahrt, dauer, wiederholung, von, bis in FAELLE:
+        eintrag = {
+            "id": "e1", "vehicle": "v1", "departure": abfahrt, "duration_min": dauer, "repeat": wiederholung,
+            "distance_km": 1, "driver": None, "soc": None, "until": None, "exceptions": {},
+        }
+        liste = termine.termine_von(eintrag, berlin, termine.lokal(von, berlin), termine.lokal(bis, berlin))
+        erwartet.append([[t.datum.isoformat(), ms(t.abfahrt), ms(t.rueckkehr)] for t in liste])
+    assert all(erwartet), "ein Fall ohne Termin prueft nichts"
+    skript = SKRIPT % (
+        json.dumps((FRONTEND / "wiederholung.js").as_uri()), json.dumps((FRONTEND / "zeit.js").as_uri()))
+    lauf = subprocess.run(
+        [_node(), "--input-type=module", "-e", skript], input=json.dumps(FAELLE),
+        capture_output=True, text=True, encoding="utf-8", cwd=WURZEL,
+    )
+    assert lauf.returncode == 0, lauf.stderr[-4000:]
+    assert json.loads(lauf.stdout) == erwartet
