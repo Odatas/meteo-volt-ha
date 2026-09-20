@@ -123,6 +123,18 @@ export function status(plan, termine, jetzt, mitPlan) {
   return { unterwegsBis, laden, warnungen: termine.filter(hatWarnung).length };
 }
 
+// Wann der Plan da ist, fuer "Plan von ..." (Spec 6.1): received_at, nicht
+// computed_at. Letzteres ist laut Basiskontrakt der Zeitpunkt der Prognose und
+// steht nach einem "Neu planen" unveraendert da. Alle Plaene stammen aus
+// derselben Antwort, darum der erste, der einen Wert traegt.
+export function erhaltenUm(plaene) {
+  for (const plan of plaene) {
+    const da = ausIso(plan && plan.received_at);
+    if (da !== null) return da;
+  }
+  return null;
+}
+
 // Das Planende aller Plaene, oder null: sie stammen aus derselben Antwort.
 export function planende(plaene, jetzt) {
   for (const plan of plaene) {

@@ -6,7 +6,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  blockGrund, bloeckeAbJetzt, hatWarnung, laeuft, planAbJetzt, planende, planzeile, status, summen, termineAus, zerlegen,
+  blockGrund, bloeckeAbJetzt, erhaltenUm, hatWarnung, laeuft, planAbJetzt, planende, planzeile, status, summen,
+  termineAus, zerlegen,
 } from '../../custom_components/meteo_volt/frontend/plan.js';
 
 const MIN = 60000;
@@ -122,6 +123,15 @@ test('Warnungen und Status eines Fahrzeugs', () => {
   assert.deepEqual(status(plan({ charge_now: true, charge_now_kw: 11 }), [], jetzt, true).laden, { art: 'jetzt', kw: 11 });
   assert.deepEqual(status(plan({ next_charge_start: null }), [], jetzt, true).laden, { art: 'keins' });
   assert.deepEqual(status(plan(), [], jetzt, false).laden, { art: 'keinPlan' });
+});
+
+test('"Plan von" kommt aus received_at, nicht aus computed_at', () => {
+  // computed_at ist der Zeitpunkt der Prognose (Basiskontrakt) und bliebe nach
+  // einem Neu planen stehen. Erwartet wird der Zeitpunkt der Antwort.
+  const p = plan({ received_at: iso(START + 5 * MIN), computed_at: iso(START - 60 * MIN) });
+  assert.equal(erhaltenUm([null, p]), START + 5 * MIN);
+  assert.equal(erhaltenUm([plan({ received_at: null })]), null);
+  assert.equal(erhaltenUm([]), null);
 });
 
 test('das Planende und die Reihenfolge der Termine', () => {

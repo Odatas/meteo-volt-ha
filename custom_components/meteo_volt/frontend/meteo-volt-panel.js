@@ -16,13 +16,13 @@ import {
 import { oeffneTermin, schliesseOberstes } from './dialoge.js';
 import { formatierer } from './format.js';
 import { html, vertraut } from './html.js';
-import { planAbJetzt, planende, termineAus } from './plan.js';
+import { erhaltenUm, planAbJetzt, planende, termineAus } from './plan.js';
 import { preisSlots, tageswerte } from './preise.js';
 import { preiseHtml } from './preisansicht.js';
 import { STIL } from './stil.js';
 import { symbol } from './symbole.js';
 import { TEXTE, sprache, text } from './texte.js';
-import { MINUTE, ausIso, datumVon, iso, plusTage, tagesbeginn } from './zeit.js';
+import { MINUTE, datumVon, iso, plusTage, tagesbeginn } from './zeit.js';
 
 const VIERTELSTUNDE = 15 * MINUTE;
 const SCHMAL = 720;
@@ -401,7 +401,7 @@ class MeteoVoltPanel extends HTMLElement {
       preiseRoh: this._daten.preise || {},
       planFehler: (plaene.find((p) => p.error) || {}).error || null,
       planung: this._ui.planLaeuft || plaene.some((p) => p.planning),
-      berechnet: ausIso((plaene.find((p) => p.computed_at) || {}).computed_at),
+      berechnet: erhaltenUm(plaene),
     };
   }
 
