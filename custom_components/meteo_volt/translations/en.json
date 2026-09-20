@@ -364,6 +364,15 @@
     "ladestand_unter_min": {
       "message": "Below the minimum state of charge of {min} % and ignored."
     },
+    "fahrt_zu_weit": {
+      "message": "Even fully charged it is not enough for {km} km — charge on the way."
+    },
+    "fahrt_unter_min": {
+      "message": "The trip pulls the state of charge below the minimum of {min} %."
+    },
+    "ladestand_offen": {
+      "message": "Without the tick and without a target the state of charge at departure is not promised."
+    },
     "fahrer_doppelt": {
       "message": "{fahrer} is on the road with {fahrzeug} at the same time on {datum}."
     },

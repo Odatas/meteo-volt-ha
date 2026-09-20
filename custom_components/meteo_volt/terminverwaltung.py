@@ -240,7 +240,7 @@ class Terminverwaltung:
     def _warnungen(self, werte: pruefungen.Werte, eintrag_id: str, jetzt: datetime) -> list[dict]:
         meldungen = pruefungen.warnungen(
             werte, eintrag_id, list(self.buch.eintraege.values()), self.zeitzone(), jetzt,
-            self._soc_min()[werte.fahrzeug], self.personen(), self._titel(), self.hass.config.language)
+            self._fahrzeugwerte()[werte.fahrzeug], self.personen(), self._titel(), self.hass.config.language)
         return [meldung.als_dict() for meldung in meldungen]
 
     # --- Lesen, Spec Abschnitt 6 ----------------------------------------------------------

@@ -18,7 +18,7 @@ import math
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, tzinfo
 
-from . import termine
+from . import ladereserve, termine
 from .planabruf import PlanNichtAutorisiert, PlanRateLimit
 
 # --- Die Schluessel, Spec Abschnitt 2.3 -------------------------------------
@@ -31,6 +31,11 @@ STRECKE_FEHLT = "strecke_fehlt"
 STRECKE_NEGATIV = "strecke_negativ"
 LADESTAND_BEREICH = "ladestand_bereich"
 LADESTAND_UNTER_MIN = "ladestand_unter_min"
+# Die drei aus C10 stehen in ladereserve.py: dort entscheidet die Rechnung,
+# welcher gilt, und das Panel spiegelt dieselbe Reihenfolge.
+FAHRT_ZU_WEIT = ladereserve.FAHRT_ZU_WEIT
+FAHRT_UNTER_MIN = ladereserve.FAHRT_UNTER_MIN
+LADESTAND_OFFEN = ladereserve.LADESTAND_OFFEN
 FAHRER_DOPPELT = "fahrer_doppelt"
 FAHRZEUG_UNBEKANNT = "fahrzeug_unbekannt"
 EINTRAG_UNBEKANNT = "eintrag_unbekannt"
@@ -50,6 +55,9 @@ MELDUNGEN = {
     STRECKE_NEGATIV: (),
     LADESTAND_BEREICH: (),
     LADESTAND_UNTER_MIN: ("min",),
+    FAHRT_ZU_WEIT: ("km",),
+    FAHRT_UNTER_MIN: ("min",),
+    LADESTAND_OFFEN: (),
     FAHRER_DOPPELT: ("fahrer", "datum", "fahrzeug"),
     FAHRZEUG_UNBEKANNT: (),
     EINTRAG_UNBEKANNT: (),
@@ -242,7 +250,7 @@ def warnungen(
     eintraege: list[dict],
     tz: tzinfo,
     jetzt: datetime,
-    soc_min: float,
+    fahrzeug: ladereserve.Fahrzeugwerte,
     personen: dict[str, str],
     titel: dict[str, str],
     sprache: str,
@@ -252,10 +260,22 @@ def warnungen(
     eintrag_id traegt die neuen Werte, eintraege ist der Stand danach.
     personen bildet jede person-Entitaet auf ihren Namen ab, titel jedes
     Fahrzeug auf seinen Titel.
+
+    Am Platz "soc" steht hoechstens eine Warnung, in der Reihenfolge aus
+    C10-Spec Abschnitt 5. Das Panel zeigt dort nur eine; kaeme hier mehr als
+    eine an, entschiede die Reihenfolge der Liste statt der Spec.
     """
     meldungen = []
-    if werte.ladestand is not None and werte.ladestand < soc_min:
-        meldungen.append(Meldung(LADESTAND_UNTER_MIN, "soc", {"min": zahl_text(soc_min, sprache)}))
+    min_text = zahl_text(fahrzeug.soc_min_pct, sprache)
+    befund = ladereserve.befund(werte.strecke_km, werte.ladestand, werte.sichern, fahrzeug)
+    if befund == FAHRT_ZU_WEIT:
+        meldungen.append(Meldung(FAHRT_ZU_WEIT, "soc", {"km": str(werte.strecke_km)}))
+    elif befund == FAHRT_UNTER_MIN:
+        meldungen.append(Meldung(FAHRT_UNTER_MIN, "soc", {"min": min_text}))
+    elif werte.ladestand is not None and werte.ladestand < fahrzeug.soc_min_pct:
+        meldungen.append(Meldung(LADESTAND_UNTER_MIN, "soc", {"min": min_text}))
+    elif befund == LADESTAND_OFFEN:
+        meldungen.append(Meldung(LADESTAND_OFFEN, "soc"))
     if werte.fahrer in personen:
         bis = jetzt + FAHRER_VORAUS
         alle = termine.ausrollen(eintraege, tz, jetzt, bis)

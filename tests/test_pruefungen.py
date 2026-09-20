@@ -29,9 +29,13 @@ pruefungen = importlib.import_module(f"{_PAKET}.pruefungen")
 termine = importlib.import_module(f"{_PAKET}.termine")
 standort = importlib.import_module(f"{_PAKET}.standort")
 planabruf = importlib.import_module(f"{_PAKET}.planabruf")
+ladereserve = importlib.import_module(f"{_PAKET}.ladereserve")
 
 BERLIN = ZoneInfo("Europe/Berlin")
 JETZT = datetime(2026, 9, 16, 10, 0, tzinfo=timezone.utc)  # 12:00 in Berlin
+
+# Die Defaults aus C1-C2: 58 kWh, 19,5 kWh/100 km. 42 km kosten damit 14,1 Punkte.
+AUTO = ladereserve.Fahrzeugwerte(soc_min_pct=15.0, capacity_kwh=58.0, consumption_kwh_per_100km=19.5)
 
 
 def _felder(**felder):
@@ -159,7 +163,7 @@ def _eintrag(eintrag_id, fahrzeug, abfahrt, fahrer, wiederholung="once"):
 
 def _warnungen(werte, eintraege, sprache="de"):
     return pruefungen.warnungen(
-        werte, "neu", eintraege, BERLIN, JETZT, 15.0,
+        werte, "neu", eintraege, BERLIN, JETZT, AUTO,
         {"person.anna": "Anna"}, {"auto-1": "ID. Buzz", "auto-2": "Zoe"}, sprache)
 
 
@@ -231,13 +235,57 @@ def test_jede_meldung_mit_platzhaltern_traegt_genau_diese():
 
     Sendet der Code andere Platzhalter als die Tabelle nennt, fehlt im Text ein
     Wert oder bleibt ein {name} stehen. Die Fehler ohne Platzhalter prueft _fehler.
+
+    Gesammelt wird ueber mehrere Aufrufe: am Platz "soc" steht hoechstens eine
+    Warnung (C10-Spec Abschnitt 5), ein einzelner Aufruf koennte also nie alle
+    Schluessel zeigen.
     """
     werte = _pruefen(soc=10, driver="person.anna", repeat="weekly")
     eigener = _eintrag("neu", "auto-1", "2026-09-17T08:00:00", "person.anna", "weekly")
     anderer = _eintrag("alt", "auto-2", "2026-09-17T12:00:00", "person.anna")
     gesendet = _warnungen(werte, [eigener, anderer])
+    gesendet += _warnungen(_pruefen(keep_min_soc=False, soc=40, distance_km=175), [])
+    gesendet += _warnungen(_pruefen(keep_min_soc=True, distance_km=400), [])
     nachher = standort.Planstand(fehler=planabruf.PlanRateLimit(retry_after=5.0), letzter_versuch_um=VERSUCHT)
     gesendet.append(pruefungen.neu_planen_pruefen(VORHER, nachher))
     assert {m.schluessel for m in gesendet} == {k for k, namen in pruefungen.MELDUNGEN.items() if namen}
     for meldung in gesendet:
         assert set(meldung.platzhalter) == set(pruefungen.MELDUNGEN[meldung.schluessel]), meldung.schluessel
+
+
+# --- Die Warnungen zur Fahrt, Spec C10 Abschnitt 5 --------------------------
+
+
+def test_ohne_haken_und_ohne_ziel_ist_der_ladestand_offen():
+    (meldung,) = _warnungen(_pruefen(keep_min_soc=False), [])
+    assert meldung.als_dict() == {"key": "ladestand_offen", "field": "soc", "placeholders": {}}
+
+
+def test_der_haken_allein_warnt_nicht():
+    assert _warnungen(_pruefen(keep_min_soc=True), []) == []
+
+
+def test_ein_zu_kleines_eigenes_ziel_warnt():
+    werte = _pruefen(keep_min_soc=False, soc=40, distance_km=175)
+    (meldung,) = _warnungen(werte, [])
+    assert meldung.als_dict() == {"key": "fahrt_unter_min", "field": "soc",
+                                  "placeholders": {"min": "15"}}
+
+
+def test_eine_zu_weite_fahrt_warnt_auch_mit_haken():
+    werte = _pruefen(keep_min_soc=True, distance_km=400)
+    (meldung,) = _warnungen(werte, [])
+    assert meldung.als_dict() == {"key": "fahrt_zu_weit", "field": "soc",
+                                  "placeholders": {"km": "400"}}
+
+
+def test_der_zu_kleine_ladestand_steht_vor_dem_offenen():
+    """Spec C10 Abschnitt 5: wer die Zahl hebt, hat wieder ein Ziel."""
+    (meldung,) = _warnungen(_pruefen(keep_min_soc=False, soc=10), [])
+    assert meldung.schluessel == "ladestand_unter_min"
+
+
+def test_am_platz_ladestand_steht_hoechstens_eine_warnung():
+    werte = _pruefen(keep_min_soc=False, soc=10, distance_km=400)
+    meldungen = [m for m in _warnungen(werte, []) if m.feld == "soc"]
+    assert [m.schluessel for m in meldungen] == ["fahrt_zu_weit"]

@@ -364,6 +364,15 @@
     "ladestand_unter_min": {
       "message": "Liegt unter dem Min-SoC von {min} % und wird ignoriert."
     },
+    "fahrt_zu_weit": {
+      "message": "Auch voll geladen reicht es nicht für {km} km — unterwegs laden."
+    },
+    "fahrt_unter_min": {
+      "message": "Die Fahrt zieht den Ladestand unter den Min-SoC von {min} %."
+    },
+    "ladestand_offen": {
+      "message": "Ohne Haken und ohne Ziel ist der Ladestand bei der Abfahrt nicht zugesagt."
+    },
     "fahrer_doppelt": {
       "message": "{fahrer} ist {datum} zur selben Zeit mit {fahrzeug} unterwegs."
     },

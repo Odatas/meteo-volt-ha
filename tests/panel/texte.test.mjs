@@ -23,7 +23,7 @@ test('beide Sprachen haben dieselben Texte mit denselben Platzhaltern', () => {
 test('die Meldungen aus C3-Spec 2.3 stehen wortgleich wie in den Uebersetzungen', () => {
   for (const sp of ['de', 'en']) {
     const meldungen = uebersetzung(sp).exceptions;
-    assert.equal(Object.keys(meldungen).length, 16);
+    assert.equal(Object.keys(meldungen).length, 19);
     for (const [schluessel, { message }] of Object.entries(meldungen)) {
       assert.equal(TEXTE[sp][schluessel], message, `${sp}.${schluessel}`);
     }

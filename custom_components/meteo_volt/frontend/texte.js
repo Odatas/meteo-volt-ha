@@ -15,6 +15,9 @@ export const TEXTE = {
     strecke_negativ: 'Die Strecke kann nicht negativ sein.',
     ladestand_bereich: 'Der Ladestand liegt zwischen 0 und 100 %.',
     ladestand_unter_min: 'Liegt unter dem Min-SoC von {min} % und wird ignoriert.',
+    fahrt_zu_weit: 'Auch voll geladen reicht es nicht für {km} km — unterwegs laden.',
+    fahrt_unter_min: 'Die Fahrt zieht den Ladestand unter den Min-SoC von {min} %.',
+    ladestand_offen: 'Ohne Haken und ohne Ziel ist der Ladestand bei der Abfahrt nicht zugesagt.',
     rueckkehr_mit: 'Rückkehr mitverschoben, die Dauer bleibt.',
     fahrer_doppelt: '{fahrer} ist {datum} zur selben Zeit mit {fahrzeug} unterwegs.',
     fahrzeug_unbekannt: 'Das ist kein Fahrzeug von Meteo-Volt.',
@@ -154,6 +157,8 @@ export const TEXTE = {
     f_fahrer: 'Fahrer',
     f_kein_fahrer: 'Kein Fahrer',
     f_ladestand: 'Ladestand bei Abfahrt (%)',
+    f_sichern: 'Min-SoC sichern',
+    f_sichern_hinweis: 'Sichert {ziel} % — Min-SoC {min} % plus {fahrt} % für {km} km',
     f_optional: 'optional',
 
     // Umfang
@@ -227,6 +232,9 @@ export const TEXTE = {
     strecke_negativ: 'The distance cannot be negative.',
     ladestand_bereich: 'The state of charge is between 0 and 100 %.',
     ladestand_unter_min: 'Below the minimum state of charge of {min} % and ignored.',
+    fahrt_zu_weit: 'Even fully charged it is not enough for {km} km — charge on the way.',
+    fahrt_unter_min: 'The trip pulls the state of charge below the minimum of {min} %.',
+    ladestand_offen: 'Without the tick and without a target the state of charge at departure is not promised.',
     rueckkehr_mit: 'Return moved along, the duration stays.',
     fahrer_doppelt: '{fahrer} is on the road with {fahrzeug} at the same time on {datum}.',
     fahrzeug_unbekannt: 'This is not a Meteo-Volt vehicle.',
@@ -357,6 +365,8 @@ export const TEXTE = {
     f_fahrer: 'Driver',
     f_kein_fahrer: 'No driver',
     f_ladestand: 'State of charge at departure (%)',
+    f_sichern: 'Keep minimum SoC',
+    f_sichern_hinweis: 'Secures {ziel} % — minimum {min} % plus {fahrt} % for {km} km',
     f_optional: 'optional',
 
     umfang_aendern: 'Change recurring trip',
