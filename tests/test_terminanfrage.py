@@ -32,6 +32,7 @@ termine = importlib.import_module(f"{_PAKET}.termine")
 terminanfrage = importlib.import_module(f"{_PAKET}.terminanfrage")
 standort = importlib.import_module(f"{_PAKET}.standort")
 stammdaten = importlib.import_module(f"{_PAKET}.stammdaten")
+ladereserve = importlib.import_module(f"{_PAKET}.ladereserve")
 
 BERLIN = ZoneInfo("Europe/Berlin")
 JETZT = datetime(2026, 9, 16, 10, 0, tzinfo=timezone.utc)  # 12:00 in Berlin
@@ -41,15 +42,25 @@ _ROH = json.loads((CONTRACT / "plan-request.schema.json").read_text(encoding="ut
 REQUEST_SCHEMA = {k: v for k, v in _ROH.items() if k != "x-meteo-volt-contract"}
 
 
-def _eintrag(eintrag_id, abfahrt, dauer=600, soc=None, fahrzeug="auto-1", wiederholung="once"):
+def _werte(soc_min=15.0):
+    """Ein Fahrzeug fuer die Rechnung: die Defaults aus C1-C2, 58 kWh und 19,5 kWh/100 km."""
+    return ladereserve.Fahrzeugwerte(
+        soc_min_pct=soc_min, capacity_kwh=58.0, consumption_kwh_per_100km=19.5)
+
+
+AUTO = _werte()
+
+
+def _eintrag(eintrag_id, abfahrt, dauer=600, soc=None, fahrzeug="auto-1", wiederholung="once",
+             sichern=False, km=42):
     return {"id": eintrag_id, "vehicle": fahrzeug, "departure": abfahrt, "duration_min": dauer,
-            "repeat": wiederholung, "distance_km": 42, "driver": None, "soc": soc, "until": None,
-            "exceptions": {}}
+            "repeat": wiederholung, "distance_km": km, "driver": None, "soc": soc,
+            "keep_min_soc": sichern, "until": None, "exceptions": {}}
 
 
-def _fragmente(*eintraege, soc_min=None):
+def _fragmente(*eintraege, fahrzeuge=None):
     auswahl = termine.ausrollen(list(eintraege), BERLIN, JETZT, BIS)
-    return terminanfrage.fragmente(auswahl, soc_min or {"auto-1": 15.0}, JETZT)
+    return terminanfrage.fragmente(auswahl, fahrzeuge or {"auto-1": AUTO}, JETZT)
 
 
 def _anfrage(termine_je_fahrzeug, risiko=2):
@@ -131,7 +142,7 @@ def test_vorbei_und_hinter_dem_ende_fehlt():
 
 
 def test_jedes_fahrzeug_bekommt_trips_auch_ohne_termin():
-    teile = _fragmente(_eintrag("e1", "2026-09-17T08:00:00"), soc_min={"auto-1": 15.0, "auto-2": 20.0})
+    teile = _fragmente(_eintrag("e1", "2026-09-17T08:00:00"), fahrzeuge={"auto-1": AUTO, "auto-2": _werte(20.0)})
     assert teile["auto-2"] == {"consumption": {"type": "trips", "trips": []}}
 
 
@@ -145,7 +156,7 @@ def test_ein_termin_eines_unbekannten_fahrzeugs_faellt_weg():
 
 def test_der_request_mit_terminen_validiert_gegen_das_schema():
     serie = _eintrag("e1", "2026-09-16T08:00:00", soc=80, wiederholung="weekdays")
-    anfrage = _anfrage(_fragmente(serie, soc_min={"auto-1": 15.0, "auto-2": 15.0}), risiko=3)
+    anfrage = _anfrage(_fragmente(serie, fahrzeuge={"auto-1": AUTO, "auto-2": AUTO}), risiko=3)
     jsonschema.validate(anfrage, REQUEST_SCHEMA)
     assert anfrage["risk"] == 3
     auto_1, auto_2 = anfrage["vehicles"]
@@ -158,7 +169,7 @@ def test_der_request_mit_terminen_validiert_gegen_das_schema():
 
 def test_jeder_zeitpunkt_im_request_traegt_einen_offset():
     serie = _eintrag("e1", "2026-09-16T08:00:00", soc=80, wiederholung="daily")
-    anfrage = _anfrage(_fragmente(serie, soc_min={"auto-1": 15.0, "auto-2": 15.0}))
+    anfrage = _anfrage(_fragmente(serie, fahrzeuge={"auto-1": AUTO, "auto-2": AUTO}))
     zeitpunkte = [f["departure"] for f in anfrage["vehicles"][0]["consumption"]["trips"]]
     for auflage in anfrage["vehicles"][0]["constraints"]:
         zeitpunkte += [auflage[k] for k in ("from", "to", "deadline") if k in auflage]
@@ -179,3 +190,50 @@ def test_ohne_c3_geht_der_request_wie_vorher():
         {"auto-1": standort.Messung(zustand="47.5", gemeldet=JETZT)}, {}, "Europe/Berlin")
     assert "risk" not in anfrage
     assert anfrage["vehicles"][0]["consumption"] == {"type": "none"}
+
+
+# --- Der Haken "Min-SoC sichern", Spec C10 Abschnitt 4 ----------------------
+
+
+def _ziel(teil):
+    return next((a for a in teil.get("constraints", []) if a["type"] == "target"), None)
+
+
+def test_der_haken_hebt_die_abfahrt_auf_min_soc_plus_fahrt():
+    # 175 km kosten 58,8 Punkte, 15 + 58,8 aufgerundet sind 74
+    teil = _fragmente(_eintrag("e1", "2026-09-17T08:00:00", sichern=True, km=175))["auto-1"]
+    assert _ziel(teil)["target_soc_pct"] == 74.0
+    assert _ziel(teil)["id"] == "e1/2026-09-17/ziel"
+
+
+def test_ohne_haken_und_ohne_ladestand_entsteht_kein_ziel():
+    teil = _fragmente(_eintrag("e1", "2026-09-17T08:00:00", km=175))["auto-1"]
+    assert _ziel(teil) is None
+
+
+def test_von_beiden_werten_gilt_der_hoehere():
+    hoch = _fragmente(_eintrag("e1", "2026-09-17T08:00:00", sichern=True, km=175, soc=100))["auto-1"]
+    assert _ziel(hoch)["target_soc_pct"] == 100.0
+    niedrig = _fragmente(_eintrag("e1", "2026-09-17T08:00:00", sichern=True, km=175, soc=40))["auto-1"]
+    assert _ziel(niedrig)["target_soc_pct"] == 74.0
+
+
+def test_ein_ladestand_unter_dem_min_soc_bleibt_auch_mit_haken_ignoriert():
+    teil = _fragmente(_eintrag("e1", "2026-09-17T08:00:00", sichern=True, km=42, soc=10))["auto-1"]
+    # 15 + 14,1 aufgerundet sind 30; die 10 zaehlen nicht mit
+    assert _ziel(teil)["target_soc_pct"] == 30.0
+
+
+def test_das_gesicherte_ziel_endet_bei_hundert():
+    teil = _fragmente(_eintrag("e1", "2026-09-17T08:00:00", sichern=True, km=400))["auto-1"]
+    assert _ziel(teil)["target_soc_pct"] == 100.0
+
+
+def test_bei_null_kilometern_sichert_der_haken_den_min_soc():
+    teil = _fragmente(_eintrag("e1", "2026-09-17T08:00:00", sichern=True, km=0))["auto-1"]
+    assert _ziel(teil)["target_soc_pct"] == 15.0
+
+
+def test_eine_abfahrt_in_der_vergangenheit_bekommt_auch_mit_haken_kein_ziel():
+    teil = _fragmente(_eintrag("e1", "2026-09-16T08:00:00", sichern=True, km=175))["auto-1"]
+    assert _ziel(teil) is None

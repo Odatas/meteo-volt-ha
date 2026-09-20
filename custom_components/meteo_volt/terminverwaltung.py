@@ -31,7 +31,9 @@ from homeassistant.helpers.event import (
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
-from . import ansicht, pruefungen, stammdaten, standort, terminanfrage, terminbuch, termine
+from . import (
+    ansicht, ladereserve, pruefungen, stammdaten, standort, terminanfrage, terminbuch, termine,
+)
 from .const import CONF_GRID_FEES, DOMAIN, SIGNAL_PLANUNG
 from .plankoordinator import MeteoVoltPlanKoordinator
 
@@ -128,8 +130,19 @@ class Terminverwaltung:
     def _titel(self) -> dict[str, str]:
         return {subentry_id: self.entry.subentries[subentry_id].title for subentry_id in self.fahrzeugdaten()}
 
+    def _fahrzeugwerte(self) -> dict[str, ladereserve.Fahrzeugwerte]:
+        """Je Fahrzeug, was die Rechnung hinter dem Haken braucht. Spec C10 Abschnitt 2."""
+        return {
+            fid: ladereserve.Fahrzeugwerte(
+                soc_min_pct=float(daten[stammdaten.FELD_SOC_MIN]),
+                capacity_kwh=float(daten[stammdaten.FELD_KAPAZITAET]),
+                consumption_kwh_per_100km=float(daten[stammdaten.FELD_VERBRAUCH]),
+            )
+            for fid, daten in self.fahrzeugdaten().items()
+        }
+
     def _soc_min(self) -> dict[str, float]:
-        return {fid: float(daten[stammdaten.FELD_SOC_MIN]) for fid, daten in self.fahrzeugdaten().items()}
+        return {fid: werte.soc_min_pct for fid, werte in self._fahrzeugwerte().items()}
 
     def geraete(self) -> dict[str, str]:
         """subentry_id -> Geraete-ID, fuer jedes Fahrzeug mit Geraet aus C6 (C6-Spec Abschnitt 7)."""
@@ -158,7 +171,7 @@ class Terminverwaltung:
     def fragmente(self, stand: standort.Planstand, jetzt: datetime) -> tuple[dict[str, dict], int]:
         bis = terminanfrage.ausrollen_bis(stand.plan, jetzt)
         auswahl = termine.ausrollen(list(self.buch.eintraege.values()), self.zeitzone(), jetzt, bis)
-        return terminanfrage.fragmente(auswahl, self._soc_min(), jetzt), self.risiko
+        return terminanfrage.fragmente(auswahl, self._fahrzeugwerte(), jetzt), self.risiko
 
     # --- Schreiben, Spec Abschnitt 5 --------------------------------------------------------
 
@@ -177,8 +190,12 @@ class Terminverwaltung:
             raise pruefungen.fehler(pruefungen.TERMIN_UNBEKANNT, "date")
         jetzt = dt_util.utcnow()
         # Fehlt repeat, bleibt die Wiederholung. once waere hier eine stille Aenderung.
+        # Fehlt keep_min_soc, bleibt der Haken dieses Termins -- aus der Ausnahme,
+        # wenn es eine gibt, sonst aus dem Eintrag (C10-Spec Abschnitt 8).
+        vorher = termine.termin_am(eintrag, datum, self.zeitzone())
         werte = pruefungen.werte_pruefen(
-            felder, fahrzeug_id, jetzt, self.zeitzone(), eintrag[termine.WIEDERHOLUNG])
+            felder, fahrzeug_id, jetzt, self.zeitzone(), eintrag[termine.WIEDERHOLUNG],
+            vorgabe_sichern=vorher.sichern)
         schritt, eintraege = terminbuch.aendern(self.buch, eintrag_id, datum, umfang, werte, _neue_id)
         await self._nach_schritt()
         return {"step": schritt, "entries": eintraege, "warnings": self._warnungen(werte, eintraege[0], jetzt)}
