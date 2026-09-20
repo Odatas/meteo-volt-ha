@@ -31,7 +31,7 @@ _SPEC = importlib.util.spec_from_file_location(
 planabruf = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(planabruf)
 
-PROD_URL = "https://meteo-volt-main-55a1407.d2.zuplo.dev/v1/prediction"
+PROD_URL = "https://meteo-volt-main-ca19f82.zuplo.app/v1/prediction"
 
 # Welche Klasse jede Fehlerfixture ergibt (Spec Abschnitt 3).
 ERWARTET = {
@@ -179,7 +179,7 @@ def test_ein_value_im_dokument_erreicht_die_meldung_nicht():
 
 
 @pytest.mark.parametrize("api_url, plan_url", [
-    (PROD_URL, "https://meteo-volt-main-55a1407.d2.zuplo.dev/v1/plan"),
+    (PROD_URL, "https://meteo-volt-main-ca19f82.zuplo.app/v1/plan"),
     ("https://dev.example/v1/prediction/", "https://dev.example/v1/plan"),
 ])
 def test_plan_url_aus_api_url(api_url, plan_url):
