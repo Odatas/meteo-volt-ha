@@ -158,3 +158,10 @@ def test_die_parameter_der_anmeldung():
     assert panel.adresse("1.1.0-beta.10") == "/meteo_volt_panel/1.1.0-beta.10"
     assert panel.VERZEICHNIS == FRONTEND
     assert panel.ANGEMELDET != panel.DOMAIN, "nicht unter hass.data[DOMAIN]: das lesen die sechs Sensoren"
+
+
+def test_das_element_liegt_dort_wo_die_adresse_hinzeigt():
+    panel = _modul("panel")
+    element = FRONTEND / f"{panel.ELEMENT}.js"
+    assert element.is_file()
+    assert f"customElements.define('{panel.ELEMENT}'" in element.read_text(encoding="utf-8")
