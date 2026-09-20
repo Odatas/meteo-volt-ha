@@ -1,6 +1,7 @@
 """API Client for Meteo-Volt."""
 from __future__ import annotations
 
+import json
 import logging
 import time
 from typing import Any
@@ -64,10 +65,15 @@ class MeteoVoltApiClient:
         Sendepause, Plan-URL, Fehlerklasse -- steht in planabruf.py, weil es
         dort ohne Home Assistant pruefbar ist.
 
-        Weder anfrage noch der Antwortkoerper gehen ins Log: dort stehen
-        Ladestand und Fahrzeugdaten.
+        Ins gewoehnliche Log geht weder die anfrage noch der Antwortkoerper:
+        dort stehen Ladestand und Fahrzeugdaten. Im Debug-Log stehen beide
+        vollstaendig (C7-Spec Abschnitt 3) -- ohne sie laesst sich ein Plan,
+        der nur einmal falsch war, nicht nachstellen.
         """
         self._plan.vor_dem_senden(time.monotonic())
+        if _LOGGER.isEnabledFor(logging.DEBUG):
+            _LOGGER.debug(
+                "Plan-Anfrage: %s", json.dumps(anfrage, ensure_ascii=False, default=str))
 
         session = async_get_clientsession(hass)
         headers = {
@@ -96,4 +102,9 @@ class MeteoVoltApiClient:
             # Der Typ genuegt zur Diagnose und nennt keine Adresse.
             raise PlanNichtVerfuegbar(detail=type(err).__name__) from err
 
+        if _LOGGER.isEnabledFor(logging.DEBUG):
+            # Ungekuerzt und roh: was hier steht, muss sich gegen die Anfrage
+            # halten lassen. Der Key reist im Header und steht nie im Log.
+            _LOGGER.debug(
+                "Plan-Antwort %s: %s", status, koerper.decode("utf-8", "replace"))
         return self._plan.nach_antwort(status, retry_after, koerper, time.monotonic())
