@@ -53,10 +53,10 @@ def _stand(plan=None, erhalten_um=JETZT - timedelta(minutes=5), **felder):
         **felder)
 
 
-def _termin(abfahrt, dauer=60, eintrag="e1", fahrzeug="auto-1", fahrer=None):
+def _termin(abfahrt, dauer=60, eintrag="e1", fahrzeug="auto-1", fahrer=None, **felder):
     eintrag_dict = {"id": eintrag, "vehicle": fahrzeug, "departure": abfahrt, "duration_min": dauer,
                     "repeat": "once", "distance_km": 42, "driver": fahrer, "soc": None, "until": None,
-                    "exceptions": {}}
+                    "exceptions": {}, **felder}
     (termin,) = termine.termine_von(eintrag_dict, BERLIN, JETZT - timedelta(days=1), JETZT + timedelta(days=3))
     return termin
 
@@ -135,7 +135,8 @@ def test_ein_termin_fuer_das_panel():
     assert eintrag == {
         "entry": "e1", "date": "2026-09-16", "vehicle": "geraet-1",
         "departure": "2026-09-16T14:00:00+02:00", "return": "2026-09-16T15:00:00+02:00",
-        "distance_km": 42, "driver": None, "soc": None, "repeat": "once", "changed": False,
+        "distance_km": 42, "driver": None, "soc": None, "keep_min_soc": False,
+        "repeat": "once", "changed": False,
         "plan": {"soc_at_departure": 57.0, "soc_after_trip": 58.0, "target_missing_kwh": None,
                  "below_min": False, "running_until": None},
         "hints": []}
@@ -192,3 +193,11 @@ def test_die_preise_ab_dem_laufenden_slot():
 def test_ohne_prognose_keine_preise():
     assert ansicht.preise(None, JETZT) == {"slots": [], "prices_known_until": None, "computed_at": None,
                                            "model": None}
+
+
+def test_der_termin_traegt_seinen_haken():
+    """Spec C10 Abschnitt 7: das Panel liest ihn beim Bearbeiten."""
+    termin = _termin("2026-09-16T14:00:00", keep_min_soc=True)
+    (eintrag,) = ansicht.termine_ansicht([termin], [termin], _stand(), JETZT, {"auto-1": 15.0},
+                                         {"auto-1": "geraet-1"}, set())
+    assert eintrag["keep_min_soc"] is True

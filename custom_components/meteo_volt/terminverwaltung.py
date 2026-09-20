@@ -258,6 +258,10 @@ class Terminverwaltung:
                 "soc_min_pct": float(daten[stammdaten.FELD_SOC_MIN]),
                 "soc_max_pct": float(daten[stammdaten.FELD_SOC_MAX]),
                 "max_charge_kw": float(daten[stammdaten.FELD_MAX_LADELEISTUNG]),
+                # C10 rechnet den gesicherten Ladestand im Panel mit; ohne die
+                # beiden Werte kann es weder Hinweiszeile noch Warnung zeigen.
+                "capacity_kwh": float(daten[stammdaten.FELD_KAPAZITAET]),
+                "consumption_kwh_per_100km": float(daten[stammdaten.FELD_VERBRAUCH]),
                 "soc_pct": standort.ladestand_lesen(None if zustand is None else zustand.state),
             })
         netzentgelt = self.entry.data.get(CONF_GRID_FEES)

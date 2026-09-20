@@ -123,6 +123,7 @@ def termine_ansicht(
             # Eine geloeschte Person bleibt im Eintrag, gelesen wird ohne Fahrer.
             "driver": termin.fahrer if termin.fahrer in personen else None,
             "soc": termin.ladestand,
+            "keep_min_soc": termin.sichern,
             "repeat": termin.wiederholung,
             "changed": termin.geaendert,
             "plan": planwerte(termin, stand, jetzt, soc_min.get(termin.fahrzeug, 0.0)),
