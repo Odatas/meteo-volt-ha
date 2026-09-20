@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ORT, fahrerKonflikt, pruefen } from '../../custom_components/meteo_volt/frontend/pruefung.js';
+import { ORT, fahrerKonflikt, fehlerOrt, pruefen } from '../../custom_components/meteo_volt/frontend/pruefung.js';
 
 const TZ = 'Europe/Berlin';
 const JETZT = Date.UTC(2026, 8, 16, 12, 35); // Mi 16.09.2026 14:35 in Berlin
@@ -77,6 +77,18 @@ test('die Reihenfolge der Tabelle 2.3', () => {
     'zeit_fehlt', 'rueckkehr_vor_abfahrt', 'rueckkehr_vorbei', 'dauer_zu_lang', 'strecke_fehlt', 'strecke_negativ',
     'ladestand_bereich', 'ladestand_unter_min', 'fahrer_doppelt',
   ]);
+});
+
+test('ein Fehler des Dienstes steht nur dort, wo das Formular einen Platz hat', () => {
+  assert.equal(fehlerOrt('rueckkehr_vorbei'), 'rueckkehr');
+  assert.equal(fehlerOrt('dauer_zu_lang'), 'wiederholung');
+  assert.equal(fehlerOrt('strecke_fehlt'), 'strecke');
+  assert.equal(fehlerOrt('ladestand_bereich'), 'ladestand');
+  // Warnungen und alles Unbekannte gehen als Meldung unten
+  assert.equal(fehlerOrt('fahrer_doppelt'), null);
+  assert.equal(fehlerOrt('eintrag_unbekannt'), null);
+  assert.equal(fehlerOrt('plan_pause'), null);
+  assert.equal(fehlerOrt(undefined), null);
 });
 
 // --- Die Warnung zum Fahrer --------------------------------------------------------

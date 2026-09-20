@@ -20,6 +20,12 @@ export const ORT = {
   fahrer_doppelt: 'fahrer',
 };
 
+// Die Orte, an denen ein Fehler im Formular stehen kann. Die Warnungen stehen woanders.
+export const FEHLERORTE = ['rueckkehr', 'wiederholung', 'strecke', 'ladestand'];
+
+// Wo ein Fehler des Dienstes im Formular steht, oder null: dann als Meldung unten (Spec 7.3).
+export const fehlerOrt = (key) => (FEHLERORTE.includes(ORT[key]) ? ORT[key] : null);
+
 // So weit voraus prueft C3 den Fahrer.
 export const FAHRER_VORAUS = 56 * TAG;
 

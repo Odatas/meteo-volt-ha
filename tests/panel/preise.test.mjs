@@ -65,6 +65,17 @@ test('ein Tag mit weniger Slots als der Zeitraum ist zu kurz', () => {
   assert.equal(tage[1].fenster.bis, START + 24 * 15 * MIN);
 });
 
+test('ein Zeitraum ueberspringt keine Luecke in den Slots', () => {
+  // Der guenstigste Slot ist der letzte vor der Luecke; ein Fenster darf sie nicht ueberbruecken.
+  const roh = preise();
+  roh.slots = roh.slots.filter((_, i) => i !== 5).slice(0, 8);
+  // Ohne die Luecke laege das guenstigste Fenster ueber ihr, bei START + 3 Slots.
+  const [heute] = tageswerte(preisSlots(roh, START), 1, TZ, 0);
+  assert.equal(heute.fenster.von, START + 15 * MIN);
+  assert.equal(heute.fenster.bis, START + 5 * 15 * MIN);
+  assert.equal(heute.tief.t, START + 7 * 15 * MIN);
+});
+
 test('mit Netzentgelt kommt es auf jeden Preis, die Spanne bleibt', () => {
   const ohne = tageswerte(preisSlots(preise(), START), 1, TZ, 0);
   const mit = tageswerte(preisSlots(preise(), START), 1, TZ, 0.16);

@@ -87,6 +87,19 @@ test('ein Ziel unter dem Min-SoC steht nicht als Ziel da', () => {
   assert.ok(!text.includes('Ziel 10 %'));
 });
 
+test('die Hinweise eines Termins stehen in der Liste', () => {
+  const z = kontext({ termine: [termin({
+    hints: [{ type: 'overlap' }, { type: 'driver_busy', vehicle: 'dev-1' }, { type: 'driver_busy', vehicle: 'dev-weg' }],
+  })] });
+  const text = String(fahrzeugHtml(z, fahrzeug));
+  assert.ok(text.includes('Überschneidet sich mit einem anderen Termin dieses Autos'));
+  // Der Fahrer steht mit dem Titel des anderen Fahrzeugs da, escaped
+  assert.ok(text.includes('zur selben Zeit mit &lt;img src=x onerror=alert(1)&gt; unterwegs'));
+  // Ein Fahrzeug ohne Titel, etwa eines ohne Geraet
+  assert.ok(text.includes('zur selben Zeit mit einem anderen Fahrzeug unterwegs'));
+  assert.ok(!text.includes('<img'));
+});
+
 test('der Planfehler steht als Warnung ueber dem Inhalt', () => {
   const text = String(uebersichtHtml(kontext({ z: { planFehler: 'PlanNichtVerfuegbar: 503' } })));
   assert.ok(text.includes('Der letzte Versuch zu planen ist gescheitert: PlanNichtVerfuegbar: 503'));

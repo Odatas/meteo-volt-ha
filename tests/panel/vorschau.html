@@ -26,6 +26,7 @@
   <label><input type="checkbox" id="ohneNetzentgelt"> Ohne Netzentgelt</label>
   <label><input type="checkbox" id="ohneFahrzeug"> Ohne Fahrzeug</label>
   <label><input type="checkbox" id="planFehler"> Planfehler</label>
+  <label><input type="checkbox" id="leseFehler"> Lesefehler</label>
   <label><input type="checkbox" id="nichtGeladen"> Nicht geladen</label>
 </div>
 <div class="rahmen handy" id="rahmen"></div>
@@ -54,7 +55,7 @@
 
   function aufbauen() {
     const optionen = {};
-    for (const id of ['ohneNetzentgelt', 'ohneFahrzeug', 'planFehler', 'nichtGeladen']) optionen[id] = $(`#${id}`).checked;
+    for (const id of ['ohneNetzentgelt', 'ohneFahrzeug', 'planFehler', 'leseFehler', 'nichtGeladen']) optionen[id] = $(`#${id}`).checked;
     document.documentElement.classList.toggle('dunkel', $('#dunkel').checked);
     const backend = dienst(optionen);
     $('#rahmen').replaceChildren();
@@ -76,7 +77,7 @@
       panel.narrow = knopf.value === 'handy';
     });
   }
-  for (const id of ['englisch', 'dunkel', 'ohneNetzentgelt', 'ohneFahrzeug', 'planFehler', 'nichtGeladen']) {
+  for (const id of ['englisch', 'dunkel', 'ohneNetzentgelt', 'ohneFahrzeug', 'planFehler', 'leseFehler', 'nichtGeladen']) {
     $(`#${id}`).addEventListener('change', aufbauen);
   }
   aufbauen();

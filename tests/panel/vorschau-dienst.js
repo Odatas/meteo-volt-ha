@@ -370,6 +370,9 @@ export function dienst(optionen = {}) {
     await warte(60);
     if (optionen.nichtGeladen) throw { code: 'not_found', message: 'Kein Meteo-Volt-Standort mit Terminen' };
     if (msg.type === 'meteo_volt/site') return site();
+    if (optionen.leseFehler && msg.type === 'meteo_volt/prices') {
+      throw { code: 'unknown_error', message: 'Die Prognose ist gerade nicht lesbar.' };
+    }
     if (msg.type === 'meteo_volt/prices') {
       const jetzt = Date.now();
       return {

@@ -172,41 +172,50 @@ class MeteoVoltPanel extends HTMLElement {
   async _nachlesen() {
     const offen = this._offen;
     this._offen = new Set();
-    if (offen.has('site')) await this._siteLesen();
+    const fehler = [];
+    if (offen.has('site')) fehler.push(await this._siteLesen());
     const lesen = [];
     if (offen.has('prices')) lesen.push(this._preiseLesen());
     if (offen.has('plan') || offen.has('planning') || offen.has('site')) lesen.push(this._plaeneLesen());
-    await Promise.all(lesen);
-    if (offen.has('appointments') || offen.has('plan') || offen.has('site')) await this._termineLesen();
+    fehler.push(...await Promise.all(lesen));
+    if (offen.has('appointments') || offen.has('plan') || offen.has('site')) fehler.push(await this._termineLesen());
     this._zeichnen();
+    this._fehlerMelden(fehler);
   }
 
   _ws(nachricht) {
     return this._hass.connection.sendMessagePromise(nachricht);
   }
 
+  // Jeder Leser liefert seinen Fehler zurueck; _melden zeigt ihn unten (Spec Abschnitt 8).
   async _siteLesen() {
     try {
       this._daten.site = await this._ws({ type: 'meteo_volt/site' });
       this._zustand = 'bereit';
-    } catch {
+      return null;
+    } catch (fehler) {
       this._daten.site = null;
       this._zustand = 'nichtGeladen';
+      return fehler && fehler.code === 'not_found' ? null : fehler;
     }
   }
 
   async _preiseLesen() {
     try {
       this._daten.preise = await this._ws({ type: 'meteo_volt/prices' });
-    } catch {
+      return null;
+    } catch (fehler) {
       this._daten.preise = null;
+      return fehler;
     }
   }
 
   async _plaeneLesen() {
     const fahrzeuge = (this._daten.site && this._daten.site.vehicles) || [];
-    const plaene = await Promise.all(fahrzeuge.map((v) => this._ws({ type: 'meteo_volt/plan', vehicle: v.vehicle }).catch(() => null)));
-    this._daten.plaene = new Map(fahrzeuge.map((v, i) => [v.vehicle, plaene[i]]));
+    const antworten = await Promise.all(fahrzeuge.map(
+      (v) => this._ws({ type: 'meteo_volt/plan', vehicle: v.vehicle }).then((plan) => ({ plan })).catch((fehler) => ({ fehler }))));
+    this._daten.plaene = new Map(fahrzeuge.map((v, i) => [v.vehicle, antworten[i].plan || null]));
+    return (antworten.find((a) => a.fehler) || {}).fehler || null;
   }
 
   // Alle Fahrzeuge, ab jetzt bis zum spaeteren von Planende und Ende der gezeigten Liste.
@@ -218,19 +227,27 @@ class MeteoVoltPanel extends HTMLElement {
     const ende = Math.max(planende([...this._daten.plaene.values()], jetzt) ?? 0, liste);
     try {
       this._daten.termine = termineAus(await this._ws({ type: 'meteo_volt/appointments', start: iso(jetzt), end: iso(ende) }));
-    } catch {
+      return null;
+    } catch (fehler) {
       this._daten.termine = [];
+      return fehler;
     }
   }
 
+  _fehlerMelden(fehler) {
+    const erster = fehler.find(Boolean);
+    if (erster) this.melden(this.fehlerText(erster), null);
+  }
+
   async _allesLesen() {
-    await this._siteLesen();
+    const fehler = [await this._siteLesen()];
     if (this._daten.site) {
-      await Promise.all([this._preiseLesen(), this._plaeneLesen()]);
-      await this._termineLesen();
+      fehler.push(...await Promise.all([this._preiseLesen(), this._plaeneLesen()]));
+      fehler.push(await this._termineLesen());
       this._abonnieren();
     }
     this._zeichnen();
+    this._fehlerMelden(fehler);
   }
 
   // --- Fuer die Dialoge -----------------------------------------------------------
@@ -309,8 +326,9 @@ class MeteoVoltPanel extends HTMLElement {
   async _mehr(was) {
     if (was === 'uebersicht') this._ui.tageUebersicht += 7;
     else this._ui.tageFahrzeug += 21;
-    await this._termineLesen();
+    const fehler = await this._termineLesen();
     this._zeichnen();
+    this._fehlerMelden([fehler]);
   }
 
   _navigieren(tab) {
@@ -327,8 +345,9 @@ class MeteoVoltPanel extends HTMLElement {
     this._inhalt.scrollTop = 0;
     this._zeichnen();
     if (this._laeuft && this._daten.site) {
-      await this._termineLesen();
+      const fehler = await this._termineLesen();
       this._zeichnen();
+      this._fehlerMelden([fehler]);
     }
   }
 

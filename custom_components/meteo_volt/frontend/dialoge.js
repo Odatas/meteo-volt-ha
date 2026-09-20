@@ -7,7 +7,7 @@
 import { fahrzeugTitel, personName } from './ansichten.js';
 import { html } from './html.js';
 import { termineAus } from './plan.js';
-import { FAHRER_VORAUS, ORT, fahrerKonflikt, pruefen } from './pruefung.js';
+import { FAHRER_VORAUS, FEHLERORTE, fahrerKonflikt, fehlerOrt, pruefen } from './pruefung.js';
 import { symbol } from './symbole.js';
 import { REGELN } from './wiederholung.js';
 import { MINUTE, datumVon, iso, naechsteVolleStunde, naiv, zuMs } from './zeit.js';
@@ -93,15 +93,16 @@ export function oeffneTermin(panel, termin) {
     const gewaehlt = q('#f-regel').value || regel;
     q('#f-regel').innerHTML = String(html`${REGELN.map((r) => html`<option value="${r}"${r === gewaehlt ? html` selected` : ''}>${f.regelLang(r, bezug)}</option>`)}`);
   };
+  // Roher Text wird escaped: Ein Fehler des Dienstes traegt Platzhalter aus Home Assistant.
   const zeige = (knoten, inhalt) => {
     knoten.hidden = !inhalt;
-    knoten.innerHTML = inhalt ? String(inhalt) : '';
+    knoten.innerHTML = inhalt ? String(html`${inhalt}`) : '';
   };
   const pruefenZeigen = () => {
     const w = lese();
     const socMin = (z.fahrzeuge.find((v) => v.vehicle === w.fahrzeug) || {}).soc_min_pct ?? 0;
     const e = pruefen(w, { jetzt: Date.now(), tz, socMin, versucht });
-    const orte = { rueckkehr: '', wiederholung: '', strecke: '', ladestand: '' };
+    const orte = Object.fromEntries(FEHLERORTE.map((ort) => [ort, '']));
     let warnung = '';
     for (const m of e.meldungen) {
       if (m.art === 'warnung') warnung = f.t(m.key, { min: f.zahlKurz(m.platzhalter.min) });
@@ -131,7 +132,7 @@ export function oeffneTermin(panel, termin) {
     .catch(() => {});
 
   const fehlerZeigen = (fehler) => {
-    const ort = fehler && ORT[fehler.translation_key];
+    const ort = fehler && fehlerOrt(fehler.translation_key);
     if (ort) {
       dienstFehler = { ort, text: panel.fehlerText(fehler) };
       pruefenZeigen();
