@@ -267,24 +267,39 @@ def test_ohne_plan_reagiert_der_default_auf_den_ladestand():
 
 # --- Die Abweichungswarnung, Spec Abschnitt 6 -------------------------------
 # infeasible laedt von 22:00 bis 00:00 durch, Ziel 82.3. Geplant sind
-# 11 kW x 0.94 / 58 kWh = 17.83 Prozentpunkte je Stunde.
+# 11 kW x 0.94 / 58 kWh = 17.83 Prozentpunkte je Stunde. Gemessen wird erst ab
+# dem ersten Anstieg, alle 5 min also ab 22:05: ein Abend allein kommt nicht auf 2 h.
 
 GEPLANT = 11.0 * 0.94 / 58.0 * 100
 
 
-def _laden_ueber(stand, rate, start, bis, alle_min=5, abrunden=False):
-    """Wertet von 22:00 bis bis aus, mit einem Ladestand, der mit rate steigt."""
-    zustand, auswertungen = ausgabe.Zustand(), []
+def _laden_ueber(stand, rate, start, bis, alle_min=5, abrunden=False, zustand=None,
+                 daten=DATEN):
+    """Wertet von 22:00 bis bis aus, mit einem Ladestand, der mit rate steigt.
+
+    zustand setzt die Messung eines frueheren Abends fort.
+    """
+    zustand, auswertungen = zustand or ausgabe.Zustand(), []
     jetzt = JETZT
     while jetzt <= bis:
         soc = start + rate * (jetzt - JETZT).total_seconds() / 3600
         if abrunden:
             soc = float(math.floor(soc))
-        auswertung = _auswerten(stand, jetzt, soc, jetzt, zustand)
+        auswertung = _auswerten(stand, jetzt, soc, jetzt, zustand, daten=daten)
         zustand = auswertung.zustand
         auswertungen.append(auswertung)
         jetzt += timedelta(minutes=alle_min)
     return auswertungen
+
+
+def _zwei_abende(stand, rate, start, bis, **kwargs):
+    """Der ganze Abend und danach derselbe Abend noch einmal bis bis.
+
+    Die Messung geht ueber mehrere Bloecke und sieht nur Dauern. Darum darf
+    der zweite Abend auf denselben Uhrzeiten laufen wie der erste.
+    """
+    erster = _laden_ueber(stand, rate, start, _abend("00:00"), **kwargs)
+    return erster + _laden_ueber(stand, rate, start, bis, zustand=erster[-1].zustand, **kwargs)
 
 
 def _bewertungen(auswertungen):
@@ -296,7 +311,7 @@ def _issues(auswertungen):
 
 
 def test_genau_nach_plan_gibt_es_keine_warnung():
-    auswertungen = _laden_ueber(_stand("infeasible"), GEPLANT, 30.0, _abend("00:00"))
+    auswertungen = _zwei_abende(_stand("infeasible"), GEPLANT, 30.0, _abend("00:00"))
     bewertungen = _bewertungen(auswertungen)
     assert len(bewertungen) == 1
     assert bewertungen[0].gemessen == pytest.approx(GEPLANT)
@@ -308,7 +323,7 @@ def test_genau_nach_plan_gibt_es_keine_warnung():
 @pytest.mark.parametrize(("faktor", "uebersetzung"), [
     (1.08, "ladung_schneller"), (0.92, "ladung_langsamer")])
 def test_acht_prozent_daneben_warnt_mit_richtung(faktor, uebersetzung):
-    auswertungen = _laden_ueber(_stand("infeasible"), GEPLANT * faktor, 30.0, _abend("00:00"))
+    auswertungen = _zwei_abende(_stand("infeasible"), GEPLANT * faktor, 30.0, _abend("00:00"))
     bewertungen = _bewertungen(auswertungen)
     assert len(bewertungen) == 1
     assert bewertungen[0].abweichung == pytest.approx(faktor - 1)
@@ -318,29 +333,20 @@ def test_acht_prozent_daneben_warnt_mit_richtung(faktor, uebersetzung):
 
 
 def test_ganzzahlig_alle_15_minuten_nach_plan_gibt_es_keine_warnung():
-    auswertungen = _laden_ueber(
+    auswertungen = _zwei_abende(
         _stand("infeasible"), GEPLANT, 30.0, _abend("00:00"), alle_min=15, abrunden=True)
     bewertungen = _bewertungen(auswertungen)
     assert len(bewertungen) == 1
     assert not bewertungen[0].ausserhalb, bewertungen[0].abweichung
 
 
-def test_unter_zwei_stunden_wird_nicht_bewertet():
-    assert _bewertungen(
-        _laden_ueber(_stand("infeasible"), GEPLANT, 30.0, _abend("23:55"))) == []
-
-
-@pytest.mark.parametrize(("letzter", "bewertet"), [(50.0, False), (52.0, True)])
-def test_ohne_anstieg_wird_nicht_bewertet(letzter, bewertet):
-    """Fuenf Punkte in 2 h, der Ladestand pendelt nur zwischen 50 und 51.
-
-    Endet dieselbe Reihe bei 52, wird sie bewertet: das None kommt von der
-    Regel, nicht von zu wenigen Punkten.
-    """
-    punkte = tuple((1, 1800.0 * i, soc)
-                   for i, soc in enumerate((50.0, 51.0, 50.0, 51.0, letzter)))
-    abgleich = ausgabe.Abgleich(ladezeit_s=7200.0, geplant_pp=2 * GEPLANT, punkte=punkte)
-    assert (ausgabe.bewerten(abgleich) is not None) is bewertet
+@pytest.mark.parametrize(("bis", "bewertet"), [("22:05", False), ("22:10", True)])
+def test_unter_zwei_stunden_wird_nicht_bewertet(bis, bewertet):
+    """Der erste Abend zaehlt 115 min, ab 22:05. Der zweite zaehlt ab seinem
+    ersten Anstieg um 22:05: bis dahin 115 min, bis 22:10 genau 2 h."""
+    bewertungen = _bewertungen(
+        _zwei_abende(_stand("infeasible"), GEPLANT, 30.0, _abend(bis)))
+    assert (len(bewertungen) == 1) is bewertet
 
 
 def _messpunkt(abgleich, jetzt, rate, soc):
@@ -365,40 +371,134 @@ def test_pause_und_gefahrener_ladestand_zwischen_zwei_bloecken_zaehlen_nicht():
     abgleich = _messpunkt(abgleich, beginn + timedelta(minutes=61), None, None)
     zweiter = beginn + timedelta(hours=4)
     bewertet = []
-    for minute in range(0, 61, 5):
+    for minute in range(0, 76, 5):
         abgleich, bewertung = ausgabe.abgleichen(
             abgleich, zweiter + timedelta(minutes=minute),
             GEPLANT, 35.0 + GEPLANT * minute / 60)
         if bewertung is not None:
             bewertet.append((minute, bewertung))
-    # 61 min im ersten Block, die 2 h fallen in Minute 59 des zweiten. Zaehlte
-    # die Pause mit, kaeme die Bewertung schon bei Minute 0.
-    assert [minute for minute, _ in bewertet] == [60]
+    # 56 min im ersten Block, vom ersten Anstieg in Minute 5 bis zum Stopp in
+    # Minute 61. Der zweite zaehlt ab Minute 5, die 2 h fallen in Minute 69.
+    # Zaehlte die Pause mit, kaeme die Bewertung schon bei Minute 0.
+    assert [minute for minute, _ in bewertet] == [70]
     assert bewertet[0][1].geplant == pytest.approx(GEPLANT)
     assert bewertet[0][1].gemessen == pytest.approx(GEPLANT)
 
 
-def test_geaenderte_daten_beginnen_die_messung_neu_und_nehmen_das_issue_zurueck():
-    """Wirkungsgrad um 23:00 geaendert: bis Mitternacht kommt die neue Messung nicht auf 2 h.
+def test_laedt_das_auto_erst_30_minuten_nach_dem_einschalten_gibt_es_keine_warnung():
+    """Ganzzahlig alle 15 min gemeldet. Nach der Regel vor dem 2026-09-25 waren es -23 %."""
+    abgleich, bewertungen = ausgabe.Abgleich(), []
+    for minute in range(0, 181, 15):
+        soc = float(math.floor(30.0 + GEPLANT * max(0, minute - 30) / 60))
+        abgleich, bewertung = ausgabe.abgleichen(
+            abgleich, JETZT + timedelta(minutes=minute), GEPLANT, soc)
+        if bewertung is not None:
+            bewertungen.append(bewertung)
+    assert len(bewertungen) == 1
+    assert not bewertungen[0].ausserhalb, bewertungen[0].abweichung
 
-    Dieselben Daten in einem neuen Objekt aendern nichts. Das zeigt
-    test_genau_nach_plan_gibt_es_keine_warnung, deren Messung durchlaeuft.
+
+def test_jetzt_laden_ohne_anstieg_zaehlt_keine_ladezeit():
+    """3 h an, das Auto laedt nicht: kein Punkt, keine Ladezeit, keine Bewertung."""
+    abgleich = ausgabe.Abgleich()
+    for minute in range(0, 181, 5):
+        abgleich, bewertung = ausgabe.abgleichen(
+            abgleich, JETZT + timedelta(minutes=minute), GEPLANT, 39.0)
+        assert bewertung is None
+    assert (abgleich.ladezeit_s, abgleich.punkte) == (0.0, ())
+
+
+def test_faellt_der_ladestand_zaehlt_bis_zum_naechsten_einschalten_nichts():
+    """Abgesteckt und gefahren, waehrend Jetzt laden an bleibt.
+
+    Der Anstieg danach im selben Einschalten zaehlt nicht. Die Ladezeit
+    endet bei der Auswertung, die den Fall sieht.
     """
-    stand, zustand = _stand("infeasible"), ausgabe.Zustand()
-    geaendert = {**DATEN, "efficiency_pct": 80}
-    issues, bewertungen = [], []
-    jetzt = JETZT
-    while jetzt <= _abend("00:00"):
-        soc = 30.0 + GEPLANT * (jetzt - JETZT).total_seconds() / 3600
-        auswertung = _auswerten(stand, jetzt, soc, jetzt, zustand,
-                                daten=DATEN if jetzt < _abend("23:00") else geaendert)
-        zustand = auswertung.zustand
-        issues.append((jetzt, auswertung.issue))
-        bewertungen.append(auswertung.bewertung)
-        jetzt += timedelta(minutes=5)
-    assert [(t, issue) for t, issue in issues if issue is not None] == [
-        (_abend("23:00"), ausgabe.ENTFERNEN)]
-    assert bewertungen == [None] * len(bewertungen)
+    abgleich = ausgabe.Abgleich()
+    for minute, soc in ((0, 40.0), (5, 41.0), (10, 42.0), (15, 41.0), (20, 40.0), (25, 41.0),
+                        (30, 42.0), (35, 43.0)):
+        abgleich = _messpunkt(abgleich, JETZT + timedelta(minutes=minute), GEPLANT, soc)
+    abgleich = _messpunkt(abgleich, JETZT + timedelta(minutes=40), None, 43.0)
+    assert abgleich.punkte == ((1, 0.0, 41.0), (1, 300.0, 42.0))
+    assert abgleich.ladezeit_s == 600.0
+    for minute, soc in ((60, 38.0), (65, 39.0)):
+        abgleich = _messpunkt(abgleich, JETZT + timedelta(minutes=minute), GEPLANT, soc)
+    assert abgleich.punkte[-1] == (2, 600.0, 39.0)
+
+
+@pytest.mark.parametrize("zwischendurch", [True, False])
+def test_nach_einer_bewertung_bei_laufender_ladung_ist_der_naechste_punkt_die_naechste_aenderung(
+        zwischendurch):
+    """zwischendurch: eine Auswertung ohne neuen Ladestand, etwa an der Slotgrenze."""
+    abgleich, bewertung, minute = ausgabe.Abgleich(), None, -5
+    while bewertung is None:
+        minute += 5
+        soc = 30.0 + GEPLANT * minute / 60
+        abgleich, bewertung = ausgabe.abgleichen(
+            abgleich, JETZT + timedelta(minutes=minute), GEPLANT, soc)
+    if zwischendurch:
+        abgleich = _messpunkt(abgleich, JETZT + timedelta(minutes=minute + 1), GEPLANT, soc)
+        assert (abgleich.ladezeit_s, abgleich.punkte) == (0.0, ())
+    abgleich = _messpunkt(abgleich, JETZT + timedelta(minutes=minute + 5), GEPLANT, soc + 1)
+    assert [punkt[1:] for punkt in abgleich.punkte] == [(0.0, soc + 1)]
+
+
+def test_ein_gleicher_ladestand_nach_dem_anstieg_ist_weder_punkt_noch_fall():
+    """Ganzzahlig gemeldet und oefter ausgewertet: meist steht derselbe Wert."""
+    abgleich = ausgabe.Abgleich()
+    for minute, soc in ((0, 40.0), (5, 41.0), (10, 41.0), (15, 41.0), (20, 42.0), (25, 42.0)):
+        abgleich = _messpunkt(abgleich, JETZT + timedelta(minutes=minute), GEPLANT, soc)
+    assert abgleich.punkte == ((1, 0.0, 41.0), (1, 900.0, 42.0))
+    assert abgleich.ladezeit_s == 1200.0
+
+
+def test_vor_dem_ersten_anstieg_folgt_der_bezug_dem_fallenden_ladestand():
+    """Erst gefahren, dann angesteckt, waehrend Jetzt laden an ist."""
+    abgleich = ausgabe.Abgleich()
+    for schritt, soc in enumerate((60.0, 58.0, 57.0, 58.0, 59.0, 60.0, 61.0)):
+        abgleich = _messpunkt(abgleich, JETZT + timedelta(minutes=5 * schritt), GEPLANT, soc)
+    assert [punkt[2] for punkt in abgleich.punkte] == [58.0, 59.0, 60.0, 61.0]
+    assert abgleich.ladezeit_s == 900.0
+
+
+def test_der_ladestand_der_das_ziel_erreicht_ist_noch_ein_punkt():
+    """Die Auswertung, die abschaltet, kommt schon ohne Rate."""
+    abgleich = ausgabe.Abgleich()
+    for minute, soc in ((0, 40.0), (5, 41.0), (10, 42.0)):
+        abgleich = _messpunkt(abgleich, JETZT + timedelta(minutes=minute), GEPLANT, soc)
+    abgleich = _messpunkt(abgleich, JETZT + timedelta(minutes=15), None, 43.0)
+    assert abgleich.punkte[-1] == (1, 600.0, 43.0)
+
+
+def test_faellt_der_ladestand_in_der_bewertung_zaehlt_bis_zum_naechsten_einschalten_nichts():
+    """Der Fall kommt genau mit den 2 h: ab dem Anstieg in Minute 5 ist das Minute 125."""
+    abgleich, bewertung, minute = ausgabe.Abgleich(), None, -5
+    while bewertung is None:
+        minute += 5
+        soc = 30.0 + GEPLANT * minute / 60 if minute < 125 else 20.0
+        abgleich, bewertung = ausgabe.abgleichen(
+            abgleich, JETZT + timedelta(minutes=minute), GEPLANT, soc)
+    assert minute == 125
+    for minute, soc in ((130, 21.0), (135, 22.0), (140, 23.0)):
+        abgleich = _messpunkt(abgleich, JETZT + timedelta(minutes=minute), GEPLANT, soc)
+    assert (abgleich.ladezeit_s, abgleich.punkte) == (0.0, ())
+
+
+def test_geaenderte_daten_beginnen_die_messung_neu_und_nehmen_das_issue_zurueck():
+    """Am zweiten Abend steht ein anderer Wirkungsgrad im Subentry.
+
+    Ohne Aenderung kaeme die Bewertung am zweiten Abend um 22:10, das zeigt
+    test_genau_nach_plan_gibt_es_keine_warnung. Dort aendern auch dieselben
+    Daten in einem neuen Objekt nichts. Beginnt die Messung neu, kommt der
+    zweite Abend allein nicht auf 2 h.
+    """
+    stand = _stand("infeasible")
+    erster = _laden_ueber(stand, GEPLANT, 30.0, _abend("00:00"))
+    zweiter = _laden_ueber(stand, GEPLANT, 30.0, _abend("00:00"), zustand=erster[-1].zustand,
+                           daten={**DATEN, "efficiency_pct": 80})
+    assert [a.issue for a in erster + zweiter if a.issue is not None] == [ausgabe.ENTFERNEN]
+    assert zweiter[0].issue == ausgabe.ENTFERNEN
+    assert _bewertungen(erster + zweiter) == []
 
 
 @pytest.mark.parametrize(("gemessen", "ausserhalb"), [(105.0, False), (95.0, False),
