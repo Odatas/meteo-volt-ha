@@ -66,6 +66,12 @@ BEWERTEN_AB = timedelta(hours=2)
 TOLERANZ = 0.05
 MIN_PUNKTE = 3
 
+# Wo ein Einschalten in der Messung steht, Spec Abschnitt 6. None heisst,
+# Jetzt laden ist aus.
+WARTET = "wartet"  # auf den ersten Anstieg
+ZAEHLT = "zaehlt"
+GEFALLEN = "gefallen"  # bis zum naechsten Einschalten zaehlt nichts
+
 
 @dataclass(frozen=True)
 class Abgleich:
@@ -76,6 +82,9 @@ class Abgleich:
     zaehlt hoch und bekommt in der Regression einen eigenen
     Achsenabschnitt -- wird das Auto zwischen zwei Bloecken gefahren, aendert
     das nur die Hoehe, nicht die Steigung.
+
+    phase ist WARTET, ZAEHLT, GEFALLEN oder None. vorig ist beim Warten der
+    letzte frische Ladestand. seit steht nur, solange Ladezeit laeuft.
     """
 
     ladezeit_s: float = 0.0
@@ -84,6 +93,8 @@ class Abgleich:
     einschalten: int = 0
     seit: datetime | None = None
     rate: float | None = None
+    phase: str | None = None
+    vorig: float | None = None
 
 
 @dataclass(frozen=True)
@@ -243,59 +254,68 @@ def abgleichen(
 ) -> tuple[Abgleich, Bewertung | None]:
     """Fuehrt die Messung um eine Auswertung weiter. Spec Abschnitt 6.
 
-    rate ist die geplante Rate, solange gemessen wird, sonst None. soc ist der
-    Ladestand, wenn er frisch ist, sonst None. Messpunkte sind der Ladestand
-    beim Einschalten und jede Aenderung danach, auch die, die das Ziel
-    erreicht und damit abschaltet.
+    rate ist die geplante Rate, solange Jetzt laden aus dem Plan an ist, sonst
+    None. soc ist der Ladestand, wenn er frisch ist, sonst None. Ein
+    Einschalten zaehlt erst ab seinem ersten Anstieg: ab da laeuft seine
+    Ladezeit, und Messpunkte sind dieser Ladestand und jeder hoehere danach,
+    auch der, der das Ziel erreicht und damit abschaltet. Faellt der
+    Ladestand, zaehlt bis zum naechsten Einschalten nichts mehr.
     """
     aktiv = rate is not None
-    lief = alt.seit is not None
     ladezeit, geplant = alt.ladezeit_s, alt.geplant_pp
-    if lief:
+    if alt.seit is not None:
         dauer = max(0.0, (jetzt - alt.seit).total_seconds())
         ladezeit += dauer
         geplant += alt.rate * dauer / 3600
-    einschalten = alt.einschalten + 1 if aktiv and not lief else alt.einschalten
-    punkte = alt.punkte
-    if soc is not None and (aktiv or lief):
-        letzter = punkte[-1] if punkte else None
-        if letzter is None or letzter[0] != einschalten or letzter[2] != soc:
+    einschalten, phase, vorig, punkte = alt.einschalten, alt.phase, alt.vorig, alt.punkte
+    if aktiv and phase is None:
+        einschalten, phase, vorig = einschalten + 1, WARTET, soc
+    elif soc is not None and phase == WARTET:
+        if vorig is not None and soc > vorig:
+            punkte, phase, vorig = (*punkte, (einschalten, ladezeit, soc)), ZAEHLT, None
+        else:
+            vorig = soc
+    elif soc is not None and phase == ZAEHLT:
+        if soc > punkte[-1][2]:
             punkte = (*punkte, (einschalten, ladezeit, soc))
-    neu = Abgleich(ladezeit, geplant, punkte, einschalten, jetzt if aktiv else None, rate)
+        elif soc < punkte[-1][2]:
+            phase = GEFALLEN
+    if not aktiv:
+        phase = None
+    zaehlt = phase == ZAEHLT
+    neu = Abgleich(ladezeit, geplant, punkte, einschalten,
+                   jetzt if zaehlt else None, rate if zaehlt else None, phase, vorig)
     if ladezeit < BEWERTEN_AB.total_seconds():
         return neu, None
-    # Bewertet, die Messung beginnt neu. Laeuft sie weiter, zaehlt das als
-    # neues Einschalten: der naechste Punkt beginnt eine eigene Gerade.
-    naechste_messung = Abgleich(
-        einschalten=einschalten + 1 if aktiv else einschalten, seit=neu.seit, rate=rate
-    )
+    # Bewertet, die Messung beginnt neu. Laedt das Auto weiter, beginnt sie wie
+    # nach einem Einschalten: der naechste Punkt ist die naechste Aenderung.
+    if zaehlt:
+        naechste_messung = Abgleich(einschalten=einschalten + 1, phase=WARTET, vorig=soc)
+    else:
+        naechste_messung = Abgleich(einschalten=einschalten, phase=phase)
     return naechste_messung, bewerten(neu)
 
 
 def bewerten(abgleich: Abgleich) -> Bewertung | None:
     """Die gemeinsame Steigung mit eigenem Achsenabschnitt je Einschalten.
 
-    None heisst nicht bewertet: weniger als MIN_PUNKTE verwertbare Punkte --
-    das sind Punkte eines Einschaltens mit mindestens zwei --, oder bei
-    keinem Einschalten liegt der letzte Punkt hoeher als der erste. Dann
-    wurde nicht geladen, und das liegt nicht an den Einstellungen.
+    None heisst nicht bewertet: weniger als MIN_PUNKTE verwertbare Punkte,
+    das sind Punkte eines Einschaltens mit mindestens zwei.
     """
     gruppen: dict[int, list[tuple[float, float]]] = {}
     for einschalten, ladezeit, soc in abgleich.punkte:
         gruppen.setdefault(einschalten, []).append((ladezeit, soc))
     zaehler = nenner = 0.0
     verwertbar = 0
-    steigt = False
     for punkte in gruppen.values():
         if len(punkte) < 2:
             continue
         verwertbar += len(punkte)
-        steigt = steigt or punkte[-1][1] > punkte[0][1]
         mitte_t = sum(t for t, _ in punkte) / len(punkte)
         mitte_soc = sum(s for _, s in punkte) / len(punkte)
         zaehler += sum((t - mitte_t) * (s - mitte_soc) for t, s in punkte)
         nenner += sum((t - mitte_t) ** 2 for t, _ in punkte)
-    if verwertbar < MIN_PUNKTE or not steigt or nenner <= 0 or abgleich.geplant_pp <= 0:
+    if verwertbar < MIN_PUNKTE or nenner <= 0 or abgleich.geplant_pp <= 0:
         return None
     return Bewertung(
         gemessen=zaehler / nenner * 3600,
