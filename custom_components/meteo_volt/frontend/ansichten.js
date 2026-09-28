@@ -130,11 +130,15 @@ export function bloeckeHtml(z, fz, bloecke) {
   if (!bloecke.length) return html`<p class="hinweis">${f.t('kein_laden_bis_ende')}</p>`;
   const termine = z.termine.filter((t) => t.vehicle === fz.vehicle);
   const grund = (b) => {
-    const g = blockGrund(b, termine);
-    if (g.art === 'ziel') return f.t('grund_ziel', { abfahrt: f.wochentagZeit(g.termin.abfahrt), soc: f.prozent(g.termin.soc) });
-    if (g.art === 'vor') return f.t('grund_vor', { abfahrt: f.wochentagZeit(g.termin.abfahrt) });
-    return f.t('grund_ende');
+    const t = blockGrund(b, termine);
+    if (!t) return null;
+    const abfahrt = f.wochentagZeit(t.abfahrt);
+    return gesetzt(t.soc) ? f.t('grund_ziel', { abfahrt, soc: f.prozent(t.soc) }) : f.t('grund_abfahrt', { abfahrt });
   };
+  const info = (b) => [
+    f.t('block_werte', { kwh: f.kwh(b.kwh), preis: f.ct(b.preis + z.gebuehr), eur: f.eur(b.kosten + z.gebuehr * b.kwh) }),
+    grund(b),
+  ].filter(Boolean).join(' · ');
   const zeigen = z.ui.alleBloecke ? bloecke : bloecke.slice(0, 4);
   const mehr = bloecke.length > 4
     ? html`<button type="button" class="mehr" data-aktion="bloecke">${z.ui.alleBloecke ? f.t('weniger') : f.t('alle_bloecke', { n: bloecke.length })}</button>`
@@ -143,7 +147,7 @@ export function bloeckeHtml(z, fz, bloecke) {
     ${zeigen.map((b) => html`<div class="block">
       <span class="num"><b>${f.tag(b.von)}</b> ${f.t('von_bis', { von: f.zeit(b.von), bis: f.zeit(b.bis) })}</span>
       <span class="num b-soc">${f.t('soc_von_bis', { von: f.prozent(b.socVon), bis: f.prozent(b.socBis) })}</span>
-      <span class="b-info num">${f.t('block_werte', { kwh: f.kwh(b.kwh), preis: f.ct(b.preis + z.gebuehr), eur: f.eur(b.kosten + z.gebuehr * b.kwh), grund: grund(b) })}</span>
+      <span class="b-info num">${info(b)}</span>
     </div>`)}${mehr}</div>`;
 }
 

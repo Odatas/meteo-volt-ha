@@ -52,9 +52,10 @@ export function planAbJetzt(plan, jetzt, socJetzt) {
 }
 
 // Die Ladebloecke, die nicht vor jetzt enden. Einer, der laeuft, zaehlt ganz (Spec 6.2).
+// Lueckenlose Intervalle sind ein Block: der Planer trennt sie auch am Wechsel des reason.
 export function bloeckeAbJetzt(plan, jetzt) {
   const roh = plan && Array.isArray(plan.intervals) ? plan.intervals : [];
-  return roh
+  const intervalle = roh
     .map((b) => ({
       von: ausIso(b.from),
       bis: ausIso(b.to),
@@ -63,10 +64,26 @@ export function bloeckeAbJetzt(plan, jetzt) {
       preis: b.avg_price_eur_kwh,
       socVon: b.soc_from_pct,
       socBis: b.soc_to_pct,
-      reason: b.reason,
+      reasons: [b.reason],
     }))
-    .filter((b) => b.bis > jetzt)
     .sort((a, b) => a.von - b.von);
+  const bloecke = [];
+  for (const iv of intervalle) {
+    const vorher = bloecke[bloecke.length - 1];
+    if (!vorher || vorher.bis !== iv.von) {
+      bloecke.push({ ...iv, gewicht: iv.preis * iv.kwh });
+      continue;
+    }
+    vorher.bis = iv.bis;
+    vorher.kwh += iv.kwh;
+    vorher.kosten += iv.kosten;
+    vorher.gewicht += iv.preis * iv.kwh;
+    vorher.socBis = iv.socBis;
+    vorher.reasons.push(...iv.reasons);
+  }
+  return bloecke
+    .filter((b) => b.bis > jetzt)
+    .map(({ gewicht, ...b }) => ({ ...b, preis: b.kwh ? gewicht / b.kwh : b.preis }));
 }
 
 // Geplant und Kosten: die Summen der gezeigten Bloecke. gebuehr ist 0 oder grid_fees.
@@ -77,16 +94,11 @@ export function summen(bloecke, gebuehr) {
   );
 }
 
-// Der Grund eines Ladeblocks (Spec 6.3). termine: die geladenen Termine des Fahrzeugs, sortiert.
-// { art: 'ziel', termin } | { art: 'vor', termin } | { art: 'ende' }
+// Der Grund eines Ladeblocks (Spec 6.3): der geladene Ziel-Termin mit der fruehesten Abfahrt
+// unter seinen reasons, oder null. termine: die geladenen Termine des Fahrzeugs, sortiert.
 export function blockGrund(block, termine) {
-  const id = zerlegen(block.reason);
-  if (id && id.art === 'ziel') {
-    const termin = termine.find((t) => t.entry === id.eintrag && t.date === id.datum);
-    if (termin && termin.soc !== null && termin.soc !== undefined) return { art: 'ziel', termin };
-  }
-  const naechster = termine.find((t) => t.abfahrt >= block.bis);
-  return naechster ? { art: 'vor', termin: naechster } : { art: 'ende' };
+  const ziele = block.reasons.map(zerlegen).filter((id) => id && id.art === 'ziel');
+  return termine.find((t) => ziele.some((id) => t.entry === id.eintrag && t.date === id.datum)) ?? null;
 }
 
 const gesetzt = (x) => x !== null && x !== undefined;

@@ -116,9 +116,8 @@ export const TEXTE = {
     alle_bloecke: 'Alle {n} Ladeblöcke anzeigen',
     weniger: 'Weniger anzeigen',
     grund_ziel: 'für Abfahrt {abfahrt}, Ziel {soc}',
-    grund_vor: 'vor Abfahrt {abfahrt}',
-    grund_ende: 'bis zum Planende',
-    block_werte: '{kwh} · Ø {preis} · {eur} · {grund}',
+    grund_abfahrt: 'für Abfahrt {abfahrt}',
+    block_werte: '{kwh} · Ø {preis} · {eur}',
 
     // Termine
     einzeln_geaendert: 'einzeln geändert',
@@ -328,9 +327,8 @@ export const TEXTE = {
     alle_bloecke: 'Show all {n} charging blocks',
     weniger: 'Show less',
     grund_ziel: 'for departure {abfahrt}, target {soc}',
-    grund_vor: 'before departure {abfahrt}',
-    grund_ende: 'until the end of the plan',
-    block_werte: '{kwh} · Ø {preis} · {eur} · {grund}',
+    grund_abfahrt: 'for departure {abfahrt}',
+    block_werte: '{kwh} · Ø {preis} · {eur}',
 
     einzeln_geaendert: 'changed individually',
     ziel_soc: 'Target {soc}',

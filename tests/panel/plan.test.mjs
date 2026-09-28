@@ -85,16 +85,50 @@ test('Ladebloecke: vorbei fehlt, laufend zaehlt ganz, dazu die Summen', () => {
   assert.ok(Math.abs(mit.kosten - (2.2 + 22 * 0.16)) < 1e-9);
 });
 
-test('der Grund eines Blocks: Ziel, vor der naechsten Abfahrt, bis zum Planende', () => {
-  const termine = termineAus([termin(), termin({ entry: 'e1', date: '2026-09-17', soc: null, departure: '2026-09-17T07:30:00+02:00', return: '2026-09-17T17:30:00+02:00' })]);
-  const [basis, ziel] = bloeckeAbJetzt(plan(), START);
-  assert.deepEqual(blockGrund(ziel, termine), { art: 'ziel', termin: termine[1] });
-  const vor = blockGrund(basis, termine);
-  assert.equal(vor.art, 'vor');
-  assert.equal(vor.termin.entry, 'e1');
-  assert.deepEqual(blockGrund(basis, []), { art: 'ende' });
-  // Ein Ziel, dessen Termin nicht geladen ist, nennt die naechste Abfahrt.
-  assert.equal(blockGrund(ziel, termineAus([termin({ entry: 'e1', date: '2026-09-20', soc: null, departure: '2026-09-20T07:30:00+02:00', return: '2026-09-20T08:30:00+02:00' })])).art, 'vor');
+// Drei lueckenlose Intervalle mit wechselndem reason, dahinter eine Luecke und ein viertes.
+function zerteilt() {
+  const iv = (von, bis, kwh, preis, socVon, socBis, reason) => ({
+    from: iso(START + von * 15 * MIN), to: iso(START + bis * 15 * MIN), kwh, cost_eur: kwh * preis,
+    avg_price_eur_kwh: preis, soc_from_pct: socVon, soc_to_pct: socBis, reason,
+  });
+  return plan({
+    intervals: [
+      iv(2, 3, 2, 0.3, 40, 43, 'e3/2026-09-18/ziel'),
+      iv(3, 4, 3, 0.2, 43, 47, 'base'),
+      iv(4, 6, 5, 0.1, 47, 53, 'e2/2026-09-19/ziel'),
+      iv(8, 9, 2, 0.2, 53, 56, 'base'),
+    ],
+  });
+}
+
+test('Ladebloecke: lueckenlose Intervalle sind ein Block', () => {
+  const [eins, zwei, ...rest] = bloeckeAbJetzt(zerteilt(), START);
+  assert.equal(rest.length, 0);
+  assert.equal(eins.von, START + 2 * 15 * MIN);
+  assert.equal(eins.bis, START + 6 * 15 * MIN);
+  assert.equal(eins.kwh, 10);
+  assert.ok(Math.abs(eins.kosten - 1.7) < 1e-9);
+  assert.ok(Math.abs(eins.preis - 0.17) < 1e-9);
+  assert.equal(eins.socVon, 40);
+  assert.equal(eins.socBis, 53);
+  assert.deepEqual(eins.reasons, ['e3/2026-09-18/ziel', 'base', 'e2/2026-09-19/ziel']);
+  assert.equal(zwei.von, START + 8 * 15 * MIN);
+  // Laeuft der letzte Teil noch, zaehlt der ganze Block.
+  assert.equal(bloeckeAbJetzt(zerteilt(), START + 5 * 15 * MIN)[0].von, START + 2 * 15 * MIN);
+});
+
+test('der Grund eines Blocks: der frueheste geladene Ziel-Termin, sonst keiner', () => {
+  const e2 = termin();
+  const e3 = termin({ entry: 'e3', date: '2026-09-18', soc: null, departure: '2026-09-18T07:30:00+02:00', return: '2026-09-18T17:30:00+02:00' });
+  const [block, basis] = bloeckeAbJetzt(zerteilt(), START);
+  assert.equal(blockGrund(block, termineAus([e2, e3])).entry, 'e3');
+  // Ist der frueheste nicht geladen, nennt er den naechsten.
+  assert.equal(blockGrund(block, termineAus([e2])).entry, 'e2');
+  assert.equal(blockGrund(block, []), null);
+  // base ist kein Grund, auch vor einer Abfahrt nicht.
+  assert.equal(blockGrund(basis, termineAus([e2, e3])), null);
+  // Nur die Art ziel nennt einen Termin.
+  assert.equal(blockGrund({ ...basis, reasons: ['e2/2026-09-19/weg'] }, termineAus([e2, e3])), null);
 });
 
 test('die Planzeile eines Termins', () => {
