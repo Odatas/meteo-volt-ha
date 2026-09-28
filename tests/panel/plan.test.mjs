@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  blockGrund, bloeckeAbJetzt, erhaltenUm, hatWarnung, laeuft, planAbJetzt, planende, planzeile, status, summen,
+  blockGrund, blockZiel, bloeckeAbJetzt, erhaltenUm, hatWarnung, laeuft, planAbJetzt, planende, planzeile, status, summen,
   termineAus, zerlegen,
 } from '../../custom_components/meteo_volt/frontend/plan.js';
 
@@ -129,6 +129,19 @@ test('der Grund eines Blocks: der frueheste geladene Ziel-Termin, sonst keiner',
   assert.equal(blockGrund(basis, termineAus([e2, e3])), null);
   // Nur die Art ziel nennt einen Termin.
   assert.equal(blockGrund({ ...basis, reasons: ['e2/2026-09-19/weg'] }, termineAus([e2, e3])), null);
+});
+
+test('das Ziel eines Blocks: nur das eigene, wenn es genau das geplante ist', () => {
+  // 320 km bei 20 kWh/100 km und 80 kWh sind 80 %, gesichert also 10 + 80 = 90 %.
+  const v = { soc_min_pct: 10, capacity_kwh: 80, consumption_kwh_per_100km: 20 };
+  assert.equal(blockZiel(termin({ soc: 100 }), v), 100);
+  assert.equal(blockZiel(termin({ soc: null }), v), null);
+  assert.equal(blockZiel(termin({ soc: 5 }), v), null);
+  assert.equal(blockZiel(termin({ soc: 10 }), v), 10);
+  // Der Haken hebt 60 auf 90: geplant sind 90, nicht 60.
+  assert.equal(blockZiel(termin({ soc: 60, keep_min_soc: true }), v), null);
+  assert.equal(blockZiel(termin({ soc: 90, keep_min_soc: true }), v), 90);
+  assert.equal(blockZiel(termin({ soc: 60, keep_min_soc: false }), v), 60);
 });
 
 test('die Planzeile eines Termins', () => {

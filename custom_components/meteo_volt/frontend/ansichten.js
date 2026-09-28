@@ -5,7 +5,7 @@
 // in die Platzhalter .planchart, .h-strip und .h-achse.
 
 import { html } from './html.js';
-import { blockGrund, bloeckeAbJetzt, planzeile, status, summen } from './plan.js';
+import { blockGrund, blockZiel, bloeckeAbJetzt, planzeile, status, summen } from './plan.js';
 import { symbol } from './symbole.js';
 import { datumVon, plusTage, tagesbeginn } from './zeit.js';
 
@@ -133,7 +133,8 @@ export function bloeckeHtml(z, fz, bloecke) {
     const t = blockGrund(b, termine);
     if (!t) return null;
     const abfahrt = f.wochentagZeit(t.abfahrt);
-    return gesetzt(t.soc) ? f.t('grund_ziel', { abfahrt, soc: f.prozent(t.soc) }) : f.t('grund_abfahrt', { abfahrt });
+    const soc = blockZiel(t, fz);
+    return soc === null ? f.t('grund_abfahrt', { abfahrt }) : f.t('grund_ziel', { abfahrt, soc: f.prozent(soc) });
   };
   const info = (b) => [
     f.t('block_werte', { kwh: f.kwh(b.kwh), preis: f.ct(b.preis + z.gebuehr), eur: f.eur(b.kosten + z.gebuehr * b.kwh) }),

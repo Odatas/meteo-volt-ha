@@ -3,6 +3,7 @@
 // Quelle ist nur die zugesagte Oberflaeche aus C3-Spec Abschnitt 9: der Plan aus
 // meteo_volt/plan, die Termine aus meteo_volt/appointments und die Form der IDs.
 
+import { gesichert } from './ladereserve.js';
 import { ausIso } from './zeit.js';
 
 // Eine ID aus C3-Spec Abschnitt 4: <eintrag>/<JJJJ-MM-TT>/weg oder ziel. base und alles andere: null.
@@ -99,6 +100,14 @@ export function summen(bloecke, gebuehr) {
 export function blockGrund(block, termine) {
   const ziele = block.reasons.map(zerlegen).filter((id) => id && id.art === 'ziel');
   return termine.find((t) => ziele.some((id) => t.entry === id.eintrag && t.date === id.datum)) ?? null;
+}
+
+// Das Ziel, das ein Block zu seinem Termin nennt, oder null (Spec 6.3): soc nur, wenn er genau das
+// geplante Ziel ist, also ab dem Min-SoC und nicht vom Haken angehoben. v: das Fahrzeug aus site.
+export function blockZiel(termin, v) {
+  if (!gesetzt(termin.soc) || termin.soc < v.soc_min_pct) return null;
+  if (termin.keep_min_soc && gesichert(termin.distance_km, v) > termin.soc) return null;
+  return termin.soc;
 }
 
 const gesetzt = (x) => x !== null && x !== undefined;
