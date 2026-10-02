@@ -3,8 +3,8 @@
     "generated_by": "meteo-volt-brain/scripts/export_contract.py",
     "do_not_edit": true,
     "schema_version": 2,
-    "brain_commit": "f9c3acd",
-    "sha256": "d0b43a9b7335b334337fdc4159e4588d3c62362d148497bcc90fb01ce0b789d9"
+    "brain_commit": "f27c445",
+    "sha256": "784d69aa51309914557cc4cd1fef3c36426180555248281b6a030f5c7b860af3"
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$defs": {
@@ -319,12 +319,6 @@
           "default": null,
           "description": "Fruehester Zeitpunkt, ab dem fuer dieses Ziel geladen werden darf. Der Slot, der hier beginnt, ist der erste erlaubte.",
           "title": "Earliest Start"
-        },
-        "allow_above_max": {
-          "default": false,
-          "description": "Wird nicht ausgewertet und immer wie true behandelt, weil ein Ziel die Obergrenze ohnehin anhebt.",
-          "title": "Allow Above Max",
-          "type": "boolean"
         }
       },
       "required": [
@@ -508,6 +502,9 @@
   "properties": {
     "schema_version": {
       "description": "Version des Kontrakts, gegen den dieser Request gebaut ist.",
+      "enum": [
+        2
+      ],
       "title": "Schema Version",
       "type": "integer"
     },

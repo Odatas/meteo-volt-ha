@@ -41,7 +41,6 @@
           "id": "ms-1",
           "deadline": "2026-08-18T23:30:00+02:00",
           "target_soc_pct": 60.0,
-          "allow_above_max": false,
           "label": "Fahrt Oma"
         }
       ],
