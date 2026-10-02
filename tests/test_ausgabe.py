@@ -143,6 +143,25 @@ def test_jedes_fahrzeug_sieht_die_warnungen_die_es_nennen_oder_gar_keins():
     assert typen("auto-b") == ["station_overbooked", "prediction_stale"]
 
 
+def test_ziele_hinter_dem_horizont_landen_beim_genannten_fahrzeug():
+    """A0-Spec 3.6: beide Typen tragen vehicle_id. Die Fixture plant nur
+    auto-a; ein zweites Fahrzeug ohne Warnung zeigt, dass sie nicht
+    durchsickern. Weitergereicht wird die Warnung unveraendert, count und
+    message eingeschlossen."""
+    anfrage, plan = _fixture("target_beyond_horizon")
+    fahrzeug = plan["vehicles"][0]
+    plan = {**plan, "vehicles": [fahrzeug, {**fahrzeug, "id": "auto-b"}]}
+    stand = standort.Planstand(plan=plan, erhalten_um=JETZT, anfrage=anfrage)
+
+    def warnungen(fahrzeug_id):
+        return _auswerten(stand, JETZT, fahrzeug_id=fahrzeug_id).attribute["plan"]["warnings"]
+
+    assert [w["type"] for w in plan["warnings"]] == [
+        "target_beyond_horizon_free", "target_beyond_horizon"]
+    assert warnungen("auto-a") == plan["warnings"]
+    assert warnungen("auto-b") == []
+
+
 def test_ohne_brauchbaren_plan_sind_die_planwerte_unbekannt():
     anfrage, plan = _fixture("minimal")
     stand = standort.Planstand(
@@ -188,19 +207,19 @@ def test_kommen_die_12_stunden_frueher_zaehlen_sie():
 
 
 # --- Jetzt laden: Plan gegen Ladestand, Spec Abschnitt 5 --------------------
-# second_block laedt CC...CC.: Block 22:00-22:30 mit Ziel 55.82, Block
-# 23:15-23:45 mit Ziel 64.65.
+# second_block laedt CC...CC.: Block 22:00-22:30 mit Ziel 55.91, Block
+# 23:15-23:45 mit Ziel 64.83.
 
 
 def test_am_ziel_des_blocks_geht_jetzt_laden_aus():
-    auswertung = _auswerten(_stand("second_block"), _abend("22:20"), 55.82, _abend("22:20"))
+    auswertung = _auswerten(_stand("second_block"), _abend("22:20"), 55.91, _abend("22:20"))
     assert (auswertung.werte["charge_now"], auswertung.werte["charge_now_kw"]) == (False, 0.0)
     assert auswertung.attribute["charge_now"] == {"quelle": "plan", "ziel_erreicht": True}
     assert auswertung.zustand.gesperrt_bis == _abend("22:30")
 
 
 def test_das_ziel_eines_slots_mitten_im_block_zaehlt_nicht():
-    """Der Slot 22:00 endet bei 51.41; der Folgeslot laedt, das Blockziel ist 55.82."""
+    """Der Slot 22:00 endet bei 51.46; der Folgeslot laedt, das Blockziel ist 55.91."""
     auswertung = _auswerten(_stand("second_block"), _abend("22:05"), 52.0, _abend("22:05"))
     assert auswertung.werte["charge_now"] is True
     assert auswertung.zustand.gesperrt_bis is None
