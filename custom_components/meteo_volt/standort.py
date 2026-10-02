@@ -130,7 +130,7 @@ def anfrage_bauen(
         return None, ausgelassen
 
     anfrage = {
-        "schema_version": 1,
+        "schema_version": 2,
         # trips tragen Zeitpunkte mit Offset und brauchen sie nicht. Ohne sie
         # stimmte der Default Europe/Berlin aber still nicht, sobald ein
         # Verbrauch nach Tagesgrenzen gebucht wird.

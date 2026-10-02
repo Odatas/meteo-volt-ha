@@ -8,9 +8,9 @@
   "slot_minutes": 15,
   "site": {
     "peak_power_kw": 11.0,
-    "total_kwh": 22.0,
-    "total_cost_eur": 2.6,
-    "feasible": false
+    "total_kwh": 5.5,
+    "total_cost_eur": 0.23,
+    "feasible": true
   },
   "vehicles": [
     {
@@ -49,98 +49,68 @@
         },
         {
           "t": "2026-08-18T22:30:00+02:00",
-          "charge": true,
+          "charge": false,
           "price": 0.0501,
           "source": "epex",
-          "soc_end_pct": 60.37,
-          "station_id": "wb",
-          "kw": 11.0,
-          "kwh": 2.75,
-          "kwh_battery": 2.585,
-          "cost_eur": 0.1378,
-          "reason": "base"
+          "soc_end_pct": 55.91
         },
         {
           "t": "2026-08-18T22:45:00+02:00",
-          "charge": true,
+          "charge": false,
           "price": 0.062,
           "source": "epex",
-          "soc_end_pct": 64.83,
-          "station_id": "wb",
-          "kw": 11.0,
-          "kwh": 2.75,
-          "kwh_battery": 2.585,
-          "cost_eur": 0.1705,
-          "reason": "base"
+          "soc_end_pct": 55.91
         },
         {
           "t": "2026-08-18T23:00:00+02:00",
-          "charge": true,
+          "charge": false,
           "price": 0.114,
           "source": "forecast",
-          "soc_end_pct": 69.28,
-          "station_id": "wb",
-          "kw": 11.0,
-          "kwh": 2.75,
-          "kwh_battery": 2.585,
-          "cost_eur": 0.3135,
-          "reason": "base"
+          "soc_end_pct": 55.91
         },
         {
           "t": "2026-08-18T23:15:00+02:00",
-          "charge": true,
+          "charge": false,
           "price": 0.198,
           "source": "forecast",
-          "soc_end_pct": 73.74,
-          "station_id": "wb",
-          "kw": 11.0,
-          "kwh": 2.75,
-          "kwh_battery": 2.585,
-          "cost_eur": 0.5445,
-          "reason": "base"
+          "soc_end_pct": 55.91
         },
         {
           "t": "2026-08-18T23:30:00+02:00",
-          "charge": true,
+          "charge": false,
           "price": 0.214,
           "source": "forecast",
-          "soc_end_pct": 78.2,
-          "station_id": "wb",
-          "kw": 11.0,
-          "kwh": 2.75,
-          "kwh_battery": 2.585,
-          "cost_eur": 0.5885,
-          "reason": "base"
+          "soc_end_pct": 55.91
         },
         {
           "t": "2026-08-18T23:45:00+02:00",
-          "charge": true,
+          "charge": false,
           "price": 0.226,
           "source": "forecast",
-          "soc_end_pct": 82.66,
-          "station_id": "wb",
-          "kw": 11.0,
-          "kwh": 2.75,
-          "kwh_battery": 2.585,
-          "cost_eur": 0.6215,
-          "reason": "base"
+          "soc_end_pct": 55.91
         }
       ],
       "intervals": [],
-      "total_kwh": 22.0,
-      "total_cost_eur": 2.6,
-      "soc_end_pct": 82.66,
-      "feasible": false,
-      "violations": [
-        {
-          "type": "target_unreachable",
-          "constraint_id": "ms-1",
-          "missing_kwh": 10.699,
-          "message": "Ziel 100 % nicht erreichbar, es fehlen 10.699 kWh"
-        }
-      ]
+      "total_kwh": 5.5,
+      "total_cost_eur": 0.23,
+      "soc_end_pct": 55.91,
+      "feasible": true,
+      "violations": []
     }
   ],
   "actions_required": [],
-  "warnings": []
+  "warnings": [
+    {
+      "type": "target_beyond_horizon_free",
+      "vehicle_id": "auto-a",
+      "count": 2,
+      "message": "2 Ziele liegen hinter dem Planungshorizont des freien Tarifs und werden noch nicht beachtet; mit dem bezahlten Tarif waeren sie eingeplant"
+    },
+    {
+      "type": "target_beyond_horizon",
+      "vehicle_id": "auto-a",
+      "count": 1,
+      "message": "1 Ziel liegt hinter dem Planungshorizont und wird noch nicht beachtet"
+    }
+  ]
 }

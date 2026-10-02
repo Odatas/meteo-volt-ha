@@ -243,9 +243,9 @@ class LadepunktSubentryFlow(ConfigSubentryFlow):
     def _schema(self, vorgabe: dict[str, Any]) -> vol.Schema:
         """Das Formular, vorbelegt aus vorgabe.
 
-        Drei Felder, nichts eingeklappt. min_power_kw und phases fehlen,
-        weil meteovolt_planner sie nicht liest -- ob sie aus dem Kontrakt
-        fallen, entscheidet A5.
+        Drei Felder, nichts eingeklappt. min_power_kw und phases fehlen:
+        meteovolt_planner las sie nie, und seit schema_version 2 gibt es sie
+        im Kontrakt nicht mehr (A5-Spec Abschnitt 7).
         """
         standard = stammdaten.LADEPUNKT_DEFAULTS
         positiv = vol.All(vol.Coerce(float), vol.Range(min=0, min_included=False))

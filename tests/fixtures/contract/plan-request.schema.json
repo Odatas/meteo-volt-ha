@@ -2,9 +2,9 @@
   "x-meteo-volt-contract": {
     "generated_by": "meteo-volt-brain/scripts/export_contract.py",
     "do_not_edit": true,
-    "schema_version": 1,
-    "brain_commit": "c287303",
-    "sha256": "b51d0bc594d324d476569c6d643eb4d9ffd9d23c5ab71c56e404503a1fa5292b"
+    "schema_version": 2,
+    "brain_commit": "f27c445",
+    "sha256": "784d69aa51309914557cc4cd1fef3c36426180555248281b6a030f5c7b860af3"
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$defs": {
@@ -250,31 +250,6 @@
           "title": "Max Power Kw",
           "type": "number"
         },
-        "min_power_kw": {
-          "default": 1.4,
-          "description": "Mindestladeleistung der Wallbox in kW. Der Plan laedt immer mit voller Leistung, nie gedrosselt.",
-          "exclusiveMinimum": 0,
-          "title": "Min Power Kw",
-          "type": "number"
-        },
-        "phases": {
-          "default": 3,
-          "description": "Anschlussart der Wallbox: einphasig oder dreiphasig.",
-          "enum": [
-            1,
-            3
-          ],
-          "title": "Phases",
-          "type": "integer"
-        },
-        "efficiency": {
-          "default": 0.99,
-          "description": "Stationsseitiger Wirkungsgrad zwischen 0 und 1, also die Verluste in Kabel und Zaehler.",
-          "exclusiveMinimum": 0,
-          "maximum": 1,
-          "title": "Efficiency",
-          "type": "number"
-        },
         "available": {
           "default": true,
           "description": "false plant jedes Fahrzeug an dieser Wallbox so, als koenne es ueber den ganzen Horizont nicht laden.",
@@ -344,12 +319,6 @@
           "default": null,
           "description": "Fruehester Zeitpunkt, ab dem fuer dieses Ziel geladen werden darf. Der Slot, der hier beginnt, ist der erste erlaubte.",
           "title": "Earliest Start"
-        },
-        "allow_above_max": {
-          "default": false,
-          "description": "Wird nicht ausgewertet und immer wie true behandelt, weil ein Ziel die Obergrenze ohnehin anhebt.",
-          "title": "Allow Above Max",
-          "type": "boolean"
         }
       },
       "required": [
@@ -455,13 +424,6 @@
           "title": "Max Charge Kw",
           "type": "number"
         },
-        "min_charge_kw": {
-          "default": 1.4,
-          "description": "Mindestladeleistung des Fahrzeugs in kW. Der Plan laedt immer mit voller Leistung, nie gedrosselt.",
-          "exclusiveMinimum": 0,
-          "title": "Min Charge Kw",
-          "type": "number"
-        },
         "efficiency_curve": {
           "description": "Wirkungsgrad ueber der Ladeleistung, als Stuetzpunkte. Dazwischen wird linear interpoliert, ausserhalb auf den naechsten Punkt geklemmt.",
           "items": {
@@ -540,6 +502,9 @@
   "properties": {
     "schema_version": {
       "description": "Version des Kontrakts, gegen den dieser Request gebaut ist.",
+      "enum": [
+        2
+      ],
       "title": "Schema Version",
       "type": "integer"
     },

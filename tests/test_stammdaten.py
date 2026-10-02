@@ -59,19 +59,20 @@ def test_ladepunkt_aus_vorbelegung_ist_kontraktkonform():
 
 
 def test_ladepunkt_traegt_keinen_wirkungsgrad_des_kontrakt_defaults():
-    """Abschnitt 3 der Spec: 1.0, nicht der Kontrakt-Default 0.99. Sonst wird
-    das eine Prozent doppelt gezaehlt, weil der Fahrzeugwert es schon enthaelt
-    -- und zwar still."""
+    """Abschnitt 3 der Spec: der Ladepunkt traegt keinen Wirkungsgrad. Seit
+    schema_version 2 gibt es Station.efficiency nicht mehr, der Server weist
+    es ab. Der ganze Verlust steht am Fahrzeug; ein Wert am Ladepunkt zaehlte
+    ihn doppelt -- und zwar still."""
     fragment = stammdaten.zu_ladepunkt(dict(stammdaten.LADEPUNKT_DEFAULTS), "wb-1")
-    assert fragment["efficiency"] == 1.0
+    assert "efficiency" not in fragment
 
 
 def test_ladepunkt_schickt_nur_was_der_planer_liest():
-    """meteovolt_planner/slots.py liest vom Ladepunkt max_power_kw, efficiency
-    und available -- nichts sonst. min_power_kw und phases fehlen deshalb im
-    Fragment, der Server nimmt ihre Defaults. Ueber den Kontrakt entscheidet A5."""
+    """meteovolt_planner/slots.py liest vom Ladepunkt max_power_kw und
+    available -- nichts sonst. min_power_kw und phases fehlen deshalb im
+    Fragment, efficiency seit schema_version 2 auch (A5-Spec Abschnitt 7)."""
     fragment = stammdaten.zu_ladepunkt({stammdaten.FELD_MAX_LEISTUNG: 22.0}, "wb-2")
-    assert set(fragment) == {"id", "max_power_kw", "efficiency", "available"}
+    assert set(fragment) == {"id", "max_power_kw", "available"}
     assert fragment["available"] is True
     jsonschema.validate(fragment, teilschema("Station"))
 

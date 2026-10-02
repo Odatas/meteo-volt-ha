@@ -70,13 +70,13 @@ ABSCHNITT_ENTITAETEN = "entitaeten"
 # innerhalb eines Eintrags ist die Reihenfolge im Formular.
 
 # Der Ladepunkt: drei Felder. min_power_kw und phases liest meteovolt_planner
-# nicht (slots.py liest max_power_kw, efficiency, available).
+# nicht (slots.py liest max_power_kw und available).
 LADEPUNKT_AUFBAU = {
     None: (FELD_NAME, FELD_MAX_LEISTUNG, FELD_VERFUEGBAR),
 }
 
 # Das Fahrzeug: sieben Felder ohne Kasten, drei Entitaeten im Kasten.
-# min_charge_kw fehlt -- meteovolt_planner liest es an keiner Stelle.
+# min_charge_kw fehlt -- seit schema_version 2 gibt es es im Kontrakt nicht mehr.
 FAHRZEUG_AUFBAU = {
     None: (
         FELD_NAME,
@@ -122,11 +122,6 @@ FAHRZEUG_DEFAULTS = {
     FELD_WIRKUNGSGRAD: 92.0,
     FELD_VERBRAUCH: 19.5,
 }
-
-# Abschnitt 3 der Spec: der Ladepunkt traegt keinen Wirkungsgrad. Der
-# Kontrakt-Default waere 0.99 -- ein Prozent, das der Fahrzeugwert bereits
-# enthaelt. Neutral heisst hier 1.0, sonst wird still doppelt gezaehlt.
-LADEPUNKT_WIRKUNGSGRAD = 1.0
 
 # Abschnitt 4: die Strecke gehoert zum Fahrprofil und hat hier keinen Ort.
 # "none" heisst, der Planer rechnet ohne Fahrverbrauch. Das ist entschieden,
@@ -194,15 +189,17 @@ def zu_ladepunkt(daten: dict, ladepunkt_id: str) -> dict:
     Requests stabile ID; ein Slug aus dem Titel waere es nicht, er aendert
     sich beim Umbenennen.
 
-    Das Fragment traegt nur, was meteovolt_planner liest: max_power_kw,
-    efficiency und available. min_power_kw und phases fehlen, der Server nimmt
-    ihre Defaults -- auch dann, wenn ein in 1.1.0-beta.3 angelegter Ladepunkt
-    sie noch in seinen Daten traegt.
+    Das Fragment traegt nur, was meteovolt_planner liest: max_power_kw und
+    available. min_power_kw und phases fehlen -- auch dann, wenn ein in
+    1.1.0-beta.3 angelegter Ladepunkt sie noch in seinen Daten traegt.
+
+    Einen Wirkungsgrad traegt der Ladepunkt nicht: seit schema_version 2
+    gibt es Station.efficiency nicht mehr, der ganze Ladeverlust steht am
+    Fahrzeug (Abschnitt 3 der Spec).
     """
     return {
         "id": ladepunkt_id,
         "max_power_kw": float(daten[FELD_MAX_LEISTUNG]),
-        "efficiency": LADEPUNKT_WIRKUNGSGRAD,
         "available": bool(
             daten.get(FELD_VERFUEGBAR, LADEPUNKT_DEFAULTS[FELD_VERFUEGBAR])),
     }
@@ -223,9 +220,9 @@ def zu_fahrzeug(
     gebunden ist, und was bei einem unavailable-Zustand geschieht, entscheidet
     C5.
 
-    min_charge_kw fehlt: meteovolt_planner liest es an keiner Stelle, der
-    Server nimmt den Default -- auch wenn ein in 1.1.0-beta.4 angelegtes
-    Fahrzeug den Wert noch in seinen Daten traegt.
+    min_charge_kw fehlt: seit schema_version 2 gibt es das Feld im Kontrakt
+    nicht mehr, und der Server weist es ab -- auch wenn ein in 1.1.0-beta.4
+    angelegtes Fahrzeug den Wert noch in seinen Daten traegt.
     """
     max_ladeleistung = float(daten[FELD_MAX_LADELEISTUNG])
     wirkungsgrad_pct = float(
