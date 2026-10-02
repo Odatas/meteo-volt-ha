@@ -2,9 +2,9 @@
   "x-meteo-volt-contract": {
     "generated_by": "meteo-volt-brain/scripts/export_contract.py",
     "do_not_edit": true,
-    "schema_version": 1,
-    "brain_commit": "c287303",
-    "sha256": "c1dd0e8957bf134eb5e1767451c5a5a4d6eb9858b6afb9960ca4b93eb834661c"
+    "schema_version": 2,
+    "brain_commit": "f9c3acd",
+    "sha256": "285037962c470eea1b20047ad4a10e8562d581a67d52ae16a37cadd05d741452"
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$defs": {
@@ -388,6 +388,80 @@
       "title": "StationOverbookedWarning",
       "type": "object"
     },
+    "TargetBeyondHorizonFreeWarning": {
+      "additionalProperties": false,
+      "description": "Wie target_beyond_horizon, im freien Tarif -- und der laengere Horizont\ndes bezahlten Tarifs haette diese Ziele eingeplant.",
+      "properties": {
+        "type": {
+          "const": "target_beyond_horizon_free",
+          "default": "target_beyond_horizon_free",
+          "description": "Kennzeichnet diese Warnung als Ziele hinter dem kurzen Horizont des freien Tarifs, die der bezahlte Tarif einplanen wuerde.",
+          "title": "Type",
+          "type": "string"
+        },
+        "vehicle_id": {
+          "description": "ID des Fahrzeugs, dessen Ziele hinter dem Horizont liegen.",
+          "title": "Vehicle Id",
+          "type": "string"
+        },
+        "count": {
+          "description": "Anzahl der Ziele, die der bezahlte Tarif einplanen wuerde.",
+          "minimum": 1,
+          "title": "Count",
+          "type": "integer"
+        },
+        "message": {
+          "description": "Meldung im Klartext, zur Anzeige geeignet.",
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "count",
+        "message",
+        "type",
+        "vehicle_id"
+      ],
+      "title": "TargetBeyondHorizonFreeWarning",
+      "type": "object"
+    },
+    "TargetBeyondHorizonWarning": {
+      "additionalProperties": false,
+      "description": "Ziele eines Fahrzeugs liegen hinter dem Planungshorizont und werden noch\nnicht beachtet.",
+      "properties": {
+        "type": {
+          "const": "target_beyond_horizon",
+          "default": "target_beyond_horizon",
+          "description": "Kennzeichnet diese Warnung als Ziele hinter dem Horizont.",
+          "title": "Type",
+          "type": "string"
+        },
+        "vehicle_id": {
+          "description": "ID des Fahrzeugs, dessen Ziele hinter dem Horizont liegen.",
+          "title": "Vehicle Id",
+          "type": "string"
+        },
+        "count": {
+          "description": "Anzahl der Ziele, die deshalb noch nicht eingeplant sind.",
+          "minimum": 1,
+          "title": "Count",
+          "type": "integer"
+        },
+        "message": {
+          "description": "Meldung im Klartext, zur Anzeige geeignet.",
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "count",
+        "message",
+        "type",
+        "vehicle_id"
+      ],
+      "title": "TargetBeyondHorizonWarning",
+      "type": "object"
+    },
     "VehiclePlan": {
       "additionalProperties": false,
       "description": "Der Plan fuer ein Fahrzeug: jeder Slot des Horizonts, die Summen darueber\nund was im laufenden Slot zu tun ist.",
@@ -630,7 +704,7 @@
       "type": "array"
     },
     "actions_required": {
-      "description": "Handgriffe, die noetig sind, damit der Plan aufgeht. In schema_version 1 ist diese Liste immer leer.",
+      "description": "Handgriffe, die noetig sind, damit der Plan aufgeht. Heute ist diese Liste immer leer; sie ist fuer Umsteck-Vorschlaege reserviert.",
       "items": {
         "additionalProperties": true,
         "type": "object"
@@ -639,14 +713,16 @@
       "type": "array"
     },
     "warnings": {
-      "description": "Hinweise, die den Plan nicht verhindern: veralteter Ladestand, veraltete Preisprognose, ueberschrittene Anschlussgrenze, mehrfach belegte Wallbox.",
+      "description": "Hinweise, die den Plan nicht verhindern: veralteter Ladestand, veraltete Preisprognose, ueberschrittene Anschlussgrenze, mehrfach belegte Wallbox, Ziele hinter dem Horizont.",
       "items": {
         "discriminator": {
           "mapping": {
             "prediction_stale": "#/$defs/PredictionStaleWarning",
             "site_limit_exceeded": "#/$defs/SiteLimitExceededWarning",
             "soc_stale": "#/$defs/SocStaleWarning",
-            "station_overbooked": "#/$defs/StationOverbookedWarning"
+            "station_overbooked": "#/$defs/StationOverbookedWarning",
+            "target_beyond_horizon": "#/$defs/TargetBeyondHorizonWarning",
+            "target_beyond_horizon_free": "#/$defs/TargetBeyondHorizonFreeWarning"
           },
           "propertyName": "type"
         },
@@ -662,6 +738,12 @@
           },
           {
             "$ref": "#/$defs/StationOverbookedWarning"
+          },
+          {
+            "$ref": "#/$defs/TargetBeyondHorizonWarning"
+          },
+          {
+            "$ref": "#/$defs/TargetBeyondHorizonFreeWarning"
           }
         ]
       },

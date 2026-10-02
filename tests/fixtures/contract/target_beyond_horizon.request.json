@@ -34,10 +34,22 @@
       },
       "constraints": [
         {
-          "type": "unavailable",
-          "id": "g",
-          "from": "2026-08-18T22:00:00+02:00",
-          "to": "2026-08-18T22:00:00+02:00"
+          "type": "target",
+          "id": "termin-1",
+          "deadline": "2026-08-20T00:00:00+02:00",
+          "target_soc_pct": 80.0
+        },
+        {
+          "type": "target",
+          "id": "termin-2",
+          "deadline": "2026-08-21T00:00:00+02:00",
+          "target_soc_pct": 80.0
+        },
+        {
+          "type": "target",
+          "id": "termin-3",
+          "deadline": "2026-08-25T00:00:00+02:00",
+          "target_soc_pct": 80.0
         }
       ]
     }

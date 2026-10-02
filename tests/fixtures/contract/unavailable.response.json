@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "computed_at": "2026-08-18T22:00:00+02:00",
   "model": "wx_syslag_2023",
   "risk": 2,
@@ -54,11 +54,11 @@
           "charge": true,
           "price": 0.114,
           "source": "forecast",
-          "soc_end_pct": 51.41,
+          "soc_end_pct": 51.46,
           "station_id": "wb",
           "kw": 11.0,
           "kwh": 2.75,
-          "kwh_battery": 2.559,
+          "kwh_battery": 2.585,
           "cost_eur": 0.3135,
           "reason": "base"
         },
@@ -67,11 +67,11 @@
           "charge": true,
           "price": 0.198,
           "source": "forecast",
-          "soc_end_pct": 55.82,
+          "soc_end_pct": 55.91,
           "station_id": "wb",
           "kw": 11.0,
           "kwh": 2.75,
-          "kwh_battery": 2.559,
+          "kwh_battery": 2.585,
           "cost_eur": 0.5445,
           "reason": "base"
         },
@@ -80,20 +80,20 @@
           "charge": false,
           "price": 0.214,
           "source": "forecast",
-          "soc_end_pct": 55.82
+          "soc_end_pct": 55.91
         },
         {
           "t": "2026-08-18T23:45:00+02:00",
           "charge": false,
           "price": 0.226,
           "source": "forecast",
-          "soc_end_pct": 55.82
+          "soc_end_pct": 55.91
         }
       ],
       "intervals": [],
       "total_kwh": 5.5,
       "total_cost_eur": 0.86,
-      "soc_end_pct": 55.82,
+      "soc_end_pct": 55.91,
       "feasible": true,
       "violations": []
     }
