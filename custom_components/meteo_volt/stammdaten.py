@@ -76,7 +76,7 @@ LADEPUNKT_AUFBAU = {
 }
 
 # Das Fahrzeug: sieben Felder ohne Kasten, drei Entitaeten im Kasten.
-# min_charge_kw fehlt -- meteovolt_planner liest es an keiner Stelle.
+# min_charge_kw fehlt -- seit schema_version 2 gibt es es im Kontrakt nicht mehr.
 FAHRZEUG_AUFBAU = {
     None: (
         FELD_NAME,
@@ -220,9 +220,9 @@ def zu_fahrzeug(
     gebunden ist, und was bei einem unavailable-Zustand geschieht, entscheidet
     C5.
 
-    min_charge_kw fehlt: meteovolt_planner liest es an keiner Stelle, der
-    Server nimmt den Default -- auch wenn ein in 1.1.0-beta.4 angelegtes
-    Fahrzeug den Wert noch in seinen Daten traegt.
+    min_charge_kw fehlt: seit schema_version 2 gibt es das Feld im Kontrakt
+    nicht mehr, und der Server weist es ab -- auch wenn ein in 1.1.0-beta.4
+    angelegtes Fahrzeug den Wert noch in seinen Daten traegt.
     """
     max_ladeleistung = float(daten[FELD_MAX_LADELEISTUNG])
     wirkungsgrad_pct = float(
