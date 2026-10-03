@@ -130,7 +130,7 @@ test('C12H: hinter dem Planende steht der dezente Hinweis, davor nicht', () => {
     termin({ entry: 'e2', date: '2026-09-18', departure: '2026-09-18T07:30:00+02:00', return: '2026-09-18T17:30:00+02:00', soc: 95 }),
   ] });
   const text = String(fahrzeugHtml(z, fahrzeug));
-  const hinweis = 'Nur zur Info: noch nicht eingeplant, braucht 95 % – mehr als dein Max-SoC von 80 %.';
+  const hinweis = 'Terminziel liegt mit 95 % über dem Max-SoC von 80 %. Die Planung beachtet dies erst, wenn der Termin im Vorhersagehorizont liegt.';
   assert.equal(text.split(hinweis).length - 1, 1, 'genau einmal, nur am Termin hinter dem Planende');
   assert.ok(text.indexOf(hinweis) > text.indexOf('noch nicht geplant'));
   assert.ok(text.includes('class="info"'));
@@ -138,7 +138,7 @@ test('C12H: hinter dem Planende steht der dezente Hinweis, davor nicht', () => {
 
 test('C12H: der Hinweis auf Englisch', () => {
   const z = { ...kontext({ termine: [termin({ entry: 'e2', date: '2026-09-18', departure: '2026-09-18T07:30:00+02:00', return: '2026-09-18T17:30:00+02:00', soc: 95 })] }), f: formatierer('en', TZ) };
-  assert.ok(String(fahrzeugHtml(z, fahrzeug)).includes('Just so you know: not planned yet, and it needs 95 % – more than your max SoC of 80 %.'));
+  assert.ok(String(fahrzeugHtml(z, fahrzeug)).includes('Trip target of 95 % is above the max SoC of 80 %. Planning takes it into account once the trip is within the forecast horizon.'));
 });
 
 test('C12H: der Hinweis traegt das Info-Symbol, nicht das Warnsymbol', () => {
@@ -154,6 +154,6 @@ test('C12H: der Hinweis prueft das Max-SoC seines eigenen Fahrzeugs', () => {
   const zweites = { vehicle: 'dev-2', title: 'Zweites', soc_min_pct: 15, soc_max_pct: 100, max_charge_kw: 11, soc_pct: 50 };
   const basis = kontext({ termine: [termin({ vehicle: 'dev-2', entry: 'e2', date: '2026-09-18', departure: '2026-09-18T07:30:00+02:00', return: '2026-09-18T17:30:00+02:00', soc: 95 })] });
   const z = { ...basis, fahrzeuge: [fahrzeug, zweites] };
-  assert.ok(!String(fahrzeugHtml(z, zweites)).includes('Nur zur Info'));
+  assert.ok(!String(fahrzeugHtml(z, zweites)).includes('Terminziel liegt'));
 });
 
