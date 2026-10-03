@@ -40,6 +40,9 @@ export function dienst(optionen = {}) {
     { id: 'e1', vehicle: 'buzz', departure: tag(-9, '07:30'), duration_min: 600, repeat: 'weekdays', distance_km: 45,
       driver: 'person.patrick', soc: null, keep_min_soc: true, until: null,
       exceptions: { [plusTage(heute, 2)]: { departure: tag(2, '07:30'), duration_min: 690, distance_km: 120, driver: 'person.patrick', soc: null }, [plusTage(heute, 6)]: null } },
+    // C12H: hinter dem Planende (Tag 7) und ueber Max-SoC -- 400 km brauchen voll.
+    { id: 'e9', vehicle: 'buzz', departure: tag(9, '18:00'), duration_min: 245, repeat: 'once', distance_km: 400,
+      driver: 'person.patrick', soc: null, keep_min_soc: true, until: null, exceptions: {} },
     { id: 'e2', vehicle: 'buzz', departure: tag(3, '10:00'), duration_min: 34 * 60, repeat: 'once', distance_km: 320,
       driver: 'person.anna', soc: 100, keep_min_soc: true, until: null, exceptions: {} },
     { id: 'e3', vehicle: 'zoe', departure: tag(0, '19:00'), duration_min: 270, repeat: 'once', distance_km: 90,

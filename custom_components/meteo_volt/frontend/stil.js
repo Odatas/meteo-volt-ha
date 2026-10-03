@@ -115,6 +115,8 @@ svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-widt
 .plan { color: var(--mv-text2); }
 .warn { color: var(--mv-warn); display: flex; align-items: flex-start; gap: 6px; }
 .warn svg.i { width: 16px; height: 16px; margin-top: 1px; color: var(--mv-warn-icon); }
+.info { color: var(--mv-text2); display: flex; align-items: flex-start; gap: 6px; }
+.info svg.i { width: 16px; height: 16px; margin-top: 1px; }
 .termin .km { font-weight: 500; white-space: nowrap; }
 .grenze { padding: 10px 16px; background: var(--mv-bg); color: var(--mv-text2); font-size: 13px;
   border-top: 1px solid var(--mv-divider); display: flex; align-items: center; gap: 8px; }

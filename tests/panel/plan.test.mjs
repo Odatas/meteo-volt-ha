@@ -187,3 +187,38 @@ test('das Planende und die Reihenfolge der Termine', () => {
   const t = termineAus([termin({ departure: '2026-09-20T10:00:00+02:00' }), termin({ departure: '2026-09-18T10:00:00+02:00' })]);
   assert.deepEqual(t.map((x) => x.abfahrt), [Date.UTC(2026, 8, 18, 8, 0), Date.UTC(2026, 8, 20, 8, 0)]);
 });
+
+// --- horizontHinweis: Spec C12H Abschnitt 2 ---------------------------------
+import { horizontHinweis } from '../../custom_components/meteo_volt/frontend/plan.js';
+
+const H_ENDE = Date.UTC(2026, 9, 17, 0, 0);
+const H_TAG = 24 * 3600 * 1000;
+const H_AUTO = { soc_min_pct: 15, soc_max_pct: 80, capacity_kwh: 58, consumption_kwh_per_100km: 19.5 };
+const hTermin = (abfahrt, felder = {}) => ({ abfahrt, distance_km: 175, soc: 95, keep_min_soc: false, ...felder });
+
+test('horizontHinweis: genau auf dem Planende und genau eine Woche danach ja, danach nicht', () => {
+  assert.deepEqual(horizontHinweis(hTermin(H_ENDE), H_AUTO, H_ENDE), { soc: 95, max: 80 });
+  assert.deepEqual(horizontHinweis(hTermin(H_ENDE + 7 * H_TAG), H_AUTO, H_ENDE), { soc: 95, max: 80 });
+  assert.equal(horizontHinweis(hTermin(H_ENDE + 7 * H_TAG + 60000), H_AUTO, H_ENDE), null);
+});
+
+test('horizontHinweis: vor dem Planende nie -- dort plant der Planer selbst', () => {
+  assert.equal(horizontHinweis(hTermin(H_ENDE - 60000), H_AUTO, H_ENDE), null);
+});
+
+test('horizontHinweis: nur ueber Max-SoC, Gleichstand reicht nicht', () => {
+  assert.equal(horizontHinweis(hTermin(H_ENDE + H_TAG, { soc: 80 }), H_AUTO, H_ENDE), null);
+  assert.deepEqual(horizontHinweis(hTermin(H_ENDE + H_TAG, { soc: 81 }), H_AUTO, H_ENDE), { soc: 81, max: 80 });
+});
+
+test('horizontHinweis: der Haken zaehlt mit, der hoehere Wert gilt', () => {
+  // 600 km kosten 202 Prozentpunkte: gesichert bei 100 gedeckelt.
+  assert.deepEqual(horizontHinweis(hTermin(H_ENDE + H_TAG, { soc: null, keep_min_soc: true, distance_km: 600 }), H_AUTO, H_ENDE), { soc: 100, max: 80 });
+  // 175 km gesichert 74 %, unter Max-SoC: kein Hinweis.
+  assert.equal(horizontHinweis(hTermin(H_ENDE + H_TAG, { soc: null, keep_min_soc: true }), H_AUTO, H_ENDE), null);
+});
+
+test('horizontHinweis: ohne Plan kein Hinweis', () => {
+  assert.equal(horizontHinweis(hTermin(H_ENDE + H_TAG), H_AUTO, null), null);
+});
+

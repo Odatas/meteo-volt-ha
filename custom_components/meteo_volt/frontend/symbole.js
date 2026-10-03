@@ -9,6 +9,7 @@ const PFADE = {
   schliessen: '<path d="M6 6l12 12M18 6L6 18"/>',
   wiederholung: '<path d="M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4"/>',
   warnung: '<path d="M12 3L2 20h20L12 3zM12 10v4M12 17h.01"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
   person: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
   auto: '<path d="M3 16v-3l2.2-5A2 2 0 0 1 7 6.8h10a2 2 0 0 1 1.8 1.2L21 13v3h-2M5 16H3M9 16h6M3 13h18"/>'
     + '<circle cx="7" cy="16" r="2"/><circle cx="17" cy="16" r="2"/>',

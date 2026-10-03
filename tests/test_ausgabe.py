@@ -143,25 +143,6 @@ def test_jedes_fahrzeug_sieht_die_warnungen_die_es_nennen_oder_gar_keins():
     assert typen("auto-b") == ["station_overbooked", "prediction_stale"]
 
 
-def test_ziele_hinter_dem_horizont_landen_beim_genannten_fahrzeug():
-    """A0-Spec 3.6: beide Typen tragen vehicle_id. Die Fixture plant nur
-    auto-a; ein zweites Fahrzeug ohne Warnung zeigt, dass sie nicht
-    durchsickern. Weitergereicht wird die Warnung unveraendert, count und
-    message eingeschlossen."""
-    anfrage, plan = _fixture("target_beyond_horizon")
-    fahrzeug = plan["vehicles"][0]
-    plan = {**plan, "vehicles": [fahrzeug, {**fahrzeug, "id": "auto-b"}]}
-    stand = standort.Planstand(plan=plan, erhalten_um=JETZT, anfrage=anfrage)
-
-    def warnungen(fahrzeug_id):
-        return _auswerten(stand, JETZT, fahrzeug_id=fahrzeug_id).attribute["plan"]["warnings"]
-
-    assert [w["type"] for w in plan["warnings"]] == [
-        "target_beyond_horizon_free", "target_beyond_horizon"]
-    assert warnungen("auto-a") == plan["warnings"]
-    assert warnungen("auto-b") == []
-
-
 def test_ohne_brauchbaren_plan_sind_die_planwerte_unbekannt():
     anfrage, plan = _fixture("minimal")
     stand = standort.Planstand(

@@ -123,3 +123,37 @@ test('der Tab Preise ohne Prognose und mit', () => {
   assert.ok(text.includes('Modell &lt;img'));
   assert.ok(!text.includes('<img'));
 });
+
+test('C12H: hinter dem Planende steht der dezente Hinweis, davor nicht', () => {
+  const z = kontext({ termine: [
+    termin({ soc: 95 }),
+    termin({ entry: 'e2', date: '2026-09-18', departure: '2026-09-18T07:30:00+02:00', return: '2026-09-18T17:30:00+02:00', soc: 95 }),
+  ] });
+  const text = String(fahrzeugHtml(z, fahrzeug));
+  const hinweis = 'Nur zur Info: noch nicht eingeplant, braucht 95 % – mehr als dein Max-SoC von 80 %.';
+  assert.equal(text.split(hinweis).length - 1, 1, 'genau einmal, nur am Termin hinter dem Planende');
+  assert.ok(text.indexOf(hinweis) > text.indexOf('noch nicht geplant'));
+  assert.ok(text.includes('class="info"'));
+});
+
+test('C12H: der Hinweis auf Englisch', () => {
+  const z = { ...kontext({ termine: [termin({ entry: 'e2', date: '2026-09-18', departure: '2026-09-18T07:30:00+02:00', return: '2026-09-18T17:30:00+02:00', soc: 95 })] }), f: formatierer('en', TZ) };
+  assert.ok(String(fahrzeugHtml(z, fahrzeug)).includes('Just so you know: not planned yet, and it needs 95 % – more than your max SoC of 80 %.'));
+});
+
+test('C12H: der Hinweis traegt das Info-Symbol, nicht das Warnsymbol', () => {
+  const z = kontext({ termine: [termin({ entry: 'e2', date: '2026-09-18', departure: '2026-09-18T07:30:00+02:00', return: '2026-09-18T17:30:00+02:00', soc: 95 })] });
+  const text = String(fahrzeugHtml(z, fahrzeug));
+  const info = text.slice(text.indexOf('<span class="info">'));
+  assert.ok(info.includes('<circle cx="12" cy="12" r="9"/>'), 'Info-Symbol fehlt');
+  assert.ok(!info.slice(0, info.indexOf('</span>')).includes('M12 3L2 20h20L12 3z'), 'Warnsymbol im Hinweis');
+});
+
+test('C12H: der Hinweis prueft das Max-SoC seines eigenen Fahrzeugs', () => {
+  // Zwei Fahrzeuge, der Termin gehoert dem zweiten mit Max-SoC 100: 95 % liegen darunter.
+  const zweites = { vehicle: 'dev-2', title: 'Zweites', soc_min_pct: 15, soc_max_pct: 100, max_charge_kw: 11, soc_pct: 50 };
+  const basis = kontext({ termine: [termin({ vehicle: 'dev-2', entry: 'e2', date: '2026-09-18', departure: '2026-09-18T07:30:00+02:00', return: '2026-09-18T17:30:00+02:00', soc: 95 })] });
+  const z = { ...basis, fahrzeuge: [fahrzeug, zweites] };
+  assert.ok(!String(fahrzeugHtml(z, zweites)).includes('Nur zur Info'));
+});
+

@@ -2,7 +2,7 @@
   "generated_by": "meteo-volt-brain/scripts/export_contract.py",
   "do_not_edit": true,
   "schema_version": 2,
-  "brain_commit": "f27c445",
+  "brain_commit": "9fd8963",
   "files": {
     "tests/fixtures/contract/drive_ready.request.json": {
       "sha256": "2287b2b810f5f83f0250b89bfac43e4f72406f37a26f028bdd76a5a4a0d500ef",
@@ -109,7 +109,7 @@
       "scope": "document"
     },
     "tests/fixtures/contract/plan-response.schema.json": {
-      "sha256": "28fc0f7ad2ad7809c2f6988000e51dd93563003b94f2dd0d93e794898881e073",
+      "sha256": "7f8bce6d568b56ea2d7443755eed44b15269e84645f50a64af8cdadee5d318ac",
       "scope": "document"
     },
     "tests/fixtures/contract/rounding.request.json": {
@@ -134,14 +134,6 @@
     },
     "tests/fixtures/contract/station_overbooked.response.json": {
       "sha256": "e0a6b761feabecb5452a827af7bea5254b4043dce5cfd0d138fe9c652d18bb4c",
-      "scope": "document"
-    },
-    "tests/fixtures/contract/target_beyond_horizon.request.json": {
-      "sha256": "cbbc65d497ffa5c5e625e6219cd9a071dfe67b5bbeabdde28f01eecd665422c7",
-      "scope": "document"
-    },
-    "tests/fixtures/contract/target_beyond_horizon.response.json": {
-      "sha256": "0d8076d26913694fc4c9122731f585a070ec5c45c2d6fd340af99444ebd6f8fc",
       "scope": "document"
     },
     "tests/fixtures/contract/unavailable.request.json": {
