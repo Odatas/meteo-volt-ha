@@ -48,3 +48,14 @@ export function hinweis(km, v) {
     voll: fahrt > 100 - v.soc_min_pct,
   };
 }
+
+// Der Ladestand, den ein Termin bei Abfahrt verlangt, oder null. Spec C12H
+// Abschnitt 2, dieselbe Regel wie C10 Abschnitt 4: der hoehere Wert aus dem
+// eigenen Ziel und, mit Haken, dem gesicherten. Ein eigenes Ziel unter dem
+// Min-SoC zaehlt nicht. Nur fuers Panel -- das Backend zeigt den Hinweis nicht.
+export function benoetigt(km, soc, sichern, v) {
+  const werte = [];
+  if (soc !== null && soc !== undefined && soc >= v.soc_min_pct) werte.push(soc);
+  if (sichern && km !== null && Number.isFinite(km) && km >= 0) werte.push(gesichert(km, v));
+  return werte.length ? Math.max(...werte) : null;
+}

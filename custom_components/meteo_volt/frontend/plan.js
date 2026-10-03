@@ -3,7 +3,7 @@
 // Quelle ist nur die zugesagte Oberflaeche aus C3-Spec Abschnitt 9: der Plan aus
 // meteo_volt/plan, die Termine aus meteo_volt/appointments und die Form der IDs.
 
-import { gesichert } from './ladereserve.js';
+import { benoetigt, gesichert } from './ladereserve.js';
 import { ausIso } from './zeit.js';
 
 // Eine ID aus C3-Spec Abschnitt 4: <eintrag>/<JJJJ-MM-TT>/weg oder ziel. base und alles andere: null.
@@ -164,3 +164,18 @@ export function planende(plaene, jetzt) {
   }
   return null;
 }
+
+const WOCHE_MS = 7 * 24 * 3600 * 1000;
+
+// Der dezente Hinweis an einem Termin hinter dem Plan, oder null. Spec C12H
+// Abschnitt 2. Der Planer haelt bis zum Planende soc_max_pct vor; eine Fahrt bis
+// eine Woche danach, die mehr verlangt, kennt er noch nicht. Der Dienst sagt dazu
+// nichts (A0-Spec 3.6) -- HA kennt die Termine.
+// termin: aus termineAus, abfahrt in ms. v: das Fahrzeug aus site. planende: ms oder null.
+export function horizontHinweis(termin, v, planende) {
+  if (planende === null || planende === undefined || !v) return null;
+  if (termin.abfahrt < planende || termin.abfahrt > planende + WOCHE_MS) return null;
+  const soc = benoetigt(termin.distance_km, termin.soc, termin.keep_min_soc, v);
+  return soc !== null && soc > v.soc_max_pct ? { soc, max: v.soc_max_pct } : null;
+}
+

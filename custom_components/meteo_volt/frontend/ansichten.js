@@ -5,7 +5,7 @@
 // in die Platzhalter .planchart, .h-strip und .h-achse.
 
 import { html } from './html.js';
-import { blockGrund, blockZiel, bloeckeAbJetzt, planzeile, status, summen } from './plan.js';
+import { blockGrund, blockZiel, bloeckeAbJetzt, horizontHinweis, planzeile, status, summen } from './plan.js';
 import { symbol } from './symbole.js';
 import { datumVon, plusTage, tagesbeginn } from './zeit.js';
 
@@ -60,6 +60,8 @@ export function statusHtml(z, fz) {
 }
 
 const warnHtml = (text) => html`<span class="warn">${symbol('warnung')}<span>${text}</span></span>`;
+// Information, keine Warnung: gedaempft und mit Info-Symbol (Spec C12H Abschnitt 3).
+const infoHtml = (text) => html`<span class="info">${symbol('info')}<span>${text}</span></span>`;
 
 export function terminHtml(z, termin, mitFahrzeug, kopfDatum) {
   const { f } = z;
@@ -87,6 +89,8 @@ export function terminHtml(z, termin, mitFahrzeug, kopfDatum) {
         : f.t('unter_min', { soc: f.prozent(w.soc), min: f.prozent(min) })));
     }
   }
+  const horizont = horizontHinweis(termin, z.fahrzeuge.find((v) => v.vehicle === termin.vehicle), z.planende);
+  if (horizont) zeilen.push(infoHtml(f.t('hinter_horizont', { soc: f.prozent(horizont.soc), max: f.prozent(horizont.max) })));
   for (const hinweis of termin.hints || []) {
     if (hinweis.type === 'overlap') zeilen.push(warnHtml(f.t('hinweis_overlap')));
     else if (hinweis.type === 'driver_busy') {

@@ -4,7 +4,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { hinweis } from '../../custom_components/meteo_volt/frontend/ladereserve.js';
+import { benoetigt, hinweis } from '../../custom_components/meteo_volt/frontend/ladereserve.js';
 
 const AUTO = { soc_min_pct: 15, capacity_kwh: 58, consumption_kwh_per_100km: 19.5 };
 
@@ -40,3 +40,29 @@ test('das Ziel kann ueber der Summe der angezeigten Teile liegen', () => {
   assert.equal(h.ziel, 75);
   assert.equal(h.min + h.fahrt, 74.5);
 });
+
+// --- benoetigt: der Ladestand, den ein Termin verlangt. Spec C12H Abschnitt 2 ---
+// 175 km mit AUTO kosten 59 Prozentpunkte, gesichert sind also 74 %.
+
+test('benoetigt nimmt das eigene Ziel, wenn nur das gesetzt ist', () => {
+  assert.equal(benoetigt(175, 90, false, AUTO), 90);
+});
+
+test('benoetigt nimmt den gesicherten Wert, wenn nur der Haken gesetzt ist', () => {
+  assert.equal(benoetigt(175, null, true, AUTO), 74);
+});
+
+test('benoetigt nimmt bei beidem den hoeheren', () => {
+  assert.equal(benoetigt(175, 60, true, AUTO), 74);
+  assert.equal(benoetigt(175, 90, true, AUTO), 90);
+});
+
+test('ein eigenes Ziel unter dem Min-SoC zaehlt nicht', () => {
+  assert.equal(benoetigt(175, 10, false, AUTO), null);
+  assert.equal(benoetigt(175, 10, true, AUTO), 74);
+});
+
+test('ohne Ziel und ohne Haken verlangt der Termin nichts', () => {
+  assert.equal(benoetigt(175, null, false, AUTO), null);
+});
+

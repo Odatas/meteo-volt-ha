@@ -123,3 +123,21 @@ test('der Tab Preise ohne Prognose und mit', () => {
   assert.ok(text.includes('Modell &lt;img'));
   assert.ok(!text.includes('<img'));
 });
+
+test('C12H: hinter dem Planende steht der dezente Hinweis, davor nicht', () => {
+  const z = kontext({ termine: [
+    termin({ soc: 95 }),
+    termin({ entry: 'e2', date: '2026-09-18', departure: '2026-09-18T07:30:00+02:00', return: '2026-09-18T17:30:00+02:00', soc: 95 }),
+  ] });
+  const text = String(fahrzeugHtml(z, fahrzeug));
+  const hinweis = 'Nur zur Info: noch nicht eingeplant, braucht 95 % – mehr als dein Max-SoC von 80 %.';
+  assert.equal(text.split(hinweis).length - 1, 1, 'genau einmal, nur am Termin hinter dem Planende');
+  assert.ok(text.indexOf(hinweis) > text.indexOf('noch nicht geplant'));
+  assert.ok(text.includes('class="info"'));
+});
+
+test('C12H: der Hinweis auf Englisch', () => {
+  const z = { ...kontext({ termine: [termin({ entry: 'e2', date: '2026-09-18', departure: '2026-09-18T07:30:00+02:00', return: '2026-09-18T17:30:00+02:00', soc: 95 })] }), f: formatierer('en', TZ) };
+  assert.ok(String(fahrzeugHtml(z, fahrzeug)).includes('Just so you know: not planned yet, and it needs 95 % – more than your max SoC of 80 %.'));
+});
+
