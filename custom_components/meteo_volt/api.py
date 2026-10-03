@@ -16,7 +16,7 @@ from .planabruf import PlanAbruf, PlanNichtVerfuegbar
 
 _LOGGER = logging.getLogger(__name__)
 
-# Spec C7 Abschnitt 5: das Gateway antwortet nach 10 s selbst mit 504. Diese
+# Spec C7 Abschnitt 5: das Gateway antwortet nach 10 s selbst mit 500. Diese
 # 30 s greifen nur, wenn auch das Gateway nicht antwortet.
 PLAN_TIMEOUT = aiohttp.ClientTimeout(total=30)
 
