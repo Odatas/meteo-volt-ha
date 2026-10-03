@@ -66,3 +66,7 @@ test('ohne Ziel und ohne Haken verlangt der Termin nichts', () => {
   assert.equal(benoetigt(175, null, false, AUTO), null);
 });
 
+test('ein eigenes Ziel genau auf dem Min-SoC zaehlt (C10 Abschnitt 4: mindestens)', () => {
+  assert.equal(benoetigt(175, 15, false, AUTO), 15);
+});
+
