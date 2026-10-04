@@ -58,9 +58,9 @@ def _eintrag(eintrag_id, abfahrt, dauer=600, soc=None, fahrzeug="auto-1", wieder
             "keep_min_soc": sichern, "until": None, "exceptions": {}}
 
 
-def _fragmente(*eintraege, fahrzeuge=None):
+def _fragmente(*eintraege, fahrzeuge=None, ignoriert=frozenset()):
     auswahl = termine.ausrollen(list(eintraege), BERLIN, JETZT, BIS)
-    return terminanfrage.fragmente(auswahl, fahrzeuge or {"auto-1": AUTO}, JETZT)
+    return terminanfrage.fragmente(auswahl, fahrzeuge or {"auto-1": AUTO}, JETZT, ignoriert)
 
 
 def _anfrage(termine_je_fahrzeug, risiko=2):
@@ -133,6 +133,20 @@ def test_ein_laufender_termin_ist_nur_abwesenheit():
     assert teil["consumption"]["trips"] == []
     assert teil["constraints"] == [{"type": "unavailable", "id": "e1/2026-09-16/weg",
                                     "from": "2026-09-16T08:00:00+02:00", "to": "2026-09-16T18:00:00+02:00"}]
+
+
+def test_ein_ignorierter_laufender_termin_fehlt_im_request():
+    """C9R-Spec Abschnitt 2: kein unavailable, die Fahrt ist ohnehin vorbei."""
+    serie = _eintrag("e1", "2026-09-16T08:00:00", wiederholung="daily", soc=80)
+    teil = _fragmente(serie, ignoriert={("e1", date(2026, 9, 16))})["auto-1"]
+    assert [c["id"] for c in teil["constraints"]][:2] == ["e1/2026-09-17/weg", "e1/2026-09-17/ziel"]
+    assert "e1/2026-09-16/weg" not in [c["id"] for c in teil["constraints"]]
+
+
+def test_ein_ignorierter_termin_eines_anderen_datums_stoert_den_laufenden_nicht():
+    serie = _eintrag("e1", "2026-09-16T08:00:00", wiederholung="daily")
+    teil = _fragmente(serie, ignoriert={("e1", date(2026, 9, 15))})["auto-1"]
+    assert teil["constraints"][0]["id"] == "e1/2026-09-16/weg"
 
 
 def test_vorbei_und_hinter_dem_ende_fehlt():

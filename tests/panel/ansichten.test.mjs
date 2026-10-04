@@ -157,3 +157,40 @@ test('C12H: der Hinweis prueft das Max-SoC seines eigenen Fahrzeugs', () => {
   assert.ok(!String(fahrzeugHtml(z, zweites)).includes('Terminziel liegt'));
 });
 
+
+// --- C9R: einen laufenden Termin ignorieren ---------------------------------------
+
+const laufend = (felder) => termin({ entry: 'e9', date: '2026-09-16', departure: '2026-09-16T08:00:00+02:00', return: '2026-09-16T17:30:00+02:00', ...felder });
+
+test('C9R: ein laufender Termin hat den Knopf, auch ohne Plan; ein kuenftiger nicht', () => {
+  for (const mitPlan of [true, false]) {
+    const text = String(fahrzeugHtml(kontext({ termine: [laufend(), termin()], plan: mitPlan ? plan : null }), fahrzeug));
+    assert.equal((text.match(/data-aktion="ignorieren"/g) || []).length, 1, `mitPlan ${mitPlan}`);
+    assert.ok(text.includes('data-entry="e9" data-date="2026-09-16" data-wert="ja"'));
+    assert.ok(text.includes('Ist zurück'));
+  }
+});
+
+test('C9R: ein ignorierter laufender Termin zeigt die gedaempfte Zeile und Beachten', () => {
+  const p = { soc_at_departure: null, soc_after_trip: null, target_missing_kwh: null, below_min: false, running_until: '2026-09-16T17:30:00+02:00' };
+  const text = String(fahrzeugHtml(kontext({ termine: [laufend({ ignored: true, plan: p })] }), fahrzeug));
+  assert.ok(text.includes('Ignoriert, wird nicht geplant'));
+  assert.ok(text.includes('data-wert="nein"'));
+  assert.ok(text.includes('Beachten'));
+  assert.ok(!text.includes('Unterwegs bis'), 'weder Status noch Planzeile sagen unterwegs');
+});
+
+test('C9R: der Knopf auf Englisch', () => {
+  const z = kontext({ termine: [laufend()], z: { f: formatierer('en', TZ) } });
+  assert.ok(String(fahrzeugHtml(z, fahrzeug)).includes('Back home'));
+  const zi = kontext({ termine: [laufend({ ignored: true })], z: { f: formatierer('en', TZ) } });
+  const text = String(fahrzeugHtml(zi, fahrzeug));
+  assert.ok(text.includes('Restore') && text.includes('Ignored, not planned'));
+});
+
+test('C9R: das Diagramm schattiert einen ignorierten Termin nicht', () => {
+  const z = (ignored) => kontext({ termine: [laufend({ ignored })] });
+  const svg = (k) => String(planChartSvg({ schluessel: 'p0', fz: fahrzeug, name: 'x', fenster: k.fenster.get('dev-1'), termine: k.termine, bereich: 'alles' }, 600, false, k.f, 0).svg);
+  assert.ok(svg(z(false)).includes('url(#weg-p0)"/>'));
+  assert.ok(!svg(z(true)).includes('url(#weg-p0)"/>'));
+});

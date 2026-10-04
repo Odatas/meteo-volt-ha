@@ -322,6 +322,23 @@
         }
       }
     },
+    "ignore_appointment": {
+      "name": "Ignore ongoing appointment",
+      "description": "An ignored appointment is left out of planning. With ignored off it counts again.",
+      "fields": {
+        "entry": {
+          "name": "Entry"
+        },
+        "date": {
+          "name": "Date",
+          "description": "The date of the original departure."
+        },
+        "ignored": {
+          "name": "Ignored",
+          "description": "If missing, on."
+        }
+      }
+    },
     "set_risk": {
       "name": "Set risk",
       "description": "Applies to all vehicles.",
@@ -398,6 +415,9 @@
     },
     "rueckgaengig_unmoeglich": {
       "message": "This can no longer be undone."
+    },
+    "termin_laeuft_nicht": {
+      "message": "Only an ongoing trip can be ignored."
     },
     "plan_pause": {
       "message": "Replanning is possible again in {sekunden} s."

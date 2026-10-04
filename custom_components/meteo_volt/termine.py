@@ -245,6 +245,11 @@ def termin_am(eintrag: dict, datum: date, tz: tzinfo) -> Termin | None:
     )
 
 
+def laeuft(termin: Termin, jetzt: datetime) -> bool:
+    """Abfahrt vorbei, Rueckkehr noch nicht: das Auto ist gerade weg."""
+    return utc(termin.abfahrt) <= utc(jetzt) < utc(termin.rueckkehr)
+
+
 def termine_von(eintrag: dict, tz: tzinfo, von: datetime, bis: datetime) -> list[Termin]:
     """Die Termine eines Eintrags, deren Rueckkehr nach von und deren Abfahrt vor bis liegt.
 

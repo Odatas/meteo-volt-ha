@@ -7,13 +7,15 @@ Rueckgaengig mit den Eintraegen tun: Serien, Ausnahmen, Umfang.
 Jeder schreibende Aufruf ist ein Schritt mit einer Kennung. Rueckgaengig
 stellt die Eintraege des Schritts her, wie sie vor ihm waren, solange sie
 seitdem niemand anders geaendert hat. Die Schritte liegen nur im Speicher,
-die letzten 50 je Standort. Das Risiko ist kein Schritt. Speichern, Signale
+die letzten 50 je Standort. Das Risiko ist kein Schritt, das Ignorieren
+eines laufenden Termins (C9R) auch nicht. Speichern, Signale
 und neu planen macht terminverwaltung.py.
 
 Jede Operation prueft zuerst und aendert dann: scheitert sie, bleibt das
 Buch, wie es war.
 
 Spec: meteo-volt-brain/docs/features/C3-konfig-entitaeten/spec.md, Abschnitte 2.1, 2.2 und 3
+      meteo-volt-brain/docs/features/C9-termine-im-alltag/spec.md, Abschnitte 2 und 3
 """
 
 from __future__ import annotations
@@ -22,12 +24,13 @@ import copy
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from datetime import date
+from datetime import date, datetime, tzinfo
 
 from . import termine
 from .pruefungen import (
     EINTRAG_UNBEKANNT,
     RUECKGAENGIG_UNMOEGLICH,
+    TERMIN_LAEUFT_NICHT,
     TERMIN_UNBEKANNT,
     UMFANG_UNZULAESSIG,
     Werte,
@@ -50,6 +53,7 @@ MAX_SCHRITTE = 50
 # Der Store, Spec Abschnitt 3
 RISIKO = "risk"
 EINTRAEGE = "entries"
+IGNORIERT = "ignored"  # C9R-Spec Abschnitt 3
 
 
 @dataclass
@@ -68,13 +72,20 @@ class Buch:
         daten = daten or {}
         self.risiko: int | None = daten.get(RISIKO)
         self.eintraege: dict[str, dict] = {eintrag[ID]: eintrag for eintrag in daten.get(EINTRAEGE, [])}
+        # Die ignorierten Termine als (Eintrag, Datum). Sie liegen neben den
+        # Eintraegen, damit Umschalten kein Rueckgaengig eines Schritts bricht.
+        self.ignoriert: set[tuple[str, date]] = {
+            (paar["entry"], date.fromisoformat(paar["date"])) for paar in daten.get(IGNORIERT, [])}
         self.schritte: deque[Schritt] = deque(maxlen=MAX_SCHRITTE) if schritte is None else schritte
 
     def speicherform(self) -> dict:
-        """Was in den Store geht. Das Risiko nur, wenn es jemand gesetzt hat."""
+        """Was in den Store geht. Risiko und ignorierte Termine nur, wenn es sie gibt."""
         daten: dict = {EINTRAEGE: [copy.deepcopy(eintrag) for eintrag in self.eintraege.values()]}
         if self.risiko is not None:
             daten[RISIKO] = self.risiko
+        if self.ignoriert:
+            daten[IGNORIERT] = [
+                {"entry": eintrag_id, "date": datum.isoformat()} for eintrag_id, datum in sorted(self.ignoriert)]
         return daten
 
 
@@ -302,6 +313,39 @@ def rueckgaengig(buch: Buch, kennung: str) -> None:
         else:
             buch.eintraege[eintrag_id] = copy.deepcopy(vorher)
     buch.schritte.remove(schritt)
+
+
+def ignorieren(
+    buch: Buch, eintrag_id: str, datum: date, ignoriert: bool, jetzt: datetime, tz: tzinfo
+) -> None:
+    """Ignoriert den Termin am Datum oder beachtet ihn wieder. C9R-Spec Abschnitte 2 und 4.
+
+    Ignorieren geht nur, solange er laeuft. Beachten geht immer und tut
+    ohne Markierung nichts.
+    """
+    _termin_pruefen(_eintrag(buch, eintrag_id), datum)
+    if not ignoriert:
+        buch.ignoriert.discard((eintrag_id, datum))
+        return
+    if not termine.laeuft(termine.termin_am(buch.eintraege[eintrag_id], datum, tz), jetzt):
+        raise fehler(TERMIN_LAEUFT_NICHT, "date")
+    buch.ignoriert.add((eintrag_id, datum))
+
+
+def ignoriert_bereinigen(buch: Buch, jetzt: datetime, tz: tzinfo) -> bool:
+    """Entfernt jede Markierung, deren Termin gerade nicht laeuft. True, wenn eine ging.
+
+    Vorbei, geloescht, abgesagt oder verschoben: ein Termin, der spaeter
+    wieder laeuft, wird dann beachtet (C9R-Spec Abschnitt 2).
+    """
+    weg = set()
+    for eintrag_id, datum in buch.ignoriert:
+        eintrag = buch.eintraege.get(eintrag_id)
+        termin = None if eintrag is None else termine.termin_am(eintrag, datum, tz)
+        if termin is None or not termine.laeuft(termin, jetzt):
+            weg.add((eintrag_id, datum))
+    buch.ignoriert -= weg
+    return bool(weg)
 
 
 def fahrzeuge_bereinigen(buch: Buch, fahrzeuge: set[str]) -> bool:

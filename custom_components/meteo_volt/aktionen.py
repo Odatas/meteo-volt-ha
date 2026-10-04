@@ -46,6 +46,7 @@ _FELDER = {
     "scope": vol.Any(None, vol.In(terminbuch.UMFAENGE)),
     "appointments": vol.Any(None, [{vol.Optional("entry"): _TEXT, vol.Optional("date"): _TEXT}]),
     "step": _TEXT,
+    "ignored": vol.Any(None, cv.boolean),
     # Fuer das Risiko gibt es keinen Schluessel in 2.3: die Form prueft es ganz.
     "risk": vol.All(vol.Coerce(int), vol.In([1, 2, 3])),
     "config_entry": _TEXT,
@@ -74,7 +75,7 @@ def _standort(hass: HomeAssistant, entry_id: str | None) -> Terminverwaltung:
     return verwaltung
 
 
-# --- Die sieben Actions --------------------------------------------------------
+# --- Die acht Actions ---------------------------------------------------------
 
 
 async def _anlegen(hass: HomeAssistant, call: ServiceCall) -> ServiceResponse:
@@ -115,6 +116,14 @@ async def _rueckgaengig(hass: HomeAssistant, call: ServiceCall) -> None:
     await nach_schritt(hass, schritt).async_rueckgaengig(schritt)
 
 
+async def _ignorieren(hass: HomeAssistant, call: ServiceCall) -> None:
+    """C9R-Spec Abschnitt 4. Fehlt ignored, ist es an."""
+    verwaltung = nach_eintrag(hass, call.data.get("entry"))
+    ignoriert = call.data.get("ignored")
+    await verwaltung.async_ignorieren(
+        call.data["entry"], _datum(call.data.get("date")), True if ignoriert is None else ignoriert)
+
+
 async def _risiko(hass: HomeAssistant, call: ServiceCall) -> None:
     await _standort(hass, call.data.get("config_entry")).async_risiko_setzen(call.data["risk"])
 
@@ -129,6 +138,7 @@ _AKTIONEN: dict[str, tuple[Callable[[HomeAssistant, ServiceCall], Awaitable], Su
     "delete_appointment": (_loeschen, SupportsResponse.OPTIONAL),
     "cancel_appointments": (_absagen, SupportsResponse.OPTIONAL),
     "undo": (_rueckgaengig, SupportsResponse.NONE),
+    "ignore_appointment": (_ignorieren, SupportsResponse.NONE),
     "set_risk": (_risiko, SupportsResponse.NONE),
     "replan": (_neu_planen, SupportsResponse.NONE),
 }

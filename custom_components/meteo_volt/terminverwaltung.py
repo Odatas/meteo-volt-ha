@@ -95,7 +95,9 @@ class Terminverwaltung:
         self.buch = terminbuch.Buch(await self._store.async_load(), schritte)
         self._fahrzeuge = set(self.fahrzeugdaten())
         # Verschwand ein Fahrzeug, waehrend C3 nicht lief, gehen seine Termine jetzt.
-        if terminbuch.fahrzeuge_bereinigen(self.buch, self._fahrzeuge):
+        # Mit ihnen jede Markierung, deren Termin nicht mehr laeuft (C9R-Spec Abschnitt 2).
+        geloescht = terminbuch.fahrzeuge_bereinigen(self.buch, self._fahrzeuge)
+        if terminbuch.ignoriert_bereinigen(self.buch, dt_util.utcnow(), self.zeitzone()) or geloescht:
             await self._speichern()
 
         entry = self.entry
@@ -171,7 +173,7 @@ class Terminverwaltung:
     def fragmente(self, stand: standort.Planstand, jetzt: datetime) -> tuple[dict[str, dict], int]:
         bis = terminanfrage.ausrollen_bis(stand.plan, jetzt)
         auswahl = termine.ausrollen(list(self.buch.eintraege.values()), self.zeitzone(), jetzt, bis)
-        return terminanfrage.fragmente(auswahl, self._fahrzeugwerte(), jetzt), self.risiko
+        return terminanfrage.fragmente(auswahl, self._fahrzeugwerte(), jetzt, self.buch.ignoriert), self.risiko
 
     # --- Schreiben, Spec Abschnitt 5 --------------------------------------------------------
 
@@ -214,6 +216,13 @@ class Terminverwaltung:
         terminbuch.rueckgaengig(self.buch, schritt)
         await self._nach_schritt()
 
+    async def async_ignorieren(self, eintrag_id: str, datum: date, ignoriert: bool) -> None:
+        """C9R-Spec Abschnitt 4: kein Schritt, plant aber neu wie einer."""
+        jetzt = dt_util.utcnow()
+        terminbuch.ignorieren(self.buch, eintrag_id, datum, ignoriert, jetzt, self.zeitzone())
+        terminbuch.ignoriert_bereinigen(self.buch, jetzt, self.zeitzone())
+        await self._nach_schritt()
+
     async def async_risiko_setzen(self, risiko: int) -> None:
         """Das Risiko ist kein Schritt (Spec Abschnitt 2.2)."""
         self.buch.risiko = risiko
@@ -229,6 +238,7 @@ class Terminverwaltung:
             raise pruefungen.Terminfehler(meldung)
 
     async def _nach_schritt(self) -> None:
+        terminbuch.ignoriert_bereinigen(self.buch, dt_util.utcnow(), self.zeitzone())
         await self._speichern()
         self._melden(TERMINE)
         self.koordinator.termine_geaendert()
@@ -287,7 +297,7 @@ class Terminverwaltung:
             umfeld = termine.ausrollen(eintraege, tz, von, bis)
         return ansicht.termine_ansicht(
             auswahl, umfeld, self.koordinator.data, dt_util.utcnow(), self._soc_min(), self.geraete(),
-            set(self.personen()))
+            set(self.personen()), self.buch.ignoriert)
 
     def plan(self, fahrzeug_id: str) -> dict:
         register = er.async_get(self.hass)

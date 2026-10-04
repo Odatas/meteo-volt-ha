@@ -25,6 +25,7 @@ export const TEXTE = {
     termin_unbekannt: 'An diesem Datum gibt es den Termin nicht.',
     umfang_unzulaessig: 'Eine geänderte Wiederholung gilt nicht nur für diesen Termin.',
     rueckgaengig_unmoeglich: 'Das lässt sich nicht mehr rückgängig machen.',
+    termin_laeuft_nicht: 'Nur ein laufender Termin lässt sich ignorieren.',
     plan_pause: 'Neu planen geht erst in {sekunden} s wieder.',
     plan_gestoppt: 'Der API-Key wurde abgelehnt. Neu planen geht erst nach einem neuen Key oder einem Neustart.',
 
@@ -97,6 +98,10 @@ export const TEXTE = {
 
     // Status eines Fahrzeugs
     st_unterwegs_bis: 'Unterwegs bis {zeit}',
+    // C9R-Spec Abschnitt 5
+    ist_zurueck: 'Ist zurück',
+    beachten: 'Beachten',
+    ignoriert: 'Ignoriert, wird nicht geplant',
     st_laedt_jetzt: 'Lädt jetzt, {kw}',
     st_laedt_jetzt_ohne: 'Lädt jetzt',
     st_laedt_ab: 'Lädt ab {zeit}',
@@ -243,6 +248,7 @@ export const TEXTE = {
     termin_unbekannt: 'There is no such trip on this date.',
     umfang_unzulaessig: 'A changed repeat cannot apply to this trip only.',
     rueckgaengig_unmoeglich: 'This can no longer be undone.',
+    termin_laeuft_nicht: 'Only an ongoing trip can be ignored.',
     plan_pause: 'Replanning is possible again in {sekunden} s.',
     plan_gestoppt: 'The API key was rejected. Replanning works again after a new key or a restart.',
 
@@ -310,6 +316,9 @@ export const TEXTE = {
     tip_unterwegs: 'Away',
 
     st_unterwegs_bis: 'Away until {zeit}',
+    ist_zurueck: 'Back home',
+    beachten: 'Restore',
+    ignoriert: 'Ignored, not planned',
     st_laedt_jetzt: 'Charging now, {kw}',
     st_laedt_jetzt_ohne: 'Charging now',
     st_laedt_ab: 'Charging from {zeit}',

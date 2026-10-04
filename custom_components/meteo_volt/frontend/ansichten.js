@@ -5,7 +5,7 @@
 // in die Platzhalter .planchart, .h-strip und .h-achse.
 
 import { html } from './html.js';
-import { blockGrund, blockZiel, bloeckeAbJetzt, horizontHinweis, planzeile, status, summen } from './plan.js';
+import { blockGrund, blockZiel, bloeckeAbJetzt, horizontHinweis, laeuft, planzeile, status, summen } from './plan.js';
 import { symbol } from './symbole.js';
 import { datumVon, plusTage, tagesbeginn } from './zeit.js';
 
@@ -77,8 +77,10 @@ export function terminHtml(z, termin, mitFahrzeug, kopfDatum) {
   }
   if (gesetzt(termin.soc) && termin.soc >= min) z1.push(html`<span class="meta">${f.t('ziel_soc', { soc: f.prozent(termin.soc) })}</span>`);
   const zeilen = [];
-  const zeile = planzeile(termin);
-  if (zeile && zeile.art === 'unterwegs') {
+  const zeile = termin.ignored ? null : planzeile(termin);
+  if (termin.ignored) {
+    zeilen.push(html`<span class="plan">${f.t('ignoriert')}</span>`);
+  } else if (zeile && zeile.art === 'unterwegs') {
     zeilen.push(html`<span class="plan">${f.t('st_unterwegs_bis', { zeit: f.zeitMitTag(zeile.bis, z.jetzt) })}</span>`);
   } else if (zeile && zeile.art === 'abfahrt') {
     zeilen.push(html`<span class="plan num">${f.t('abfahrt_mit', { soc: f.prozent(zeile.soc) })}</span>`);
@@ -99,10 +101,14 @@ export function terminHtml(z, termin, mitFahrzeug, kopfDatum) {
       })));
     }
   }
-  return html`<button type="button" class="termin" data-aktion="termin" data-entry="${termin.entry}" data-date="${termin.date}">
+  const knopf = html`<button type="button" class="termin" data-aktion="termin" data-entry="${termin.entry}" data-date="${termin.date}">
     <span class="zeit num"><b>${zeitText(termin.abfahrt)}</b><span>${zeitText(termin.rueckkehr)}</span></span>
     <span class="mitte"><span class="z1">${z1}</span>${zeilen}</span>
     <span class="km num">${f.t('km', { km: termin.distance_km })}</span></button>`;
+  // C9R-Spec Abschnitt 5: ein laufender Termin bekommt daneben einen eigenen Knopf, auch ohne Plan.
+  if (!laeuft(termin, z.jetzt)) return knopf;
+  return html`<div class="terminzeile">${knopf}<button type="button" class="btn zurueck" data-aktion="ignorieren"
+    data-entry="${termin.entry}" data-date="${termin.date}" data-wert="${termin.ignored ? 'nein' : 'ja'}">${f.t(termin.ignored ? 'beachten' : 'ist_zurueck')}</button></div>`;
 }
 
 export function listeHtml(z, liste, mitFahrzeug, mehrWas, leerText) {

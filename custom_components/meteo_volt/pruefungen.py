@@ -42,6 +42,7 @@ EINTRAG_UNBEKANNT = "eintrag_unbekannt"
 TERMIN_UNBEKANNT = "termin_unbekannt"
 UMFANG_UNZULAESSIG = "umfang_unzulaessig"
 RUECKGAENGIG_UNMOEGLICH = "rueckgaengig_unmoeglich"
+TERMIN_LAEUFT_NICHT = "termin_laeuft_nicht"  # C9R-Spec Abschnitt 4
 PLAN_PAUSE = "plan_pause"
 PLAN_GESTOPPT = "plan_gestoppt"
 
@@ -64,6 +65,7 @@ MELDUNGEN = {
     TERMIN_UNBEKANNT: (),
     UMFANG_UNZULAESSIG: (),
     RUECKGAENGIG_UNMOEGLICH: (),
+    TERMIN_LAEUFT_NICHT: (),
     PLAN_PAUSE: ("sekunden",),
     PLAN_GESTOPPT: (),
 }
@@ -81,6 +83,7 @@ AKTIONEN = {
     "delete_appointment": ("entry", "date", "scope"),
     "cancel_appointments": ("appointments", "step"),
     "undo": ("step",),
+    "ignore_appointment": ("entry", "date", "ignored"),
     "set_risk": ("risk", "config_entry"),
     "replan": ("config_entry",),
 }

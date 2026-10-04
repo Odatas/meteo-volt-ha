@@ -238,7 +238,7 @@ late run never undoes a newer one. For a current setpoint instead of power: ampe
 
 Everything the panel writes goes through actions that automations can call as well:
 `meteo_volt.create_appointment`, `update_appointment`, `delete_appointment`,
-`cancel_appointments`, `undo`, `set_risk` and `replan`. Their fields are described in the action
+`cancel_appointments`, `undo`, `ignore_appointment`, `set_risk` and `replan`. Their fields are described in the action
 picker under **Developer tools → Actions**.
 
 ### Template: cheapest upcoming slot

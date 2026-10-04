@@ -12,11 +12,12 @@ Spec: meteo-volt-brain/docs/features/C3-konfig-entitaeten/spec.md, Abschnitt 6
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, tzinfo
+from collections.abc import Collection
+from datetime import date, datetime, timedelta, tzinfo
 
 from . import standort
 from .terminanfrage import ZIEL, zerlegen
-from .termine import Termin, ueberschneiden, utc
+from .termine import Termin, laeuft, ueberschneiden, utc
 
 # Die Prognose rechnet in Viertelstunden.
 PREISSLOT = timedelta(minutes=15)
@@ -60,13 +61,12 @@ def planwerte(termin: Termin, stand: standort.Planstand, jetzt: datetime, soc_mi
         )
     except (AttributeError, KeyError, StopIteration, TypeError, ValueError):
         return None  # ein Plan ohne die Form des Kontrakts
-    laeuft = utc(termin.abfahrt) <= utc(jetzt) < utc(termin.rueckkehr)
     return {
         "soc_at_departure": bei_abfahrt,
         "soc_after_trip": nach_fahrt,
         "target_missing_kwh": fehlend,
         "below_min": nach_fahrt is not None and nach_fahrt < soc_min,
-        "running_until": termin.rueckkehr.isoformat() if laeuft else None,
+        "running_until": termin.rueckkehr.isoformat() if laeuft(termin, jetzt) else None,
     }
 
 
@@ -110,8 +110,12 @@ def termine_ansicht(
     soc_min: dict[str, float],
     geraete: dict[str, str],
     personen: set[str],
+    ignoriert: Collection[tuple[str, date]] = (),
 ) -> list[dict]:
-    """Die Termine fuer meteo_volt/appointments, nach Abfahrt sortiert. Abgesagte fehlen schon."""
+    """Die Termine fuer meteo_volt/appointments, nach Abfahrt sortiert. Abgesagte fehlen schon.
+
+    ignored nennt einen ignorierten Termin (C9R-Spec Abschnitt 5); plan bleibt davon unberuehrt.
+    """
     return [
         {
             "entry": termin.eintrag,
@@ -126,6 +130,7 @@ def termine_ansicht(
             "keep_min_soc": termin.sichern,
             "repeat": termin.wiederholung,
             "changed": termin.geaendert,
+            "ignored": (termin.eintrag, termin.datum) in ignoriert,
             "plan": planwerte(termin, stand, jetzt, soc_min.get(termin.fahrzeug, 0.0)),
             "hints": hinweise(termin, umfeld, geraete, personen),
         }

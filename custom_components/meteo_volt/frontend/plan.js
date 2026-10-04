@@ -134,7 +134,7 @@ export function planzeile(termin) {
 // mitPlan: planAbJetzt lieferte einen Plan.
 // { unterwegsBis, laden: { art: 'jetzt', kw } | { art: 'ab', t } | { art: 'keins' } | { art: 'keinPlan' }, warnungen }
 export function status(plan, termine, jetzt, mitPlan) {
-  const laufend = termine.filter((t) => laeuft(t, jetzt));
+  const laufend = termine.filter((t) => !t.ignored && laeuft(t, jetzt)); // C9R-Spec Abschnitt 5
   const unterwegsBis = laufend.length ? Math.max(...laufend.map((t) => t.rueckkehr)) : null;
   let laden;
   if (!mitPlan) laden = { art: 'keinPlan' };

@@ -8,7 +8,8 @@ import importlib
 import itertools
 import sys
 import types
-from datetime import date
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 import pytest
@@ -391,3 +392,85 @@ def test_die_speicherform_traegt_das_risiko_nur_wenn_es_gesetzt_ist():
     wieder = terminbuch.Buch(buch.speicherform())
     assert (wieder.risiko, wieder.eintraege) == (3, buch.eintraege)
     assert terminbuch.Buch().risiko is None
+
+
+# --- Ignorieren, Spec C9R Abschnitte 2 und 3 ---------------------------------
+
+BERLIN = ZoneInfo("Europe/Berlin")
+MI_MITTAG = datetime(2026, 9, 16, 12, 0, tzinfo=BERLIN)  # der Termin am MI laeuft 08:00 bis 18:00
+
+
+def test_ein_laufender_termin_wird_ignoriert_und_wieder_beachtet():
+    buch, _, eintrag = _buch_mit_serie()
+    terminbuch.ignorieren(buch, eintrag, MI, True, MI_MITTAG, BERLIN)
+    assert buch.ignoriert == {(eintrag, MI)}
+    terminbuch.ignorieren(buch, eintrag, MI, False, MI_MITTAG, BERLIN)
+    assert buch.ignoriert == set()
+
+
+def test_ignorieren_ist_kein_schritt_und_laesst_rueckgaengig_stehen():
+    buch, neue_id, eintrag = _buch_mit_serie()
+    schritt = terminbuch.aendern(buch, eintrag, DO, None, _werte(abfahrt="2026-09-17T09:00:00"), neue_id)[0]
+    vorher = dict(buch.eintraege)
+    terminbuch.ignorieren(buch, eintrag, MI, True, MI_MITTAG, BERLIN)
+    assert len(buch.schritte) == 2 and buch.eintraege == vorher  # anlegen und aendern
+    terminbuch.rueckgaengig(buch, schritt)
+
+
+def test_nur_ein_laufender_termin_laesst_sich_ignorieren():
+    buch, _, eintrag = _buch_mit_serie()
+    for datum, jetzt in (
+        (DO, MI_MITTAG),  # kuenftig
+        (MI, datetime(2026, 9, 16, 18, 0, tzinfo=BERLIN)),  # genau zur Rueckkehr vorbei
+        (MI, datetime(2026, 9, 16, 7, 59, tzinfo=BERLIN)),  # noch nicht losgefahren
+    ):
+        _fehler("termin_laeuft_nicht", "date", terminbuch.ignorieren, buch, eintrag, datum, True, jetzt, BERLIN)
+    terminbuch.ignorieren(buch, eintrag, MI, True, datetime(2026, 9, 16, 8, 0, tzinfo=BERLIN), BERLIN)
+    assert buch.ignoriert == {(eintrag, MI)}
+
+
+def test_beachten_ohne_markierung_ist_kein_fehler_auch_nicht_an_einem_kuenftigen():
+    buch, _, eintrag = _buch_mit_serie()
+    terminbuch.ignorieren(buch, eintrag, DO, False, MI_MITTAG, BERLIN)
+    assert buch.ignoriert == set()
+
+
+def test_ignorieren_prueft_eintrag_vor_datum_vor_laufen():
+    buch, _, eintrag = _buch_mit_serie()
+    _fehler("eintrag_unbekannt", "entry", terminbuch.ignorieren, buch, "fehlt", MI, True, MI_MITTAG, BERLIN)
+    samstag = date(2026, 9, 19)
+    _fehler("termin_unbekannt", "date", terminbuch.ignorieren, buch, eintrag, samstag, True, MI_MITTAG, BERLIN)
+    _fehler("termin_unbekannt", "date", terminbuch.ignorieren, buch, eintrag, samstag, False, MI_MITTAG, BERLIN)
+
+
+def test_bereinigen_laesst_nur_laufende_markierungen_stehen():
+    buch, neue_id, eintrag = _buch_mit_serie()
+    terminbuch.ignorieren(buch, eintrag, MI, True, MI_MITTAG, BERLIN)
+    assert terminbuch.ignoriert_bereinigen(buch, MI_MITTAG, BERLIN) is False
+    assert buch.ignoriert == {(eintrag, MI)}
+    assert terminbuch.ignoriert_bereinigen(buch, datetime(2026, 9, 16, 18, 0, tzinfo=BERLIN), BERLIN) is True
+    assert buch.ignoriert == set()
+
+
+@pytest.mark.parametrize("schritt", ["verschoben", "abgesagt", "geloescht"])
+def test_bereinigen_nach_einem_schritt_der_den_termin_wegnimmt(schritt):
+    buch, neue_id, eintrag = _buch_mit_serie()
+    terminbuch.ignorieren(buch, eintrag, MI, True, MI_MITTAG, BERLIN)
+    if schritt == "verschoben":
+        terminbuch.aendern(buch, eintrag, MI, None, _werte(abfahrt="2026-09-16T14:00:00"), neue_id)
+    elif schritt == "abgesagt":
+        terminbuch.absagen(buch, [(eintrag, MI)], None, neue_id)
+    else:
+        terminbuch.loeschen(buch, eintrag, MI, "all", neue_id)
+    assert terminbuch.ignoriert_bereinigen(buch, MI_MITTAG, BERLIN) is True
+    assert buch.ignoriert == set()
+
+
+def test_die_speicherform_traegt_ignored_nur_wenn_es_eine_markierung_gibt():
+    buch, _, eintrag = _buch_mit_serie()
+    terminbuch.ignorieren(buch, eintrag, MI, True, MI_MITTAG, BERLIN)
+    assert buch.speicherform()["ignored"] == [{"entry": eintrag, "date": "2026-09-16"}]
+    assert terminbuch.Buch(buch.speicherform()).ignoriert == {(eintrag, MI)}
+    terminbuch.ignorieren(buch, eintrag, MI, False, MI_MITTAG, BERLIN)
+    assert "ignored" not in buch.speicherform()
+    assert terminbuch.Buch({"entries": []}).ignoriert == set()

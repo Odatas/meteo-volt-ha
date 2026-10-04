@@ -322,6 +322,23 @@
         }
       }
     },
+    "ignore_appointment": {
+      "name": "Laufenden Termin ignorieren",
+      "description": "Ein ignorierter Termin geht nicht in die Planung. Ist ignored aus, wird er wieder beachtet.",
+      "fields": {
+        "entry": {
+          "name": "Eintrag"
+        },
+        "date": {
+          "name": "Datum",
+          "description": "Das Datum der ursprünglichen Abfahrt."
+        },
+        "ignored": {
+          "name": "Ignoriert",
+          "description": "Fehlt es, an."
+        }
+      }
+    },
     "set_risk": {
       "name": "Risiko setzen",
       "description": "Gilt für alle Fahrzeuge.",
@@ -398,6 +415,9 @@
     },
     "rueckgaengig_unmoeglich": {
       "message": "Das lässt sich nicht mehr rückgängig machen."
+    },
+    "termin_laeuft_nicht": {
+      "message": "Nur ein laufender Termin lässt sich ignorieren."
     },
     "plan_pause": {
       "message": "Neu planen geht erst in {sekunden} s wieder."
