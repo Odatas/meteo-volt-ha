@@ -117,11 +117,10 @@ async def _rueckgaengig(hass: HomeAssistant, call: ServiceCall) -> None:
 
 
 async def _ignorieren(hass: HomeAssistant, call: ServiceCall) -> None:
-    """C9R-Spec Abschnitt 4. Fehlt ignored, ist es an."""
+    """C9R-Spec Abschnitt 4. Fehlt ignored, gilt es als an (terminbuch.ignorieren)."""
     verwaltung = nach_eintrag(hass, call.data.get("entry"))
-    ignoriert = call.data.get("ignored")
     await verwaltung.async_ignorieren(
-        call.data["entry"], _datum(call.data.get("date")), True if ignoriert is None else ignoriert)
+        call.data["entry"], _datum(call.data.get("date")), call.data.get("ignored"))
 
 
 async def _risiko(hass: HomeAssistant, call: ServiceCall) -> None:

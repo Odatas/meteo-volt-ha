@@ -194,3 +194,10 @@ test('C9R: das Diagramm schattiert einen ignorierten Termin nicht', () => {
   assert.ok(svg(z(false)).includes('url(#weg-p0)"/>'));
   assert.ok(!svg(z(true)).includes('url(#weg-p0)"/>'));
 });
+
+test('C9R: eine veraltete Markierung an einem vergangenen Termin zeigt keine Ignoriert-Zeile', () => {
+  const vorbei = termin({ entry: 'e8', date: '2026-09-16', departure: '2026-09-16T08:00:00+02:00', return: '2026-09-16T12:00:00+02:00', ignored: true });
+  const text = String(fahrzeugHtml(kontext({ termine: [vorbei] }), fahrzeug));
+  assert.ok(!text.includes('Ignoriert, wird nicht geplant'));
+  assert.ok(!text.includes('data-aktion="ignorieren"'));
+});

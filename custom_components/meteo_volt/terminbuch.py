@@ -316,15 +316,15 @@ def rueckgaengig(buch: Buch, kennung: str) -> None:
 
 
 def ignorieren(
-    buch: Buch, eintrag_id: str, datum: date, ignoriert: bool, jetzt: datetime, tz: tzinfo
+    buch: Buch, eintrag_id: str, datum: date, ignoriert: bool | None, jetzt: datetime, tz: tzinfo
 ) -> None:
     """Ignoriert den Termin am Datum oder beachtet ihn wieder. C9R-Spec Abschnitte 2 und 4.
 
-    Ignorieren geht nur, solange er laeuft. Beachten geht immer und tut
-    ohne Markierung nichts.
+    None heisst ignorieren, wie ein fehlendes ignored an der Action. Ignorieren
+    geht nur, solange er laeuft. Beachten geht immer und tut ohne Markierung nichts.
     """
     _termin_pruefen(_eintrag(buch, eintrag_id), datum)
-    if not ignoriert:
+    if ignoriert is False:
         buch.ignoriert.discard((eintrag_id, datum))
         return
     if not termine.laeuft(termine.termin_am(buch.eintraege[eintrag_id], datum, tz), jetzt):

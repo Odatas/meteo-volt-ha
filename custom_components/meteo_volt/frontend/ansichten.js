@@ -77,8 +77,10 @@ export function terminHtml(z, termin, mitFahrzeug, kopfDatum) {
   }
   if (gesetzt(termin.soc) && termin.soc >= min) z1.push(html`<span class="meta">${f.t('ziel_soc', { soc: f.prozent(termin.soc) })}</span>`);
   const zeilen = [];
-  const zeile = termin.ignored ? null : planzeile(termin);
-  if (termin.ignored) {
+  // Eine Markierung zaehlt nur, solange der Termin laeuft (C9R-Spec Abschnitt 2).
+  const ignoriert = termin.ignored && laeuft(termin, z.jetzt);
+  const zeile = ignoriert ? null : planzeile(termin);
+  if (ignoriert) {
     zeilen.push(html`<span class="plan">${f.t('ignoriert')}</span>`);
   } else if (zeile && zeile.art === 'unterwegs') {
     zeilen.push(html`<span class="plan">${f.t('st_unterwegs_bis', { zeit: f.zeitMitTag(zeile.bis, z.jetzt) })}</span>`);

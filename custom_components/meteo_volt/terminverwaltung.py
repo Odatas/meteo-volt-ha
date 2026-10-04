@@ -216,11 +216,9 @@ class Terminverwaltung:
         terminbuch.rueckgaengig(self.buch, schritt)
         await self._nach_schritt()
 
-    async def async_ignorieren(self, eintrag_id: str, datum: date, ignoriert: bool) -> None:
-        """C9R-Spec Abschnitt 4: kein Schritt, plant aber neu wie einer."""
-        jetzt = dt_util.utcnow()
-        terminbuch.ignorieren(self.buch, eintrag_id, datum, ignoriert, jetzt, self.zeitzone())
-        terminbuch.ignoriert_bereinigen(self.buch, jetzt, self.zeitzone())
+    async def async_ignorieren(self, eintrag_id: str, datum: date, ignoriert: bool | None) -> None:
+        """C9R-Spec Abschnitt 4: kein Schritt, plant aber neu wie einer. _nach_schritt bereinigt."""
+        terminbuch.ignorieren(self.buch, eintrag_id, datum, ignoriert, dt_util.utcnow(), self.zeitzone())
         await self._nach_schritt()
 
     async def async_risiko_setzen(self, risiko: int) -> None:

@@ -474,3 +474,10 @@ def test_die_speicherform_traegt_ignored_nur_wenn_es_eine_markierung_gibt():
     terminbuch.ignorieren(buch, eintrag, MI, False, MI_MITTAG, BERLIN)
     assert "ignored" not in buch.speicherform()
     assert terminbuch.Buch({"entries": []}).ignoriert == set()
+
+
+def test_ohne_angabe_wird_ignoriert():
+    """C9R-Spec Abschnitt 4: fehlt ignored an der Action, ist es an."""
+    buch, _, eintrag = _buch_mit_serie()
+    terminbuch.ignorieren(buch, eintrag, MI, None, MI_MITTAG, BERLIN)
+    assert buch.ignoriert == {(eintrag, MI)}

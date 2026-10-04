@@ -80,3 +80,39 @@ def test_die_module_werden_ausserhalb_ihrer_gruppe_nur_im_try_importiert(name, g
     ]
     assert importe, f"kein Import von {name} gefunden; prueft der Test noch etwas?"
     assert [stelle for stelle, geschuetzt in importe if not geschuetzt] == []
+
+
+# --- C9R: die Markierungen erreichen Request, Panel und Bereinigung ------------------------
+
+
+def _methode(datei: str, name: str) -> ast.AST:
+    baum = ast.parse((INTEGRATION / datei).read_text(encoding="utf-8"))
+    return next(k for k in ast.walk(baum)
+                if isinstance(k, (ast.FunctionDef, ast.AsyncFunctionDef)) and k.name == name)
+
+
+def _ruft(methode: ast.AST, ziel: str) -> list[ast.Call]:
+    return [k for k in ast.walk(methode) if isinstance(k, ast.Call)
+            and isinstance(k.func, ast.Attribute) and k.func.attr == ziel]
+
+
+def _traegt_ignoriert(aufruf: ast.Call) -> bool:
+    return any(ast.unparse(arg) == "self.buch.ignoriert" for arg in aufruf.args)
+
+
+@pytest.mark.parametrize(("methode", "ziel"), [("fragmente", "fragmente"), ("termine_im_fenster", "termine_ansicht")])
+def test_die_ignorierten_termine_gehen_in_request_und_panel(methode, ziel):
+    """C9R-Spec Abschnitte 2 und 5. Fehlt das Argument, ist der Knopf wirkungslos und kein Test rot."""
+    aufrufe = _ruft(_methode("terminverwaltung.py", methode), ziel)
+    assert aufrufe and all(_traegt_ignoriert(a) for a in aufrufe)
+
+
+@pytest.mark.parametrize("methode", ["async_starten", "_nach_schritt"])
+def test_start_und_jeder_schritt_bereinigen_die_markierungen(methode):
+    """C9R-Spec Abschnitt 2: nach jedem Schritt, jedem Umschalten und beim Start."""
+    assert _ruft(_methode("terminverwaltung.py", methode), "ignoriert_bereinigen")
+
+
+def test_umschalten_laeuft_ueber_nach_schritt():
+    """Speichern, Meldung an das Panel, Neuplanen und Bereinigen haengen an _nach_schritt."""
+    assert _ruft(_methode("terminverwaltung.py", "async_ignorieren"), "_nach_schritt")
