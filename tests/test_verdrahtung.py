@@ -154,11 +154,15 @@ def test_die_stecker_von_fahrzeugen_und_ladepunkten_werden_beobachtet():
     assert "| stecker)" in quelle
 
 
-def test_ein_einstecken_merkt_sich_die_zeit_und_prueft_die_wallbox():
+def test_ein_stecker_geht_mit_allen_argumenten_in_richtiger_reihenfolge_an_stecker_wechsel():
+    """Review C9S: vertauschte Stecker-Zuordnungen blieben gruen."""
     methode = _methode("terminverwaltung.py", "_zustand_geaendert")
-    assert _ruft(methode, "eingesteckt") and _ruft(methode, "eingesteckt_zu_hause")
+    (aufruf,) = _ruft(methode, "stecker_wechsel")
+    assert [ast.unparse(a) for a in aufruf.args] == [
+        "entity_id", "None if alt is None else alt.state", "None if neu is None else neu.state",
+        "dt_util.utcnow()", "self._eingesteckt_um",
+        "self._zuordnung", "self._fahrzeug_stecker", "self._ladepunkt_stecker"]
     quelle = ast.unparse(methode)
-    assert "self._eingesteckt_um[entity_id] = jetzt" in quelle
     assert "self._fahrzeug_stecker.values()" in quelle and "self._ladepunkt_stecker.values()" in quelle
 
 

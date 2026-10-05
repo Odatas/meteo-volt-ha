@@ -73,7 +73,8 @@ ABSCHNITT_ENTITAETEN = "entitaeten"
 # Der Ladepunkt: vier Felder, der Stecker aus C9S zuletzt. min_power_kw und phases liest meteovolt_planner
 # nicht (slots.py liest max_power_kw und available).
 LADEPUNKT_AUFBAU = {
-    None: (FELD_NAME, FELD_MAX_LEISTUNG, FELD_VERFUEGBAR, FELD_ANGESTECKT),  # C9S-Spec 9.2
+    # Der Stecker aus C9S-Spec 9.2 zuletzt.
+    None: (FELD_NAME, FELD_MAX_LEISTUNG, FELD_VERFUEGBAR, FELD_ANGESTECKT),
 }
 
 # Das Fahrzeug: sieben Felder ohne Kasten, vier Entitaeten im Kasten.

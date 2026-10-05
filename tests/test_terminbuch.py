@@ -8,7 +8,7 @@ import importlib
 import itertools
 import sys
 import types
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 from pathlib import Path
 
@@ -554,7 +554,6 @@ def test_das_ereignis_nennt_die_geraete_id_und_die_quelle():
 
 # --- Eingesteckt an der eigenen Wallbox, Spec C9S Abschnitt 9 ------------------------
 
-from datetime import timedelta  # noqa: E402
 
 ZUORDNUNG = {"auto-1": "wb-1", "auto-2": "wb-2"}
 AUTO_STECKER = {"auto-1": "binary_sensor.golf", "auto-2": "binary_sensor.zoe"}
@@ -584,6 +583,7 @@ def test_eine_sekunde_ueber_zehn_minuten_oder_nur_ein_stecker_reicht_nicht():
     jetzt = _um(16)
     zu_lang = jetzt - timedelta(minutes=10, seconds=1)
     assert _zu_hause({"binary_sensor.golf": zu_lang, "binary_sensor.wb1": jetzt}, "binary_sensor.wb1") == []
+    assert _zu_hause({"binary_sensor.wb1": zu_lang, "binary_sensor.golf": jetzt}, "binary_sensor.golf") == []
     assert _zu_hause({"binary_sensor.golf": jetzt}, "binary_sensor.golf") == []
     assert _zu_hause({"binary_sensor.wb1": jetzt}, "binary_sensor.wb1") == []
 
@@ -618,3 +618,42 @@ def test_eingesteckt_zu_hause_ignoriert_auch_am_anfang_des_termins():
     buch, _, eintrag = _buch_mit_serie()
     assert terminbuch.heimkehr(buch, BERLIN, _um(8, 5), fahrzeug="auto-1", ab_anteil=0.0) == [(eintrag, MI)]
     assert terminbuch.heimkehr(buch, BERLIN, _um(8, 5), fahrzeug="auto-1") == []
+
+
+def test_zwei_frische_autos_am_selben_ladepunkt_zaehlen_beide_nicht():
+    """Review C9S: Auto 1 steckt an einer fremden Saeule, Auto 2 an der eigenen Wallbox."""
+    jetzt = _um(16)
+    zwei = {"auto-1": "wb-1", "auto-2": "wb-1"}
+    eingesteckt = {"binary_sensor.golf": jetzt - timedelta(minutes=2),
+                   "binary_sensor.zoe": jetzt - timedelta(minutes=1), "binary_sensor.wb1": jetzt}
+    assert _zu_hause(eingesteckt, "binary_sensor.wb1", zuordnung=zwei) == []
+    assert _zu_hause(eingesteckt, "binary_sensor.golf", zuordnung=zwei) == []
+
+
+def test_ein_fremder_stecker_trifft_kein_fahrzeug():
+    """Der Quellenfilter: nur Fahrzeuge, zu denen der eingesteckte Stecker gehoert."""
+    jetzt = _um(16)
+    eingesteckt = {"binary_sensor.golf": jetzt, "binary_sensor.wb1": jetzt, "binary_sensor.fremd": jetzt}
+    assert _zu_hause(eingesteckt, "binary_sensor.fremd") == []
+
+
+def _wechsel(entity_id, alt, neu, eingesteckt, zuordnung=ZUORDNUNG):
+    return terminbuch.stecker_wechsel(
+        entity_id, alt, neu, _um(16), eingesteckt, zuordnung, AUTO_STECKER, WALLBOX_STECKER)
+
+
+def test_stecker_wechsel_merkt_einstecken_und_vergisst_abstecken():
+    eingesteckt = {}
+    assert _wechsel("binary_sensor.golf", "off", "on", eingesteckt) == []
+    assert eingesteckt == {"binary_sensor.golf": _um(16)}
+    assert _wechsel("binary_sensor.wb1", "off", "on", eingesteckt) == ["auto-1"]
+    assert _wechsel("binary_sensor.golf", "on", "off", eingesteckt) == []
+    assert "binary_sensor.golf" not in eingesteckt
+    assert _wechsel("binary_sensor.wb1", "unavailable", "on", eingesteckt) == []
+
+
+def test_ein_abgesteckter_stecker_zaehlt_nicht_mehr():
+    eingesteckt = {}
+    _wechsel("binary_sensor.golf", "off", "on", eingesteckt)
+    _wechsel("binary_sensor.golf", "on", "off", eingesteckt)
+    assert _wechsel("binary_sensor.wb1", "off", "on", eingesteckt) == []

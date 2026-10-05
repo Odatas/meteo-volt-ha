@@ -441,13 +441,42 @@ def eingesteckt_zu_hause(
         wallbox = ladepunkt_stecker.get(ladepunkt)
         if wallbox is None or wallbox not in frisch:
             continue
+        nachbarn = [f for f, lp in zuordnung.items() if lp == ladepunkt]
+        # Stecken zwei Autos dieses Ladepunkts frisch, ist nicht zu sagen, welches an
+        # der Wallbox haengt: dann keines (C9S-Spec Abschnitt 9.3).
+        if sum(1 for f in nachbarn if fahrzeug_stecker.get(f) in frisch) > 1:
+            continue
         eigener = fahrzeug_stecker.get(fahrzeug)
         if eigener is not None:
             if eigener in frisch:
                 zu_hause.append(fahrzeug)
-        elif sum(1 for lp in zuordnung.values() if lp == ladepunkt) == 1:
+        elif len(nachbarn) == 1:
             zu_hause.append(fahrzeug)
     return zu_hause
+
+
+def stecker_wechsel(
+    entity_id: str,
+    alt: str | None,
+    neu: str | None,
+    jetzt: datetime,
+    eingesteckt_um: dict[str, datetime],
+    zuordnung: dict[str, str],
+    fahrzeug_stecker: dict[str, str],
+    ladepunkt_stecker: dict[str, str],
+) -> list[str]:
+    """Ein Zustandswechsel eines Steckers. Gibt die Fahrzeuge zurueck, die jetzt zu Hause stecken.
+
+    Fuehrt eingesteckt_um: off -> on merkt die Zeit, -> off loescht sie, denn ein
+    Stecker zaehlt nur, solange er steckt. C9S-Spec Abschnitt 9.3.
+    """
+    if neu == "off":
+        eingesteckt_um.pop(entity_id, None)
+        return []
+    if not eingesteckt(alt, neu):
+        return []
+    eingesteckt_um[entity_id] = jetzt
+    return eingesteckt_zu_hause(zuordnung, fahrzeug_stecker, ladepunkt_stecker, eingesteckt_um, entity_id, jetzt)
 
 
 def heimkehr_ereignisse(

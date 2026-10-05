@@ -94,6 +94,7 @@ def stecker_zuordnen(
         ladepunkt, _grund = ladepunkt_zuordnen(daten, ids)
         if ladepunkt is not None:
             zuordnung[fahrzeug_id] = ladepunkt
+
     def stecker(quelle: dict[str, dict]) -> dict[str, str]:
         return {k: d[stammdaten.FELD_ANGESTECKT] for k, d in quelle.items() if d.get(stammdaten.FELD_ANGESTECKT)}
     return zuordnung, stecker(fahrzeuge), stecker(ladepunkte)

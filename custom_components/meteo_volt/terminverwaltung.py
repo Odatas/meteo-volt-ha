@@ -436,14 +436,12 @@ class Terminverwaltung:
                 self.entry.async_create_task(self.hass, self._async_heimkehr(entity_id))
         if entity_id in self._fahrzeug_stecker.values() or entity_id in self._ladepunkt_stecker.values():
             alt, neu = event.data["old_state"], event.data["new_state"]
-            if terminbuch.eingesteckt(None if alt is None else alt.state, None if neu is None else neu.state):
-                jetzt = dt_util.utcnow()
-                self._eingesteckt_um[entity_id] = jetzt
-                fahrzeuge = terminbuch.eingesteckt_zu_hause(
-                    self._zuordnung, self._fahrzeug_stecker, self._ladepunkt_stecker,
-                    self._eingesteckt_um, entity_id, jetzt)
-                if fahrzeuge:
-                    self.entry.async_create_task(self.hass, self._async_eingesteckt(entity_id, fahrzeuge))
+            fahrzeuge = terminbuch.stecker_wechsel(
+                entity_id, None if alt is None else alt.state, None if neu is None else neu.state,
+                dt_util.utcnow(), self._eingesteckt_um,
+                self._zuordnung, self._fahrzeug_stecker, self._ladepunkt_stecker)
+            if fahrzeuge:
+                self.entry.async_create_task(self.hass, self._async_eingesteckt(entity_id, fahrzeuge))
         if entity_id in self._soc_entitaeten:
             self._melden(STANDORT)
         if entity_id in self._c6_entitaeten:
