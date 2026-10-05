@@ -85,7 +85,7 @@ class Terminverwaltung:
         self._soc_entitaeten: set[str] = set()
         self._c6_entitaeten: set[str] = set()
         self._personen: set[str] = set()
-        self._standorte: dict[str, str] = {}  # device_tracker -> subentry_id, C9Z
+        self._standorte: dict[str, set[str]] = {}  # device_tracker -> subentry_ids, C9Z
         self._zustaende_abmelden: CALLBACK_TYPE | None = None
 
     # --- Start ------------------------------------------------------------------
@@ -227,24 +227,14 @@ class Terminverwaltung:
     async def _async_heimkehr(self, quelle: str) -> None:
         """C9Z-Spec Abschnitt 8: die Quelle kam heim. Ignoriert, was passt, und meldet es."""
         jetzt, tz = dt_util.utcnow(), self.zeitzone()
-        if quelle in self._standorte:
-            treffer = terminbuch.heimkehr(self.buch, tz, jetzt, fahrzeug=self._standorte[quelle])
-        else:
-            treffer = terminbuch.heimkehr(self.buch, tz, jetzt, fahrer=quelle)
+        treffer = terminbuch.heimkehr_von(self.buch, tz, jetzt, quelle, self._standorte)
         if not treffer:
             return
         for eintrag_id, datum in treffer:
             terminbuch.ignorieren(self.buch, eintrag_id, datum, True, jetzt, tz)
         await self._nach_schritt()
-        geraete = self.geraete()
-        for eintrag_id, datum in treffer:
-            eintrag = self.buch.eintraege.get(eintrag_id) or {}
-            self.hass.bus.async_fire(EVENT_HEIMKEHR, {
-                "entry": eintrag_id,
-                "date": datum.isoformat(),
-                "vehicle": geraete.get(eintrag.get(termine.FAHRZEUG)),
-                "source": quelle,
-            })
+        for daten in terminbuch.heimkehr_ereignisse(self.buch, treffer, self.geraete(), quelle):
+            self.hass.bus.async_fire(EVENT_HEIMKEHR, daten)
 
     async def async_risiko_setzen(self, risiko: int) -> None:
         """Das Risiko ist kein Schritt (Spec Abschnitt 2.2)."""
@@ -398,10 +388,7 @@ class Terminverwaltung:
             if daten.get(stammdaten.FELD_SOC_ENTITAET)
         }
         self._personen = set(self.hass.states.async_entity_ids("person"))
-        self._standorte = {
-            daten[stammdaten.FELD_STANDORT]: fahrzeug_id for fahrzeug_id, daten in fahrzeuge.items()
-            if daten.get(stammdaten.FELD_STANDORT)
-        }
+        self._standorte = stammdaten.standorte_von(fahrzeuge)
         self._c6_entitaeten = set()
         for fahrzeug_id in fahrzeuge:
             for plattform, schluessel in C6_WERTE:

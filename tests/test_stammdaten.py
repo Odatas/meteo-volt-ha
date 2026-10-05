@@ -281,3 +281,14 @@ def test_guard_mit_gleichstand_wird_abgewiesen():
     genau den Gleichstand probiert."""
     daten = {stammdaten.FELD_SOC_MIN: 50.0, stammdaten.FELD_SOC_MAX: 50.0}
     assert stammdaten.soc_grenzen_pruefen(daten) == {"base": "soc_range"}
+
+
+def test_ein_standort_an_zwei_fahrzeugen_nennt_beide():
+    """C9Z-Spec Abschnitt 8.2."""
+    fahrzeuge = {
+        "auto-1": {stammdaten.FELD_STANDORT: "device_tracker.golf"},
+        "auto-2": {stammdaten.FELD_STANDORT: "device_tracker.golf"},
+        "auto-3": {stammdaten.FELD_STANDORT: None},
+        "auto-4": {},
+    }
+    assert stammdaten.standorte_von(fahrzeuge) == {"device_tracker.golf": {"auto-1", "auto-2"}}

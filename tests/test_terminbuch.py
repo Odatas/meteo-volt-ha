@@ -533,3 +533,20 @@ def test_ein_schon_ignorierter_termin_kommt_nicht_noch_einmal():
 def test_ohne_quelle_keine_heimkehr():
     buch, _, _ = _buch_mit_serie()
     assert terminbuch.heimkehr(buch, BERLIN, _um(16)) == []
+
+
+def test_ein_standort_trifft_seine_fahrzeuge_jede_andere_quelle_ist_ein_fahrer():
+    buch, neue_id, eigener = _buch_mit_serie(fahrer="person.ela")
+    _, (zweiter,) = terminbuch.anlegen(buch, _werte(fahrzeug="auto-2"), neue_id)
+    _, (dritter,) = terminbuch.anlegen(buch, _werte(fahrzeug="auto-3"), neue_id)
+    standorte = {"device_tracker.golf": {"auto-1", "auto-2"}}
+    assert set(terminbuch.heimkehr_von(buch, BERLIN, _um(16), "device_tracker.golf", standorte)) == {
+        (eigener, MI), (zweiter, MI)}
+    assert terminbuch.heimkehr_von(buch, BERLIN, _um(16), "person.ela", standorte) == [(eigener, MI)]
+    assert terminbuch.heimkehr_von(buch, BERLIN, _um(16), "device_tracker.fremd", standorte) == []
+
+
+def test_das_ereignis_nennt_die_geraete_id_und_die_quelle():
+    buch, _, eintrag = _buch_mit_serie()
+    assert terminbuch.heimkehr_ereignisse(buch, [(eintrag, MI)], {"auto-1": "geraet-1"}, "person.ela") == [
+        {"entry": eintrag, "date": "2026-09-16", "vehicle": "geraet-1", "source": "person.ela"}]

@@ -288,3 +288,16 @@ def flach_aus_abschnitten(user_input: dict, abschnitte) -> dict:
         else:
             flach[schluessel] = wert
     return flach
+
+
+def standorte_von(fahrzeuge: dict[str, dict]) -> dict[str, set[str]]:
+    """device_tracker -> die Fahrzeuge, die ihn als Standort tragen. C9Z-Spec Abschnitt 8.2.
+
+    Eine Menge, kein einzelnes Fahrzeug: waehlt jemand denselben Tracker fuer zwei
+    Fahrzeuge, trifft eine Heimkehr beide und nicht still nur das zuletzt angelegte.
+    """
+    standorte: dict[str, set[str]] = {}
+    for fahrzeug_id, daten in fahrzeuge.items():
+        if daten.get(FELD_STANDORT):
+            standorte.setdefault(daten[FELD_STANDORT], set()).add(fahrzeug_id)
+    return standorte

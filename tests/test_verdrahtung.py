@@ -124,15 +124,19 @@ def test_umschalten_laeuft_ueber_nach_schritt():
 def test_die_standorte_der_fahrzeuge_werden_beobachtet():
     """C9Z-Spec Abschnitt 8.2. Ohne sie im Abo meldet ein device_tracker nie eine Heimkehr."""
     quelle = ast.unparse(_methode("terminverwaltung.py", "_zustaende_bestellen"))
-    assert "stammdaten.FELD_STANDORT" in quelle
+    assert "stammdaten.standorte_von(fahrzeuge)" in quelle
     assert "set(self._standorte)" in quelle
 
 
-def test_ein_zustandswechsel_prueft_die_heimkehr():
-    assert _ruft(_methode("terminverwaltung.py", "_zustand_geaendert"), "heimgekehrt")
+def test_ein_zustandswechsel_von_person_oder_standort_prueft_die_heimkehr():
+    methode = _methode("terminverwaltung.py", "_zustand_geaendert")
+    assert _ruft(methode, "heimgekehrt")
+    quelle = ast.unparse(methode)
+    assert "in self._personen" in quelle and "in self._standorte" in quelle
 
 
 def test_die_heimkehr_geht_ueber_dieselbe_markierung_und_nach_schritt():
     methode = _methode("terminverwaltung.py", "_async_heimkehr")
-    for ziel in ("heimkehr", "ignorieren", "_nach_schritt", "async_fire"):
+    for ziel in ("heimkehr_von", "ignorieren", "_nach_schritt", "heimkehr_ereignisse", "async_fire"):
         assert _ruft(methode, ziel), ziel
+    assert "self._standorte" in ast.unparse(_ruft(methode, "heimkehr_von")[0])

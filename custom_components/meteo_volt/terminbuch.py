@@ -386,6 +386,36 @@ def heimkehr(
     return ergebnis
 
 
+def heimkehr_von(
+    buch: Buch, tz: tzinfo, jetzt: datetime, quelle: str, standorte: dict[str, set[str]]
+) -> list[tuple[str, date]]:
+    """Die Termine, die die Heimkehr dieser Quelle ignoriert. C9Z-Spec Abschnitt 8.3, Punkt 2.
+
+    Ein Standort trifft die Termine seiner Fahrzeuge, jede andere Quelle ist eine
+    Person und trifft die Termine, die sie als Fahrer tragen.
+    """
+    if quelle not in standorte:
+        return heimkehr(buch, tz, jetzt, fahrer=quelle)
+    treffer: list[tuple[str, date]] = []
+    for fahrzeug in sorted(standorte[quelle]):
+        treffer += heimkehr(buch, tz, jetzt, fahrzeug=fahrzeug)
+    return treffer
+
+
+def heimkehr_ereignisse(
+    buch: Buch, treffer: list[tuple[str, date]], geraete: dict[str, str], quelle: str
+) -> list[dict]:
+    """Die Daten von meteo_volt_trip_ignored je Termin. C9Z-Spec Abschnitt 8.4.
+
+    vehicle ist die Geraete-ID aus C6, nicht die subentry_id.
+    """
+    return [
+        {"entry": eintrag_id, "date": datum.isoformat(),
+         "vehicle": geraete.get((buch.eintraege.get(eintrag_id) or {}).get(FAHRZEUG)), "source": quelle}
+        for eintrag_id, datum in treffer
+    ]
+
+
 def fahrzeuge_bereinigen(buch: Buch, fahrzeuge: set[str]) -> bool:
     """Entfernt die Eintraege geloeschter Fahrzeuge. Kein Schritt. True, wenn einer ging.
 
