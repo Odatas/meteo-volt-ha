@@ -172,6 +172,12 @@ test('Warnungen und Status eines Fahrzeugs', () => {
   assert.deepEqual(status(plan(), [], jetzt, false).laden, { art: 'keinPlan' });
 });
 
+test('C9R: ein ignorierter Termin zaehlt im Status nicht als unterwegs', () => {
+  const jetzt = START + 7 * MIN;
+  const unterwegs = termin({ entry: 'e3', departure: '2026-09-16T12:00:00+02:00', return: '2026-09-16T17:30:00+02:00', ignored: true });
+  assert.equal(status(plan(), termineAus([unterwegs]), jetzt, true).unterwegsBis, null);
+});
+
 test('"Plan von" kommt aus received_at, nicht aus computed_at', () => {
   // computed_at ist der Zeitpunkt der Prognose (Basiskontrakt) und bliebe nach
   // einem Neu planen stehen. Erwartet wird der Zeitpunkt der Antwort.

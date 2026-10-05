@@ -116,6 +116,18 @@ undo:
       selector:
         text:
 
+ignore_appointment:
+  fields:
+    entry:
+      selector:
+        text:
+    date:
+      selector:
+        date:
+    ignored:
+      selector:
+        boolean:
+
 set_risk:
   fields:
     risk:

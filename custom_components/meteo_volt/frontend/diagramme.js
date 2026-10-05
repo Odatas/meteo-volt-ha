@@ -46,8 +46,9 @@ const treppe = (slots, x, y) => slots
   .map((s, k) => `${k ? 'L' : 'M'}${r(x(s.t))},${r(y(s))}L${r(x(s.ende))},${r(y(s))}`)
   .join('');
 
-// Ob ein Slot in einem Termin liegt, von Abfahrt bis Rueckkehr.
-export const unterwegs = (s, termine) => termine.some((t) => t.abfahrt < s.ende && s.t < t.rueckkehr);
+// Ob ein Slot in einem Termin liegt, von Abfahrt bis Rueckkehr. Ein ignorierter
+// Termin zaehlt nicht (C9R-Spec Abschnitt 5).
+export const unterwegs = (s, termine) => termine.some((t) => !t.ignored && t.abfahrt < s.ende && s.t < t.rueckkehr);
 
 // Die Plankarte eines Fahrzeugs. d: { schluessel, fz, name, fenster, termine, bereich }, fenster aus planAbJetzt.
 export function planChartSvg(d, W, schmal, f, gebuehr) {
@@ -83,7 +84,7 @@ export function planChartSvg(d, W, schmal, f, gebuehr) {
   // Ladestand
   [0, 50, 100].forEach((v) => t.push(html`<text class="achse" x="${L - 8}" y="${r(yS(v) + 4)}" text-anchor="end">${v} %</text>`));
   for (const termin of termine) {
-    if (termin.rueckkehr <= t0 || termin.abfahrt >= t1) continue;
+    if (termin.ignored || termin.rueckkehr <= t0 || termin.abfahrt >= t1) continue;
     const a = x(Math.max(termin.abfahrt, t0));
     const b = x(Math.min(termin.rueckkehr, t1));
     t.push(html`<rect x="${r(a)}" y="${yA0}" width="${r(b - a)}" height="${hA}" fill="url(#weg-${id})"/>`);
@@ -158,7 +159,7 @@ export function streifenSvg(d, W, f) {
   mitternaechte(t0, t1, f.tz).forEach((m) => t.push(html`<line class="gitter" x1="${r(x(m))}" x2="${r(x(m))}" y1="0" y2="${H}"/>`));
   t.push(html`<defs><pattern id="weg-${id}" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="var(--mv-weg)" stroke-width="3"/></pattern></defs>`);
   for (const termin of termine) {
-    if (termin.rueckkehr <= t0 || termin.abfahrt >= t1) continue;
+    if (termin.ignored || termin.rueckkehr <= t0 || termin.abfahrt >= t1) continue;
     const a = x(Math.max(termin.abfahrt, t0));
     const b = x(Math.min(termin.rueckkehr, t1));
     t.push(html`<rect x="${r(a)}" y="0" width="${r(b - a)}" height="${H}" fill="url(#weg-${id})"/>`);

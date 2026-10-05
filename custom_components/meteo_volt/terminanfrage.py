@@ -14,6 +14,7 @@ Spec: meteo-volt-brain/docs/features/C3-konfig-entitaeten/spec.md, Abschnitt 4
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from datetime import date, datetime, timedelta
 
 from . import ladereserve
@@ -67,21 +68,25 @@ def zerlegen(text: str | None) -> tuple[str, date, str] | None:
 
 
 def fragmente(
-    termine: list[Termin], fahrzeuge: dict[str, ladereserve.Fahrzeugwerte], jetzt: datetime
+    termine: list[Termin],
+    fahrzeuge: dict[str, ladereserve.Fahrzeugwerte],
+    jetzt: datetime,
+    ignoriert: Collection[tuple[str, date]] = (),
 ) -> dict[str, dict]:
     """consumption und constraints je Fahrzeug.
 
     termine sind schon ausgewaehlt: Rueckkehr nach jetzt, Abfahrt vor dem Ende
     des Ausrollens. fahrzeuge nennt jedes Fahrzeug des Standorts mit seinen
     Werten; jedes bekommt trips, ohne Termin als leere Liste. constraints
-    fehlt, wenn es leer waere.
+    fehlt, wenn es leer waere. Ein ignorierter Termin (C9R-Spec Abschnitt 2),
+    erkannt an Eintrag und Datum, fehlt ganz.
     """
     ergebnis: dict[str, dict] = {
         fahrzeug: {"consumption": {"type": "trips", "trips": []}} for fahrzeug in fahrzeuge
     }
     for termin in termine:
         teil = ergebnis.get(termin.fahrzeug)
-        if teil is None:
+        if teil is None or (termin.eintrag, termin.datum) in ignoriert:
             continue
         auflagen = teil.setdefault("constraints", [])
         # Immer: laeuft der Termin schon, liegt from in der Vergangenheit.

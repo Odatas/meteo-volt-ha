@@ -51,7 +51,12 @@ export function dienst(optionen = {}) {
       driver: 'person.anna', soc: null, keep_min_soc: true, until: null, exceptions: {} },
     { id: 'e5', vehicle: 'zoe', departure: tag(3, '09:00'), duration_min: 180, repeat: 'once', distance_km: 30,
       driver: 'person.anna', soc: null, until: null, exceptions: {} },
+    // C9R: laeuft seit zwei Stunden und noch drei, damit "Ist zurueck" immer zu sehen ist.
+    { id: 'e10', vehicle: 'zoe', departure: naiv(jetzt0 - 2 * STUNDE, TZ), duration_min: 300, repeat: 'once', distance_km: 60,
+      driver: null, soc: null, keep_min_soc: false, until: null, exceptions: {} },
   ];
+  // C9R-Spec Abschnitt 3: ignorierte Termine als "<entry>/<date>".
+  const ignoriert = new Set();
 
   const fz = (id) => fahrzeuge.find((f) => f.id === id);
   const fzGeraet = (geraet) => fahrzeuge.find((f) => f.geraet === geraet);
@@ -118,6 +123,7 @@ export function dienst(optionen = {}) {
     const index = (t) => Math.max(0, Math.min(n - 1, Math.floor((t - start0) / SLOT)));
     const abfahrten = [];
     for (const v of eigene) {
+      if (ignoriert.has(`${v.e.id}/${v.datum}`)) continue;
       const bis = Math.min(n, Math.ceil((v.rueckkehr - start0) / SLOT));
       for (let i = v.abfahrt <= start0 ? 0 : index(v.abfahrt); i < bis; i += 1) slots[i].weg = true;
       if (v.abfahrt <= jetzt0) continue;
@@ -247,7 +253,7 @@ export function dienst(optionen = {}) {
       return {
         entry: v.e.id, date: v.datum, vehicle: fz(v.e.vehicle).geraet, departure: iso(v.abfahrt), return: iso(v.rueckkehr),
         distance_km: v.km, driver: v.driver, soc: v.soc, keep_min_soc: Boolean(v.sichern),
-        repeat: v.e.repeat, changed: v.changed, plan: planwerte(v, jetzt), hints,
+        repeat: v.e.repeat, changed: v.changed, ignored: ignoriert.has(`${v.e.id}/${v.datum}`), plan: planwerte(v, jetzt), hints,
       };
     });
   }
@@ -340,6 +346,15 @@ export function dienst(optionen = {}) {
     return { step };
   }
 
+  function ignorieren(d) {
+    const v = vorkommen(Date.now() - 2 * TAG, Date.now() + TAG, (e) => e.id === d.entry).find((x) => x.datum === d.date);
+    if (!v) throw fehler('termin_unbekannt');
+    const laeuft = v.abfahrt <= Date.now() && Date.now() < v.rueckkehr;
+    if (d.ignored === false) ignoriert.delete(`${d.entry}/${d.date}`);
+    else if (!laeuft) throw fehler('termin_laeuft_nicht');
+    else ignoriert.add(`${d.entry}/${d.date}`);
+  }
+
   function rueckgaengig(d) {
     if (!schritte.has(d.step)) throw fehler('rueckgaengig_unmoeglich');
     eintraege = schritte.get(d.step);
@@ -400,7 +415,7 @@ export function dienst(optionen = {}) {
     }
     if (msg.type === 'call_service' && msg.domain === 'meteo_volt') {
       const d = msg.service_data || {};
-      const ablauf = { create_appointment: anlegen, update_appointment: aendern, delete_appointment: loeschen, cancel_appointments: absagen, undo: rueckgaengig }[msg.service];
+      const ablauf = { create_appointment: anlegen, update_appointment: aendern, delete_appointment: loeschen, cancel_appointments: absagen, undo: rueckgaengig, ignore_appointment: ignorieren }[msg.service];
       if (ablauf) {
         const antwort = ablauf(d);
         melden('appointments');

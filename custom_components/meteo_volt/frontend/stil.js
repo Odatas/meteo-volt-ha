@@ -103,6 +103,11 @@ svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-widt
 .termin { width: 100%; border: 0; background: none; text-align: left; display: grid;
   grid-template-columns: 64px 1fr auto; gap: 2px 12px; padding: 10px 16px; border-top: 1px solid var(--mv-divider); }
 .tag + .termin { border-top: 0; }
+.terminzeile { border-top: 1px solid var(--mv-divider); }
+.terminzeile .termin { border-top: 0; }
+.tag + .terminzeile { border-top: 0; }
+/* Unter der Mittelspalte: 16 Rand + 64 Zeit + 12 Abstand, abzueglich des Innenabstands. */
+.terminzeile .zurueck { display: block; margin: -6px 0 6px 80px; padding: 6px 12px; }
 .termin:hover { background: var(--mv-primary-soft); }
 .termin .zeit { display: flex; flex-direction: column; }
 .termin .zeit b { font-weight: 500; }

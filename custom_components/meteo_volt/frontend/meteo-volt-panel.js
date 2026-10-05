@@ -311,6 +311,7 @@ class MeteoVoltPanel extends HTMLElement {
     else if (aktion === 'neuplanen') this._neuPlanen();
     else if (aktion === 'menue') this.dispatchEvent(new CustomEvent('hass-toggle-menu', { bubbles: true, composed: true }));
     else if (aktion === 'rueckgaengig') this._rueckgaengig();
+    else if (aktion === 'ignorieren') this._schreiben('ignore_appointment', { entry, date, ignored: wert === 'ja' });
     else if (aktion === 'neu') oeffneTermin(this, null);
     else if (aktion === 'termin') {
       const termin = this._daten.termine.find((t) => t.entry === entry && t.date === date);
