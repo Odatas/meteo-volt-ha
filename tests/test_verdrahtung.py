@@ -200,6 +200,6 @@ def test_start_und_jeder_schritt_bereinigen_auch_die_verlaengerungen(methode):
     assert _ruft(bereinigen, "ignoriert_bereinigen") and _ruft(bereinigen, "verlaengert_bereinigen")
 
 
-def test_das_panel_bekommt_die_verlaengerten_termine():
+def test_das_panel_bekommt_die_geplante_rueckkehr_der_verlaengerten_termine():
     (aufruf,) = _ruft(_methode("terminverwaltung.py", "termine_im_fenster"), "termine_ansicht")
-    assert ast.unparse(aufruf.args[-1]) == "verlaengert"
+    assert ast.unparse(aufruf.args[-1]) == "terminbuch.geplante_rueckkehr(self.buch, auswahl)"

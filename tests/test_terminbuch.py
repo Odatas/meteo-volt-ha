@@ -763,12 +763,23 @@ def test_waehrend_der_verlaengerung_gilt_das_fenster_nicht():
     assert terminbuch.heimkehr(buch, BERLIN, _um(18, 5), fahrzeug="auto-1") == [(eintrag, MI)]
 
 
-def test_verlaengerungen_werden_aufgeraeumt_wenn_der_termin_nicht_mehr_laeuft():
+def test_verlaengerungen_werden_erst_einen_schritt_nach_der_rueckkehr_aufgeraeumt():
+    """Review C13: ein Aufraeumen in der Minute bis zur naechsten Pruefung beendete den Termin."""
     buch, _, eintrag = _buch_mit_serie()
     buch.verlaengert[(eintrag, MI)] = _um(18, 15)
-    assert terminbuch.verlaengert_bereinigen(buch, _um(18, 10), BERLIN) is False
-    assert terminbuch.verlaengert_bereinigen(buch, _um(18, 15), BERLIN) is True
+    assert terminbuch.verlaengert_bereinigen(buch, _um(18, 15), BERLIN) is False
+    assert terminbuch.verlaengert_bereinigen(buch, datetime(2026, 9, 16, 18, 15, 20, tzinfo=BERLIN), BERLIN) is False
+    assert terminbuch.verlaengern(buch, BERLIN, datetime(2026, 9, 16, 18, 15, 40, tzinfo=BERLIN), _weg) == [(eintrag, MI)]
+    assert terminbuch.verlaengert_bereinigen(buch, _um(18, 44), BERLIN) is False
+    assert terminbuch.verlaengert_bereinigen(buch, _um(18, 45), BERLIN) is True
     assert buch.verlaengert == {}
+
+
+def test_eine_verlaengerung_eines_geloeschten_termins_wird_aufgeraeumt():
+    buch, neue_id, eintrag = _buch_mit_serie()
+    buch.verlaengert[(eintrag, MI)] = _um(18, 15)
+    terminbuch.loeschen(buch, eintrag, MI, "all", neue_id)
+    assert terminbuch.verlaengert_bereinigen(buch, _um(18, 5), BERLIN) is True
 
 
 def test_die_speicherform_traegt_extended_nur_wenn_es_eine_gibt():
@@ -778,3 +789,32 @@ def test_die_speicherform_traegt_extended_nur_wenn_es_eine_gibt():
     gespeichert = buch.speicherform()["extended"]
     assert gespeichert == [{"entry": eintrag, "date": "2026-09-16", "return": "2026-09-16T16:15:00+00:00"}]
     assert terminbuch.Buch(buch.speicherform()).verlaengert == {(eintrag, MI): _um(18, 15)}
+
+
+def test_eine_eigene_spaetere_rueckkehr_ist_keine_verlaengerung_und_das_fenster_gilt():
+    """Review C13: ist_verlaengert vergleicht mit der eigenen Rueckkehr."""
+    buch, _, eintrag = _buch_mit_serie()
+    buch.verlaengert[(eintrag, MI)] = _um(17)
+    (termin,) = terminbuch.ausrollen(buch, BERLIN, _um(12), _um(12, 1))
+    assert terminbuch.ist_verlaengert(buch, termin) is False
+    assert terminbuch.geplante_rueckkehr(buch, [termin]) == {}
+    assert terminbuch.heimkehr(buch, BERLIN, _um(12), fahrzeug="auto-1") == []
+
+
+def test_die_geplante_rueckkehr_eines_verlaengerten_termins_ist_seine_eigene():
+    buch, _, eintrag = _buch_mit_serie()
+    buch.verlaengert[(eintrag, MI)] = _um(18, 30)
+    (termin,) = terminbuch.ausrollen(buch, BERLIN, _um(18, 10), _um(18, 11))
+    assert terminbuch.geplante_rueckkehr(buch, [termin]) == {(eintrag, MI): _um(18)}
+
+
+def test_der_request_traegt_die_wirksame_rueckkehr():
+    """C13-Spec Abschnitt 4: to des unavailable."""
+    terminanfrage = importlib.import_module(f"{_PAKET}.terminanfrage")
+    ladereserve = importlib.import_module(f"{_PAKET}.ladereserve")
+    buch, _, eintrag = _buch_mit_serie()
+    buch.verlaengert[(eintrag, MI)] = _um(18, 30)
+    auswahl = terminbuch.ausrollen(buch, BERLIN, _um(18, 10), _um(18, 11))
+    werte = ladereserve.Fahrzeugwerte(soc_min_pct=15.0, capacity_kwh=58.0, consumption_kwh_per_100km=19.5)
+    teil = terminanfrage.fragmente(auswahl, {"auto-1": werte}, _um(18, 10))["auto-1"]
+    assert teil["constraints"][0]["to"] == "2026-09-16T18:30:00+02:00"

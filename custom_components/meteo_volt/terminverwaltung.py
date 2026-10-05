@@ -349,10 +349,9 @@ class Terminverwaltung:
             von = min((t.abfahrt for t in auswahl), key=termine.utc)
             bis = max((t.rueckkehr for t in auswahl), key=termine.utc)
             umfeld = terminbuch.ausrollen(self.buch, tz, von, bis)
-        verlaengert = {(t.eintrag, t.datum) for t in auswahl if terminbuch.ist_verlaengert(self.buch, t)}
         return ansicht.termine_ansicht(
             auswahl, umfeld, self.koordinator.data, dt_util.utcnow(), self._soc_min(), self.geraete(),
-            set(self.personen()), self.buch.ignoriert, verlaengert)
+            set(self.personen()), self.buch.ignoriert, terminbuch.geplante_rueckkehr(self.buch, auswahl))
 
     def plan(self, fahrzeug_id: str) -> dict:
         register = er.async_get(self.hass)

@@ -24,7 +24,6 @@ from __future__ import annotations
 import copy
 from collections import deque
 from collections.abc import Callable
-from collections.abc import Callable as Aufruf
 from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta, tzinfo
 
@@ -98,7 +97,7 @@ class Buch:
         self.schritte: deque[Schritt] = deque(maxlen=MAX_SCHRITTE) if schritte is None else schritte
 
     def speicherform(self) -> dict:
-        """Was in den Store geht. Risiko und ignorierte Termine nur, wenn es sie gibt."""
+        """Was in den Store geht. Risiko, ignorierte und verlaengerte Termine nur, wenn es sie gibt."""
         daten: dict = {EINTRAEGE: [copy.deepcopy(eintrag) for eintrag in self.eintraege.values()]}
         if self.risiko is not None:
             daten[RISIKO] = self.risiko
@@ -217,6 +216,20 @@ def ist_verlaengert(buch: Buch, termin: termine.Termin) -> bool:
     um = buch.verlaengert.get((termin.eintrag, termin.datum))
     eigener = termine.termin_am(buch.eintraege[termin.eintrag], termin.datum, termin.abfahrt.tzinfo)
     return um is not None and eigener is not None and termine.utc(um) > termine.utc(eigener.rueckkehr)
+
+
+def geplante_rueckkehr(buch: Buch, auswahl: list[termine.Termin]) -> dict[tuple[str, date], datetime]:
+    """Je verlaengertem Termin der Auswahl seine eigene Rueckkehr. C13-Spec Abschnitt 6.
+
+    Das Formular nimmt sie statt der wirksamen: sonst schriebe jedes Speichern
+    die Verlaengerung als Dauer in den Eintrag, bei einer Serie in alle Termine.
+    """
+    geplant = {}
+    for termin in auswahl:
+        if ist_verlaengert(buch, termin):
+            eigener = termine.termin_am(buch.eintraege[termin.eintrag], termin.datum, termin.abfahrt.tzinfo)
+            geplant[(termin.eintrag, termin.datum)] = eigener.rueckkehr
+    return geplant
 
 
 def ausrollen(
@@ -408,10 +421,17 @@ def ignoriert_bereinigen(buch: Buch, jetzt: datetime, tz: tzinfo) -> bool:
 
 
 def verlaengert_bereinigen(buch: Buch, jetzt: datetime, tz: tzinfo) -> bool:
-    """Wie ignoriert_bereinigen, fuer die Verlaengerungen. C13-Spec Abschnitt 4."""
+    """Entfernt die Verlaengerungen, deren Termin fehlt oder deren Rueckkehr einen Schritt her ist.
+
+    Nicht schon ab der Rueckkehr: verlaengern prueft nur jede Minute, und ein
+    Aufraeumen in dieser Luecke beendete den Termin, obwohl das Auto noch weg
+    ist (Review C13). Einen Schritt lang kann verlaengern ihn noch fortsetzen.
+    C13-Spec Abschnitt 4.
+    """
     weg = [
         schluessel for schluessel in buch.verlaengert
-        if (termin := termin_am(buch, *schluessel, tz)) is None or not termine.laeuft(termin, jetzt)
+        if (termin := termin_am(buch, *schluessel, tz)) is None
+        or termine.utc(jetzt) >= termine.utc(termin.rueckkehr) + VERLAENGERUNG_SCHRITT
     ]
     for schluessel in weg:
         del buch.verlaengert[schluessel]
@@ -576,7 +596,7 @@ def quellen_von(termin: termine.Termin, standorte: dict[str, set[str]]) -> list[
 
 
 def verlaengern(
-    buch: Buch, tz: tzinfo, jetzt: datetime, weg: Aufruf[[termine.Termin], bool]
+    buch: Buch, tz: tzinfo, jetzt: datetime, weg: Callable[[termine.Termin], bool]
 ) -> list[tuple[str, date]]:
     """Verlaengert jeden Termin, dessen wirksame Rueckkehr gerade erreicht ist und der weg ist.
 

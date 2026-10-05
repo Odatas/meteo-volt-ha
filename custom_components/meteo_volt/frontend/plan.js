@@ -19,7 +19,8 @@ export function zerlegen(id) {
 // Die Termine aus C3 mit ihren Zeitpunkten, nach Abfahrt sortiert.
 export function termineAus(liste) {
   return (Array.isArray(liste) ? liste : [])
-    .map((t) => ({ ...t, abfahrt: ausIso(t.departure), rueckkehr: ausIso(t.return) }))
+    // geplant: die eigene Rueckkehr, ohne Verlaengerung aus C13; das Formular nimmt sie (C13-Spec 6).
+    .map((t) => ({ ...t, abfahrt: ausIso(t.departure), rueckkehr: ausIso(t.return), geplant: ausIso(t.planned_return ?? t.return) }))
     .sort((a, b) => a.abfahrt - b.abfahrt);
 }
 

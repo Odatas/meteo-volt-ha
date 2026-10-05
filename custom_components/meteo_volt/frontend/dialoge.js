@@ -35,7 +35,7 @@ export function oeffneTermin(panel, termin) {
   const { f, tz } = z;
   const jetzt = Date.now();
   const abfahrt = termin ? naiv(termin.abfahrt, tz) : naechsteVolleStunde(jetzt, tz);
-  const rueckkehr = termin ? naiv(termin.rueckkehr, tz) : naiv(zuMs(abfahrt, tz) + 60 * MINUTE, tz);
+  const rueckkehr = termin ? naiv(termin.geplant ?? termin.rueckkehr, tz) : naiv(zuMs(abfahrt, tz) + 60 * MINUTE, tz);
   const fahrzeug = termin ? termin.vehicle : (panel.tabFahrzeug() ?? z.fahrzeuge[0].vehicle);
   const fahrer = termin ? termin.driver : (z.personen.some((p) => p.entity_id === z.ui.filter) ? z.ui.filter : null);
   const regel = termin ? termin.repeat : 'once';
