@@ -96,10 +96,12 @@ svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-widt
 .chip svg.i { width: 16px; height: 16px; }
 
 .agenda { overflow: clip; }
-.tag { position: sticky; top: -16px; z-index: 1; background: var(--mv-card); padding: 10px 16px 6px;
-  font-size: 13px; font-weight: 500; color: var(--mv-text2); border-top: 1px solid var(--mv-divider); }
+/* C12T-Spec Abschnitt 7: ein deckendes Band je Tag, damit beim Kleben nichts durchscheint. */
+.tag { position: sticky; top: -16px; z-index: 1; background: color-mix(in srgb, var(--mv-text) 7%, var(--mv-card));
+  padding: 8px 16px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--mv-text); border-top: 1px solid var(--mv-divider); border-bottom: 1px solid var(--mv-divider); }
 .agenda .tag:first-child { border-top: 0; }
-.tag.heute { color: var(--mv-primary); }
+.tag.heute { background: color-mix(in srgb, var(--mv-primary) 14%, var(--mv-card)); color: var(--mv-primary); }
 .termin { width: 100%; border: 0; background: none; text-align: left; display: grid;
   grid-template-columns: 64px 1fr auto; gap: 2px 12px; padding: 10px 16px; border-top: 1px solid var(--mv-divider); }
 .tag + .termin { border-top: 0; }
