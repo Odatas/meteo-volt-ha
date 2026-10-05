@@ -247,4 +247,6 @@ test('C12N: der Ladeblock nennt den Namen vor der Zeit, mit und ohne Ziel', () =
   assert.ok(block({ name: 'Zur Arbeit', soc: 75 }).includes('für „Zur Arbeit“, Do 07:30, Ziel 75 %'));
   assert.ok(block({}).includes('für Abfahrt Do 07:30'));
   assert.ok(block({ name: 'Zur Arbeit' }, 'en').includes('for “Zur Arbeit”, Thu 07:30'));
+  assert.ok(block({ name: 'Zur Arbeit', soc: 75 }, 'en').includes('for “Zur Arbeit”, Thu 07:30, target 75 %'));
+  assert.ok(block({}, 'en').includes('for departure Thu 07:30'));
 });
