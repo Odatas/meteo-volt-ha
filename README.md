@@ -151,7 +151,7 @@ opens the form.
 | Departure, return | The car is unavailable in between |
 | Repeat | Once, daily, every weekday, weekly, monthly or annually — on the weekday or date of the departure |
 | Round-trip distance (km) | Booked as consumption at the departure |
-| Vehicle, driver | Which car; the driver is shown, warns when one person is on the road with two cars at once, and ends the trip early when they come home (see below) |
+| Vehicle, driver | Which car; the driver is shown, warns when one person is on the road with two cars at once, and is a source for coming home (see below) |
 | State of charge at departure (%) | Optional. A charging target for the departure |
 | Keep minimum SoC | Ticked by default. The car leaves with its minimum state of charge plus what the trip consumes, so it never comes back below the minimum. Untick it only if you can charge on the way |
 
@@ -159,23 +159,51 @@ The form checks the input as you type and names the field. A recurring trip can 
 deleted for this trip only, for this and all following, or for all. Every save, delete and cancel
 shows a message with **Undo** at the bottom. After every change the plan is recomputed.
 
-**Back home early.** A trip under way stops blocking charging as soon as the car or its driver
-comes home in the last 30 % of the trip — for a three-hour trip, the last hour. The car counts if
-its vehicle has a **Location** (a `device_tracker`), the driver if the trip has one; whichever
-arrives first wins. The trip is then ignored, exactly as with the **Back home** button, and the
-event `meteo_volt_trip_ignored` fires with `entry`, `date`, `vehicle` and `source`, for a
-notification of your own.
+#### When the day doesn't go to plan
 
-**Plugged in at home.** If the charge point has a **Plugged in** entity, plugging the car into it
-ends a running trip at any time. The car's own plug entity and the charge point's must both switch
-on within 10 minutes; a car without its own plug entity counts on the charge point alone, as long
-as it is the only vehicle at that charge point. A public charger does not count.
+A trip blocks charging from departure to return. Real days differ: the car comes back early, or
+later than planned. Meteo-Volt can follow that by hand, or on its own from sensors you already
+have in Home Assistant.
 
-**Late back.** If a trip reaches its return while its car and driver are still away, it extends
-itself by 15 minutes at a time and shows "Away until 18:30 (extended)". It needs the same sources
-as above, at least one reporting a real state other than `home`; a tracker that is `unavailable`
-extends nothing. It never runs into the vehicle's next trip and never more than 12 hours past the
-planned return. Coming home or plugging in ends it.
+**By hand — always available.** A trip under way has a **Back home** button in the panel. The
+trip is then ignored: it stays in the list as "Ignored, not planned", and charging is replanned
+right away. **Restore** takes it back. Only the one trip is affected, never its series.
+
+**Where the automatic behaviour gets its information.** All of it is optional:
+
+| Source | Where you set it | What it tells Meteo-Volt |
+|---|---|---|
+| **Location** | Vehicle settings, a `device_tracker` | Whether the car is at `home` |
+| **Driver** | The trip's driver, a `person` | Whether the driver is at `home`; the Companion App usually reports faster than the car |
+| **Plugged in** at the vehicle | Vehicle settings, a `binary_sensor` | Whether the car's plug is in, wherever it is |
+| **Plugged in** at the charge point | Charge point settings, a `binary_sensor` | Whether something is plugged into your own wallbox |
+
+**Back early: coming home.** When the car's location or the driver changes to `home` in the
+**last 30 %** of a running trip — for a three-hour trip, the last hour — the trip is ignored as if
+you had pressed **Back home**. Whichever source arrives first wins. Earlier in the trip nothing
+happens: a quick stop at home, or the driver walking home while the car stays at the garage, does
+not end the trip. A change from `unavailable`, or `home` right after a restart, does not count.
+
+**Back early: plugged in at home.** When the car's plug and the charge point's plug both switch on
+within 10 minutes, the car is home and the trip is ignored, at any time during the trip. A car
+without its own plug sensor counts on the charge point alone, if it is the only vehicle at that
+charge point. A public charger never counts, and if two cars of the same charge point plug in
+within those 10 minutes, neither does.
+
+**Back late: extending the trip.** When a trip reaches its return while the car and driver are
+still away, it extends itself by **15 minutes** at a time and shows "Away until 18:30 (extended)".
+At least one source must report a real place other than `home`; a tracker that is `unavailable`
+extends nothing. It stops at the vehicle's next trip and never goes more than 12 hours past the
+planned return. Coming home or plugging in ends it; during an extension the 30 % window does not
+apply. Editing an extended trip keeps its planned return.
+
+**For automations.** Every time a trip is ignored automatically, the event
+`meteo_volt_trip_ignored` fires with `entry`, `date`, `vehicle` and `source`, for a notification
+of your own.
+
+**Prefer to do it yourself?** Leave **Location** and both **Plugged in** fields empty and don't
+set a driver on your trips. Meteo-Volt then never changes a trip on its own, and the **Back home**
+button is all there is. Note that a driver alone already counts as a source.
 
 Without trips, Meteo-Volt plans without driving.
 
