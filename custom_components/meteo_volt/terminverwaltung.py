@@ -17,13 +17,14 @@ from __future__ import annotations
 
 import uuid
 from collections import deque
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import CALLBACK_TYPE, Event, EventStateChangedData, HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dispatcher_send
 from homeassistant.helpers.event import (
+    async_track_time_interval,
     async_track_state_added_domain,
     async_track_state_change_event,
     async_track_state_removed_domain,
@@ -52,6 +53,8 @@ TERMINE = "appointments"
 STANDORT = "site"
 # C9Z-Spec Abschnitt 8.4: je Termin, den eine Heimkehr ignoriert.
 EVENT_HEIMKEHR = f"{DOMAIN}_trip_ignored"
+# C13-Spec Abschnitt 3: so oft wird geprueft, ob ein Termin sich verlaengert.
+VERLAENGERN_PRUEFEN = timedelta(minutes=1)
 PLAN = "plan"
 PLANUNG = "planning"
 PREISE = "prices"
@@ -105,7 +108,7 @@ class Terminverwaltung:
         # Verschwand ein Fahrzeug, waehrend C3 nicht lief, gehen seine Termine jetzt.
         # Mit ihnen jede Markierung, deren Termin nicht mehr laeuft (C9R-Spec Abschnitt 2).
         geloescht = terminbuch.fahrzeuge_bereinigen(self.buch, self._fahrzeuge)
-        if terminbuch.ignoriert_bereinigen(self.buch, dt_util.utcnow(), self.zeitzone()) or geloescht:
+        if self._markierungen_bereinigen() or geloescht:
             await self._speichern()
 
         entry = self.entry
@@ -124,6 +127,7 @@ class Terminverwaltung:
             er.EVENT_ENTITY_REGISTRY_UPDATED, self._register_geaendert))
         entry.async_on_unload(self._zustaende_abbestellen)
         self._zustaende_bestellen()
+        entry.async_on_unload(async_track_time_interval(self.hass, self._verlaengern_pruefen, VERLAENGERN_PRUEFEN))
         # Zuletzt: erst ab hier traegt jeder Request die Termine.
         self.koordinator.termine_quelle = self.fragmente
 
@@ -180,7 +184,7 @@ class Terminverwaltung:
     @callback
     def fragmente(self, stand: standort.Planstand, jetzt: datetime) -> tuple[dict[str, dict], int]:
         bis = terminanfrage.ausrollen_bis(stand.plan, jetzt)
-        auswahl = termine.ausrollen(list(self.buch.eintraege.values()), self.zeitzone(), jetzt, bis)
+        auswahl = terminbuch.ausrollen(self.buch, self.zeitzone(), jetzt, bis)
         return terminanfrage.fragmente(auswahl, self._fahrzeugwerte(), jetzt, self.buch.ignoriert), self.risiko
 
     # --- Schreiben, Spec Abschnitt 5 --------------------------------------------------------
@@ -251,6 +255,29 @@ class Terminverwaltung:
         for daten in terminbuch.heimkehr_ereignisse(self.buch, treffer, self.geraete(), quelle):
             self.hass.bus.async_fire(EVENT_HEIMKEHR, daten)
 
+    def _markierungen_bereinigen(self) -> bool:
+        """Ignoriert und verlaengert, beide nur solange ihr Termin laeuft. True, wenn eine ging.
+
+        Erst das Ignorieren, dann die Verlaengerung: das Ignorieren misst an der
+        wirksamen Rueckkehr, die die Verlaengerung noch traegt.
+        """
+        jetzt, tz = dt_util.utcnow(), self.zeitzone()
+        ignoriert = terminbuch.ignoriert_bereinigen(self.buch, jetzt, tz)
+        return terminbuch.verlaengert_bereinigen(self.buch, jetzt, tz) or ignoriert
+
+    @callback
+    def _verlaengern_pruefen(self, _jetzt: datetime) -> None:
+        """C13-Spec Abschnitt 3, jede Minute."""
+        verlaengert = terminbuch.verlaengern(
+            self.buch, self.zeitzone(), dt_util.utcnow(), lambda termin: terminbuch.ist_weg(
+                [self._zustand(q) for q in terminbuch.quellen_von(termin, self._standorte)]))
+        if verlaengert:
+            self.entry.async_create_task(self.hass, self._nach_schritt())
+
+    def _zustand(self, entity_id: str) -> str | None:
+        zustand = self.hass.states.get(entity_id)
+        return None if zustand is None else zustand.state
+
     async def async_risiko_setzen(self, risiko: int) -> None:
         """Das Risiko ist kein Schritt (Spec Abschnitt 2.2)."""
         self.buch.risiko = risiko
@@ -266,7 +293,7 @@ class Terminverwaltung:
             raise pruefungen.Terminfehler(meldung)
 
     async def _nach_schritt(self) -> None:
-        terminbuch.ignoriert_bereinigen(self.buch, dt_util.utcnow(), self.zeitzone())
+        self._markierungen_bereinigen()
         await self._speichern()
         self._melden(TERMINE)
         self.koordinator.termine_geaendert()
@@ -314,18 +341,18 @@ class Terminverwaltung:
     def termine_im_fenster(self, start: datetime, ende: datetime, fahrzeug_id: str | None) -> list[dict]:
         """Die Termine, deren Rueckkehr nach start und deren Abfahrt vor ende liegt."""
         tz = self.zeitzone()
-        eintraege = list(self.buch.eintraege.values())
-        auswahl = termine.ausrollen(eintraege, tz, start, ende, fahrzeug_id)
+        auswahl = terminbuch.ausrollen(self.buch, tz, start, ende, fahrzeug_id)
         umfeld: list[termine.Termin] = []
         if auswahl:
             # Die Hinweise brauchen alle Termine aller Fahrzeuge, die einen der
             # gewaehlten ueberschneiden koennten, auch ausserhalb des Fensters.
             von = min((t.abfahrt for t in auswahl), key=termine.utc)
             bis = max((t.rueckkehr for t in auswahl), key=termine.utc)
-            umfeld = termine.ausrollen(eintraege, tz, von, bis)
+            umfeld = terminbuch.ausrollen(self.buch, tz, von, bis)
+        verlaengert = {(t.eintrag, t.datum) for t in auswahl if terminbuch.ist_verlaengert(self.buch, t)}
         return ansicht.termine_ansicht(
             auswahl, umfeld, self.koordinator.data, dt_util.utcnow(), self._soc_min(), self.geraete(),
-            set(self.personen()), self.buch.ignoriert)
+            set(self.personen()), self.buch.ignoriert, verlaengert)
 
     def plan(self, fahrzeug_id: str) -> dict:
         register = er.async_get(self.hass)

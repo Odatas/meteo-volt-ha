@@ -110,7 +110,7 @@ def test_die_ignorierten_termine_gehen_in_request_und_panel(methode, ziel):
 @pytest.mark.parametrize("methode", ["async_starten", "_nach_schritt"])
 def test_start_und_jeder_schritt_bereinigen_die_markierungen(methode):
     """C9R-Spec Abschnitt 2: nach jedem Schritt, jedem Umschalten und beim Start."""
-    assert _ruft(_methode("terminverwaltung.py", methode), "ignoriert_bereinigen")
+    assert _ruft(_methode("terminverwaltung.py", methode), "_markierungen_bereinigen")
 
 
 def test_umschalten_laeuft_ueber_nach_schritt():
@@ -171,3 +171,35 @@ def test_eingesteckt_ignoriert_ohne_fenster_ueber_dieselbe_markierung():
     (aufruf,) = _ruft(methode, "heimkehr")
     assert any(k.arg == "ab_anteil" and ast.unparse(k.value) == "0.0" for k in aufruf.keywords)
     assert _ruft(methode, "_heim_markieren")
+
+
+# --- C13: Verlaengern --------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("methode", ["fragmente", "termine_im_fenster"])
+def test_request_und_panel_rollen_mit_wirksamer_rueckkehr_aus(methode):
+    """C13-Spec Abschnitt 4: termine.ausrollen direkt saehe die Verlaengerung nicht."""
+    m = _methode("terminverwaltung.py", methode)
+    assert _ruft(m, "ausrollen")
+    assert all(ast.unparse(a.func) == "terminbuch.ausrollen" for a in _ruft(m, "ausrollen"))
+
+
+def test_jede_minute_wird_verlaengert_und_ueber_nach_schritt_geplant():
+    start = ast.unparse(_methode("terminverwaltung.py", "async_starten"))
+    assert "async_track_time_interval(self.hass, self._verlaengern_pruefen, VERLAENGERN_PRUEFEN)" in start
+    pruefen = _methode("terminverwaltung.py", "_verlaengern_pruefen")
+    for ziel in ("verlaengern", "ist_weg", "quellen_von", "_nach_schritt"):
+        assert _ruft(pruefen, ziel), ziel
+    assert "self._standorte" in ast.unparse(_ruft(pruefen, "quellen_von")[0])
+
+
+@pytest.mark.parametrize("methode", ["async_starten", "_nach_schritt"])
+def test_start_und_jeder_schritt_bereinigen_auch_die_verlaengerungen(methode):
+    assert _ruft(_methode("terminverwaltung.py", methode), "_markierungen_bereinigen")
+    bereinigen = _methode("terminverwaltung.py", "_markierungen_bereinigen")
+    assert _ruft(bereinigen, "ignoriert_bereinigen") and _ruft(bereinigen, "verlaengert_bereinigen")
+
+
+def test_das_panel_bekommt_die_verlaengerten_termine():
+    (aufruf,) = _ruft(_methode("terminverwaltung.py", "termine_im_fenster"), "termine_ansicht")
+    assert ast.unparse(aufruf.args[-1]) == "verlaengert"

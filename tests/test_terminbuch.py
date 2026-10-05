@@ -657,3 +657,124 @@ def test_ein_abgesteckter_stecker_zaehlt_nicht_mehr():
     _wechsel("binary_sensor.golf", "off", "on", eingesteckt)
     _wechsel("binary_sensor.golf", "on", "off", eingesteckt)
     assert _wechsel("binary_sensor.wb1", "off", "on", eingesteckt) == []
+
+
+# --- Verlaengern, Spec C13 ----------------------------------------------------------------
+# Der Termin am MI laeuft 08:00 bis 18:00; der am DO beginnt 08:00.
+
+
+@pytest.mark.parametrize(("zustaende", "erwartet"), [
+    (["not_home"], True),
+    (["Arbeit"], True),
+    (["not_home", "home"], False),
+    (["unavailable"], False),
+    (["unknown", None], False),
+    (["unavailable", "not_home"], True),
+    ([], False),
+])
+def test_weg_ist_ein_termin_nur_mit_echtem_zustand_und_ohne_home(zustaende, erwartet):
+    assert terminbuch.ist_weg(zustaende) is erwartet
+
+
+def test_die_quellen_eines_termins_sind_sein_standort_und_sein_fahrer():
+    buch, _, eintrag = _buch_mit_serie(fahrer="person.ela")
+    (termin,) = terminbuch.ausrollen(buch, BERLIN, _um(12), _um(12, 1))
+    standorte = {"device_tracker.golf": {"auto-1"}, "device_tracker.zoe": {"auto-2"}}
+    assert terminbuch.quellen_von(termin, standorte) == ["device_tracker.golf", "person.ela"]
+
+
+def _weg(_termin):
+    return True
+
+
+def test_zur_rueckkehr_verlaengert_sich_ein_weg_termin_um_15_minuten():
+    buch, _, eintrag = _buch_mit_serie()
+    assert terminbuch.verlaengern(buch, BERLIN, _um(17, 59), _weg) == []
+    assert terminbuch.verlaengern(buch, BERLIN, _um(18), _weg) == [(eintrag, MI)]
+    assert buch.verlaengert == {(eintrag, MI): _um(18, 15)}
+    (termin,) = terminbuch.ausrollen(buch, BERLIN, _um(18, 5), _um(18, 6))
+    assert termin.rueckkehr == _um(18, 15)
+    assert terminbuch.verlaengern(buch, BERLIN, _um(18, 15), _weg) == [(eintrag, MI)]
+    assert buch.verlaengert[(eintrag, MI)] == _um(18, 30)
+
+
+def test_nicht_weg_ignoriert_oder_zu_lange_her_verlaengert_nicht():
+    buch, _, eintrag = _buch_mit_serie()
+    assert terminbuch.verlaengern(buch, BERLIN, _um(18), lambda _t: False) == []
+    assert terminbuch.verlaengern(buch, BERLIN, _um(18, 15), _weg) == []  # ein Schritt her: Neustart
+    terminbuch.ignorieren(buch, eintrag, MI, True, _um(17), BERLIN)
+    assert terminbuch.verlaengern(buch, BERLIN, _um(18), _weg) == []
+
+
+def _buch_mit_folgetermin():
+    """Einmalig MI 08:00 bis 18:00, danach MI 20:00 dasselbe Fahrzeug."""
+    buch, neue_id = terminbuch.Buch(), _ids()
+    _, (eintrag,) = terminbuch.anlegen(buch, _werte(wiederholung="once"), neue_id)
+    _, (folge,) = terminbuch.anlegen(buch, _werte(abfahrt="2026-09-16T20:00:00", wiederholung="once"), neue_id)
+    return buch, eintrag, folge
+
+
+def test_die_grenze_ist_der_naechste_termin_desselben_fahrzeugs():
+    buch, eintrag, _ = _buch_mit_folgetermin()
+    buch.verlaengert[(eintrag, MI)] = _um(19, 50)
+    assert terminbuch.verlaengern(buch, BERLIN, _um(19, 50), _weg) == [(eintrag, MI)]
+    assert buch.verlaengert[(eintrag, MI)] == _um(20)
+    assert terminbuch.verlaengern(buch, BERLIN, _um(20), _weg) == []
+
+
+def test_die_grenze_sind_zwoelf_stunden_und_andere_fahrzeuge_zaehlen_nicht():
+    buch, neue_id = terminbuch.Buch(), _ids()
+    _, (eintrag,) = terminbuch.anlegen(buch, _werte(wiederholung="once"), neue_id)
+    terminbuch.anlegen(buch, _werte(abfahrt="2026-09-16T19:00:00", wiederholung="once", fahrzeug="auto-2"), neue_id)
+    buch.verlaengert[(eintrag, MI)] = datetime(2026, 9, 17, 5, 55, tzinfo=BERLIN)
+    assert terminbuch.verlaengern(buch, BERLIN, datetime(2026, 9, 17, 5, 55, tzinfo=BERLIN), _weg) == [(eintrag, MI)]
+    assert buch.verlaengert[(eintrag, MI)] == datetime(2026, 9, 17, 6, 0, tzinfo=BERLIN)  # 18:00 + 12 h
+    assert terminbuch.verlaengern(buch, BERLIN, datetime(2026, 9, 17, 6, 0, tzinfo=BERLIN), _weg) == []
+
+
+def test_ein_ignorierter_naechster_termin_ist_keine_grenze():
+    buch, eintrag, folge = _buch_mit_folgetermin()
+    buch.ignoriert.add((folge, MI))
+    buch.verlaengert[(eintrag, MI)] = _um(19, 50)
+    terminbuch.verlaengern(buch, BERLIN, _um(19, 50), _weg)
+    assert buch.verlaengert[(eintrag, MI)] == _um(20, 5)
+
+
+def test_eine_eigene_spaetere_rueckkehr_schlaegt_die_verlaengerung():
+    buch, _, eintrag = _buch_mit_serie()
+    buch.verlaengert[(eintrag, MI)] = _um(17)
+    (termin,) = terminbuch.ausrollen(buch, BERLIN, _um(12), _um(12, 1))
+    assert termin.rueckkehr == _um(18)
+
+
+def test_die_verlaengerte_rueckkehr_gilt_fuer_ignorieren_und_heimkehr_ohne_fenster():
+    buch, _, eintrag = _buch_mit_serie(fahrer="person.ela")
+    buch.verlaengert[(eintrag, MI)] = _um(18, 30)
+    assert terminbuch.heimkehr(buch, BERLIN, _um(18, 10), fahrer="person.ela") == [(eintrag, MI)]
+    terminbuch.ignorieren(buch, eintrag, MI, True, _um(18, 10), BERLIN)
+    assert buch.ignoriert == {(eintrag, MI)}
+    assert terminbuch.ignoriert_bereinigen(buch, _um(18, 10), BERLIN) is False
+
+
+def test_waehrend_der_verlaengerung_gilt_das_fenster_nicht():
+    """C13-Spec Abschnitt 5: auch eine Heimkehr kurz nach der geplanten Rueckkehr zaehlt."""
+    buch, _, eintrag = _buch_mit_serie()
+    buch.verlaengert[(eintrag, MI)] = _um(23)  # Dauer jetzt 15 h: 70 % laege bei 18:30
+    assert terminbuch.heimkehr(buch, BERLIN, _um(18, 5), fahrzeug="auto-1") == [(eintrag, MI)]
+
+
+def test_verlaengerungen_werden_aufgeraeumt_wenn_der_termin_nicht_mehr_laeuft():
+    buch, _, eintrag = _buch_mit_serie()
+    buch.verlaengert[(eintrag, MI)] = _um(18, 15)
+    assert terminbuch.verlaengert_bereinigen(buch, _um(18, 10), BERLIN) is False
+    assert terminbuch.verlaengert_bereinigen(buch, _um(18, 15), BERLIN) is True
+    assert buch.verlaengert == {}
+
+
+def test_die_speicherform_traegt_extended_nur_wenn_es_eine_gibt():
+    buch, _, eintrag = _buch_mit_serie()
+    assert "extended" not in buch.speicherform()
+    buch.verlaengert[(eintrag, MI)] = _um(18, 15)
+    gespeichert = buch.speicherform()["extended"]
+    assert gespeichert == [{"entry": eintrag, "date": "2026-09-16", "return": "2026-09-16T16:15:00+00:00"}]
+    assert terminbuch.Buch(buch.speicherform()).verlaengert == {(eintrag, MI): _um(18, 15)}

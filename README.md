@@ -171,6 +171,12 @@ ends a running trip at any time. The car's own plug entity and the charge point'
 on within 10 minutes; a car without its own plug entity counts on the charge point alone, as long
 as it is the only vehicle at that charge point. A public charger does not count.
 
+**Late back.** If a trip reaches its return while its car and driver are still away, it extends
+itself by 15 minutes at a time and shows "Away until 18:30 (extended)". It needs the same sources
+as above, at least one reporting a real state other than `home`; a tracker that is `unavailable`
+extends nothing. It never runs into the vehicle's next trip and never more than 12 hours past the
+planned return. Coming home or plugging in ends it.
+
 Without trips, Meteo-Volt plans without driving.
 
 ## Using it
