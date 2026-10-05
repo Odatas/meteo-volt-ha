@@ -151,13 +151,20 @@ opens the form.
 | Departure, return | The car is unavailable in between |
 | Repeat | Once, daily, every weekday, weekly, monthly or annually — on the weekday or date of the departure |
 | Round-trip distance (km) | Booked as consumption at the departure |
-| Vehicle, driver | Which car; the driver is for display and for the warning when one person is on the road with two cars at once |
+| Vehicle, driver | Which car; the driver is shown, warns when one person is on the road with two cars at once, and ends the trip early when they come home (see below) |
 | State of charge at departure (%) | Optional. A charging target for the departure |
 | Keep minimum SoC | Ticked by default. The car leaves with its minimum state of charge plus what the trip consumes, so it never comes back below the minimum. Untick it only if you can charge on the way |
 
 The form checks the input as you type and names the field. A recurring trip can be changed or
 deleted for this trip only, for this and all following, or for all. Every save, delete and cancel
 shows a message with **Undo** at the bottom. After every change the plan is recomputed.
+
+**Back home early.** A trip under way stops blocking charging as soon as the car or its driver
+comes home in the last 30 % of the trip — for a three-hour trip, the last hour. The car counts if
+its vehicle has a **Location** (a `device_tracker`), the driver if the trip has one; whichever
+arrives first wins. The trip is then ignored, exactly as with the **Back home** button, and the
+event `meteo_volt_trip_ignored` fires with `entry`, `date`, `vehicle` and `source`, for a
+notification of your own.
 
 Without trips, Meteo-Volt plans without driving.
 

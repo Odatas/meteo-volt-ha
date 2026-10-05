@@ -15,7 +15,7 @@ Jede Operation prueft zuerst und aendert dann: scheitert sie, bleibt das
 Buch, wie es war.
 
 Spec: meteo-volt-brain/docs/features/C3-konfig-entitaeten/spec.md, Abschnitte 2.1, 2.2 und 3
-      meteo-volt-brain/docs/features/C9-termine-im-alltag/spec.md, Abschnitte 2 und 3
+      meteo-volt-brain/docs/features/C9-termine-im-alltag/spec.md, Abschnitte 2, 3 und 8
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ import copy
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from datetime import date, datetime, tzinfo
+from datetime import date, datetime, timedelta, tzinfo
 
 from . import termine
 from .pruefungen import (
@@ -54,6 +54,11 @@ MAX_SCHRITTE = 50
 RISIKO = "risk"
 EINTRAEGE = "entries"
 IGNORIERT = "ignored"  # C9R-Spec Abschnitt 3
+
+# C9Z-Spec Abschnitt 8.3: nur in den letzten 30 % eines Termins. Fest, siehe Karte C14.
+HEIMKEHR_AB_ANTEIL = 0.7
+ZU_HAUSE = "home"
+KEIN_ZUSTAND = ("unavailable", "unknown")
 
 
 @dataclass
@@ -346,6 +351,39 @@ def ignoriert_bereinigen(buch: Buch, jetzt: datetime, tz: tzinfo) -> bool:
             weg.add((eintrag_id, datum))
     buch.ignoriert -= weg
     return bool(weg)
+
+
+def heimgekehrt(alt: str | None, neu: str | None) -> bool:
+    """Ein echter Wechsel nach home. C9Z-Spec Abschnitt 8.3, Punkt 1.
+
+    Nicht aus home, nicht aus unavailable oder unknown und nicht ohne alten
+    Zustand: sonst loesten der Start und eine flatternde Cloud-Entitaet aus.
+    """
+    return neu == ZU_HAUSE and alt is not None and alt != ZU_HAUSE and alt not in KEIN_ZUSTAND
+
+
+def heimkehr(
+    buch: Buch, tz: tzinfo, jetzt: datetime, fahrzeug: str | None = None, fahrer: str | None = None
+) -> list[tuple[str, date]]:
+    """Die Termine, die eine Heimkehr ignoriert. C9Z-Spec Abschnitt 8.3, Punkte 2 bis 4.
+
+    fahrzeug: die subentry_id, deren Standort heimkam. fahrer: die Person, die
+    heimkam. Ohne beide keine. Nur laufende Termine in ihren letzten 30 %, die
+    noch nicht ignoriert sind.
+    """
+    if fahrzeug is None and fahrer is None:
+        return []
+    ergebnis = []
+    # Ein Termin, der jetzt laeuft, hat Rueckkehr nach jetzt und Abfahrt bis jetzt.
+    for termin in termine.ausrollen(list(buch.eintraege.values()), tz, jetzt, jetzt + timedelta(microseconds=1)):
+        if (fahrzeug is not None and termin.fahrzeug != fahrzeug) or (fahrer is not None and termin.fahrer != fahrer):
+            continue
+        if not termine.laeuft(termin, jetzt) or (termin.eintrag, termin.datum) in buch.ignoriert:
+            continue
+        ab = termine.utc(termin.abfahrt) + (termine.utc(termin.rueckkehr) - termine.utc(termin.abfahrt)) * HEIMKEHR_AB_ANTEIL
+        if termine.utc(jetzt) >= ab:
+            ergebnis.append((termin.eintrag, termin.datum))
+    return ergebnis
 
 
 def fahrzeuge_bereinigen(buch: Buch, fahrzeuge: set[str]) -> bool:

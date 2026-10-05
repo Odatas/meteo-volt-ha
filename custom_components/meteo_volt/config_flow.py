@@ -390,6 +390,10 @@ class FahrzeugSubentryFlow(ConfigSubentryFlow):
                 stammdaten.FELD_ANGESTECKT,
                 selector.EntitySelectorConfig(domain="binary_sensor"),
             ),
+            stammdaten.FELD_STANDORT: entitaet(
+                stammdaten.FELD_STANDORT,
+                selector.EntitySelectorConfig(domain="device_tracker"),
+            ),
             stammdaten.FELD_WIRKUNGSGRAD: (
                 vol.Optional(
                     stammdaten.FELD_WIRKUNGSGRAD,

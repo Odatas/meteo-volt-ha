@@ -481,3 +481,55 @@ def test_ohne_angabe_wird_ignoriert():
     buch, _, eintrag = _buch_mit_serie()
     terminbuch.ignorieren(buch, eintrag, MI, None, MI_MITTAG, BERLIN)
     assert buch.ignoriert == {(eintrag, MI)}
+
+
+# --- Heimkehr, Spec C9Z Abschnitt 8 ------------------------------------------------
+# Der Termin am MI laeuft 08:00 bis 18:00, zehn Stunden: die letzten 30 % beginnen um 15:00.
+
+
+@pytest.mark.parametrize(("alt", "neu", "erwartet"), [
+    ("not_home", "home", True),
+    ("Arbeit", "home", True),
+    ("home", "home", False),
+    ("unavailable", "home", False),
+    ("unknown", "home", False),
+    (None, "home", False),
+    ("home", "not_home", False),
+    ("not_home", None, False),
+])
+def test_nur_ein_echter_wechsel_nach_home_ist_eine_heimkehr(alt, neu, erwartet):
+    assert terminbuch.heimgekehrt(alt, neu) is erwartet
+
+
+def _um(stunde, minute=0):
+    return datetime(2026, 9, 16, stunde, minute, tzinfo=BERLIN)
+
+
+def test_nur_in_den_letzten_30_prozent():
+    buch, _, eintrag = _buch_mit_serie()
+    assert terminbuch.heimkehr(buch, BERLIN, _um(14, 59), fahrzeug="auto-1") == []
+    assert terminbuch.heimkehr(buch, BERLIN, _um(15), fahrzeug="auto-1") == [(eintrag, MI)]
+    assert terminbuch.heimkehr(buch, BERLIN, _um(17, 59), fahrzeug="auto-1") == [(eintrag, MI)]
+    assert terminbuch.heimkehr(buch, BERLIN, _um(18), fahrzeug="auto-1") == []
+
+
+def test_der_standort_trifft_nur_sein_fahrzeug_die_person_nur_ihre_termine():
+    buch, neue_id, eigener = _buch_mit_serie(fahrer="person.ela")
+    _, (fremder,) = terminbuch.anlegen(buch, _werte(fahrzeug="auto-2", fahrer="person.ela"), neue_id)
+    _, (ohne,) = terminbuch.anlegen(buch, _werte(fahrzeug="auto-2"), neue_id)
+    assert terminbuch.heimkehr(buch, BERLIN, _um(16), fahrzeug="auto-1") == [(eigener, MI)]
+    assert sorted(terminbuch.heimkehr(buch, BERLIN, _um(16), fahrer="person.ela")) == sorted(
+        [(eigener, MI), (fremder, MI)])
+    assert terminbuch.heimkehr(buch, BERLIN, _um(16), fahrer="person.anna") == []
+    assert set(terminbuch.heimkehr(buch, BERLIN, _um(16), fahrzeug="auto-2")) == {(fremder, MI), (ohne, MI)}
+
+
+def test_ein_schon_ignorierter_termin_kommt_nicht_noch_einmal():
+    buch, _, eintrag = _buch_mit_serie()
+    terminbuch.ignorieren(buch, eintrag, MI, True, _um(16), BERLIN)
+    assert terminbuch.heimkehr(buch, BERLIN, _um(16), fahrzeug="auto-1") == []
+
+
+def test_ohne_quelle_keine_heimkehr():
+    buch, _, _ = _buch_mit_serie()
+    assert terminbuch.heimkehr(buch, BERLIN, _um(16)) == []

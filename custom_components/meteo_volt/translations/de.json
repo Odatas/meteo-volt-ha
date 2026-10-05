@@ -104,7 +104,8 @@
               "data": {
                 "soc_entity": "Ladestand (%)",
                 "station_id": "Ladepunkt",
-                "plugged_entity": "Angesteckt"
+                "plugged_entity": "Angesteckt",
+                "location_entity": "Standort"
               },
               "data_description": {
                 "station_id": "Optional. Wenn gesetzt, lädt das Fahrzeug nur hier, sonst am zuerst angelegten Ladepunkt. Mehrere Fahrzeuge werden noch nicht gemeinsam geplant."
@@ -134,7 +135,8 @@
               "data": {
                 "soc_entity": "Ladestand (%)",
                 "station_id": "Ladepunkt",
-                "plugged_entity": "Angesteckt"
+                "plugged_entity": "Angesteckt",
+                "location_entity": "Standort"
               },
               "data_description": {
                 "station_id": "Optional. Wenn gesetzt, lädt das Fahrzeug nur hier, sonst am zuerst angelegten Ladepunkt. Mehrere Fahrzeuge werden noch nicht gemeinsam geplant."

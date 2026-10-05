@@ -43,11 +43,12 @@ FELD_SOC_ENTITAET = "soc_entity"
 # welcher von beiden gemeint ist.
 FELD_LADEPUNKT = "station_id"
 FELD_ANGESTECKT = "plugged_entity"
+FELD_STANDORT = "location_entity"  # C9Z-Spec Abschnitt 8.2
 
 # --- Formularabschnitte -----------------------------------------------------
 # HA liefert section-Felder verschachtelt unter ihrem Schluessel zurueck.
 #
-# Es gibt genau einen: die drei Entitaeten. Alles andere steht ohne Kasten und
+# Es gibt genau einen: die Entitaeten. Alles andere steht ohne Kasten und
 # ohne Ueberschrift -- entschieden am 2026-09-13 nach dem ersten Blick auf das
 # Fahrzeugformular: zu viel Text, zu viele Kaesten.
 
@@ -75,7 +76,7 @@ LADEPUNKT_AUFBAU = {
     None: (FELD_NAME, FELD_MAX_LEISTUNG, FELD_VERFUEGBAR),
 }
 
-# Das Fahrzeug: sieben Felder ohne Kasten, drei Entitaeten im Kasten.
+# Das Fahrzeug: sieben Felder ohne Kasten, vier Entitaeten im Kasten.
 # min_charge_kw fehlt -- seit schema_version 2 gibt es es im Kontrakt nicht mehr.
 FAHRZEUG_AUFBAU = {
     None: (
@@ -87,7 +88,7 @@ FAHRZEUG_AUFBAU = {
         FELD_WIRKUNGSGRAD,
         FELD_VERBRAUCH,
     ),
-    ABSCHNITT_ENTITAETEN: (FELD_SOC_ENTITAET, FELD_LADEPUNKT, FELD_ANGESTECKT),
+    ABSCHNITT_ENTITAETEN: (FELD_SOC_ENTITAET, FELD_LADEPUNKT, FELD_ANGESTECKT, FELD_STANDORT),
 }
 
 

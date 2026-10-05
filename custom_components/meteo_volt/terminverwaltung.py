@@ -50,6 +50,8 @@ SPEICHER_VERSION = 1
 SIGNAL_PANEL = f"{DOMAIN}_panel_{{}}"
 TERMINE = "appointments"
 STANDORT = "site"
+# C9Z-Spec Abschnitt 8.4: je Termin, den eine Heimkehr ignoriert.
+EVENT_HEIMKEHR = f"{DOMAIN}_trip_ignored"
 PLAN = "plan"
 PLANUNG = "planning"
 PREISE = "prices"
@@ -83,6 +85,7 @@ class Terminverwaltung:
         self._soc_entitaeten: set[str] = set()
         self._c6_entitaeten: set[str] = set()
         self._personen: set[str] = set()
+        self._standorte: dict[str, str] = {}  # device_tracker -> subentry_id, C9Z
         self._zustaende_abmelden: CALLBACK_TYPE | None = None
 
     # --- Start ------------------------------------------------------------------
@@ -220,6 +223,28 @@ class Terminverwaltung:
         """C9R-Spec Abschnitt 4: kein Schritt, plant aber neu wie einer. _nach_schritt bereinigt."""
         terminbuch.ignorieren(self.buch, eintrag_id, datum, ignoriert, dt_util.utcnow(), self.zeitzone())
         await self._nach_schritt()
+
+    async def _async_heimkehr(self, quelle: str) -> None:
+        """C9Z-Spec Abschnitt 8: die Quelle kam heim. Ignoriert, was passt, und meldet es."""
+        jetzt, tz = dt_util.utcnow(), self.zeitzone()
+        if quelle in self._standorte:
+            treffer = terminbuch.heimkehr(self.buch, tz, jetzt, fahrzeug=self._standorte[quelle])
+        else:
+            treffer = terminbuch.heimkehr(self.buch, tz, jetzt, fahrer=quelle)
+        if not treffer:
+            return
+        for eintrag_id, datum in treffer:
+            terminbuch.ignorieren(self.buch, eintrag_id, datum, True, jetzt, tz)
+        await self._nach_schritt()
+        geraete = self.geraete()
+        for eintrag_id, datum in treffer:
+            eintrag = self.buch.eintraege.get(eintrag_id) or {}
+            self.hass.bus.async_fire(EVENT_HEIMKEHR, {
+                "entry": eintrag_id,
+                "date": datum.isoformat(),
+                "vehicle": geraete.get(eintrag.get(termine.FAHRZEUG)),
+                "source": quelle,
+            })
 
     async def async_risiko_setzen(self, risiko: int) -> None:
         """Das Risiko ist kein Schritt (Spec Abschnitt 2.2)."""
@@ -361,7 +386,10 @@ class Terminverwaltung:
 
     @callback
     def _zustaende_bestellen(self) -> None:
-        """Ladestand-Entitaeten und Personen melden site, die drei Entitaeten aus C6 plan."""
+        """Ladestand-Entitaeten und Personen melden site, die drei Entitaeten aus C6 plan.
+
+        Personen und Standorte der Fahrzeuge melden ausserdem eine Heimkehr (C9Z).
+        """
         self._zustaende_abbestellen()
         register = er.async_get(self.hass)
         fahrzeuge = self.fahrzeugdaten()
@@ -370,13 +398,17 @@ class Terminverwaltung:
             if daten.get(stammdaten.FELD_SOC_ENTITAET)
         }
         self._personen = set(self.hass.states.async_entity_ids("person"))
+        self._standorte = {
+            daten[stammdaten.FELD_STANDORT]: fahrzeug_id for fahrzeug_id, daten in fahrzeuge.items()
+            if daten.get(stammdaten.FELD_STANDORT)
+        }
         self._c6_entitaeten = set()
         for fahrzeug_id in fahrzeuge:
             for plattform, schluessel in C6_WERTE:
                 entity_id = register.async_get_entity_id(plattform, DOMAIN, f"{DOMAIN}_{fahrzeug_id}_{schluessel}")
                 if entity_id:
                     self._c6_entitaeten.add(entity_id)
-        alle = sorted(self._soc_entitaeten | self._c6_entitaeten | self._personen)
+        alle = sorted(self._soc_entitaeten | self._c6_entitaeten | self._personen | set(self._standorte))
         if alle:
             self._zustaende_abmelden = async_track_state_change_event(self.hass, alle, self._zustand_geaendert)
 
@@ -389,6 +421,10 @@ class Terminverwaltung:
     @callback
     def _zustand_geaendert(self, event: Event[EventStateChangedData]) -> None:
         entity_id = event.data["entity_id"]
+        if entity_id in self._personen or entity_id in self._standorte:
+            alt, neu = event.data["old_state"], event.data["new_state"]
+            if terminbuch.heimgekehrt(None if alt is None else alt.state, None if neu is None else neu.state):
+                self.entry.async_create_task(self.hass, self._async_heimkehr(entity_id))
         if entity_id in self._soc_entitaeten:
             self._melden(STANDORT)
         if entity_id in self._c6_entitaeten:
