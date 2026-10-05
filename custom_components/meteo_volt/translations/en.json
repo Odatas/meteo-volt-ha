@@ -238,6 +238,10 @@
         "keep_min_soc": {
           "name": "Keep minimum SoC",
           "description": "Raises the departure to the minimum state of charge plus the trip. If the field is missing: on when creating, unchanged when editing."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Optional label of the appointment, at most 40 characters. If omitted when updating, the name stays; empty removes it."
         }
       }
     },
@@ -283,6 +287,10 @@
         "keep_min_soc": {
           "name": "Keep minimum SoC",
           "description": "Raises the departure to the minimum state of charge plus the trip. If the field is missing: on when creating, unchanged when editing."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Optional label of the appointment, at most 40 characters. If omitted when updating, the name stays; empty removes it."
         }
       }
     },
@@ -383,6 +391,9 @@
     },
     "strecke_fehlt": {
       "message": "Distance missing."
+    },
+    "name_zu_lang": {
+      "message": "The name can have at most 40 characters."
     },
     "strecke_negativ": {
       "message": "The distance cannot be negative."

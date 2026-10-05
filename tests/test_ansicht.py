@@ -135,7 +135,7 @@ def test_ein_termin_fuer_das_panel():
     assert eintrag == {
         "entry": "e1", "date": "2026-09-16", "vehicle": "geraet-1",
         "departure": "2026-09-16T14:00:00+02:00", "return": "2026-09-16T15:00:00+02:00",
-        "distance_km": 42, "driver": None, "soc": None, "keep_min_soc": False,
+        "distance_km": 42, "driver": None, "soc": None, "keep_min_soc": False, "name": None,
         "repeat": "once", "changed": False, "ignored": False, "extended": False,
         "planned_return": "2026-09-16T15:00:00+02:00",
         "plan": {"soc_at_departure": 57.0, "soc_after_trip": 58.0, "target_missing_kwh": None,
@@ -211,6 +211,14 @@ def test_der_termin_traegt_seinen_haken():
     (eintrag,) = ansicht.termine_ansicht([termin], [termin], _stand(), JETZT, {"auto-1": 15.0},
                                          {"auto-1": "geraet-1"}, set())
     assert eintrag["keep_min_soc"] is True
+
+
+def test_der_termin_traegt_seinen_namen():
+    """C12N-Spec Abschnitt 8.1."""
+    termin = _termin("2026-09-16T14:00:00", name="Zur Arbeit")
+    (eintrag,) = ansicht.termine_ansicht([termin], [termin], _stand(), JETZT, {"auto-1": 15.0},
+                                         {"auto-1": "geraet-1"}, set())
+    assert eintrag["name"] == "Zur Arbeit"
 
 
 def test_ein_verlaengerter_termin_traegt_extended():

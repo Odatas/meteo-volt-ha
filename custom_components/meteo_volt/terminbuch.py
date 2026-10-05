@@ -38,7 +38,7 @@ from .pruefungen import (
     fehler,
 )
 from .termine import (
-    ABFAHRT, AUSNAHMEN, BIS, DAUER, EINMALIG, FAHRER, FAHRZEUG, ID, LADESTAND, SICHERN, STRECKE,
+    ABFAHRT, AUSNAHMEN, BIS, DAUER, EINMALIG, FAHRER, FAHRZEUG, ID, LADESTAND, NAME, SICHERN, STRECKE,
     WIEDERHOLUNG,
 )
 
@@ -137,6 +137,7 @@ def _neuer_eintrag(kennung: str, werte: Werte) -> dict:
         FAHRER: werte.fahrer,
         LADESTAND: werte.ladestand,
         SICHERN: werte.sichern,
+        NAME: werte.name,
         BIS: None,
         AUSNAHMEN: {},
     }
@@ -144,7 +145,7 @@ def _neuer_eintrag(kennung: str, werte: Werte) -> dict:
 
 def _ausnahme(werte: Werte) -> dict:
     return {ABFAHRT: werte.abfahrt, DAUER: werte.dauer_min, STRECKE: werte.strecke_km,
-            FAHRER: werte.fahrer, LADESTAND: werte.ladestand, SICHERN: werte.sichern}
+            FAHRER: werte.fahrer, LADESTAND: werte.ladestand, SICHERN: werte.sichern, NAME: werte.name}
 
 
 def _mit_ausnahme(eintrag: dict, datum: date, werte: dict | None) -> dict:

@@ -116,7 +116,7 @@ svg.i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-widt
 .termin .zeit span { color: var(--mv-text2); font-size: 13px; }
 .termin .mitte { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .termin .z1 { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; }
-.termin .fzname { font-weight: 500; }
+.termin .fzname, .termin .tname { font-weight: 500; }
 .meta { color: var(--mv-text2); display: inline-flex; align-items: center; gap: 4px; }
 .meta svg.i { width: 15px; height: 15px; }
 .plan { color: var(--mv-text2); }

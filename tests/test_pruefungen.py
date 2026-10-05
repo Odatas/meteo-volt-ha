@@ -87,6 +87,31 @@ def test_ohne_haken_feld_gilt_die_vorgabe():
         _felder(keep_min_soc=None), "auto-1", JETZT, BERLIN, vorgabe_sichern=False).sichern is False
 
 
+def test_der_name_wird_gekuerzt_und_leer_ist_keiner():
+    """C12N-Spec Abschnitt 8.1."""
+    assert _pruefen(name="  Zur Arbeit ").name == "Zur Arbeit"
+    assert _pruefen(name="   ").name is None
+    assert _pruefen(name="").name is None
+    assert _pruefen(name=None).name is None
+
+
+def test_ohne_namensfeld_gilt_die_vorgabe():
+    """Sonst naehme ein update_appointment ohne das Feld einem Termin still seinen Namen."""
+    assert _pruefen().name is None
+    assert pruefungen.werte_pruefen(_felder(), "auto-1", JETZT, BERLIN, vorgabe_name="Zur Arbeit").name == "Zur Arbeit"
+    # Steht das Feld, zaehlt es, auch leer.
+    assert pruefungen.werte_pruefen(
+        _felder(name=None), "auto-1", JETZT, BERLIN, vorgabe_name="Zur Arbeit").name is None
+    assert pruefungen.werte_pruefen(
+        _felder(name=""), "auto-1", JETZT, BERLIN, vorgabe_name="Zur Arbeit").name is None
+
+
+def test_ein_name_ueber_40_zeichen_ist_zu_lang():
+    assert _pruefen(name="x" * 40).name == "x" * 40
+    assert _pruefen(name=" " + "x" * 40 + " ").name == "x" * 40
+    _fehler("name_zu_lang", "name", name="x" * 41)
+
+
 def test_eine_zeit_mit_offset_wird_lokal():
     werte = _pruefen(departure="2026-09-17T06:00:00+00:00")
     assert werte.abfahrt == "2026-09-17T08:00:00"

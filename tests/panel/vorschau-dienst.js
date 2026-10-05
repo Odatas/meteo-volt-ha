@@ -38,15 +38,15 @@ export function dienst(optionen = {}) {
   // Wie der Store aus C3-Spec Abschnitt 3.
   let eintraege = optionen.ohneFahrzeug ? [] : [
     { id: 'e1', vehicle: 'buzz', departure: tag(-9, '07:30'), duration_min: 600, repeat: 'weekdays', distance_km: 45,
-      driver: 'person.patrick', soc: null, keep_min_soc: true, until: null,
-      exceptions: { [plusTage(heute, 2)]: { departure: tag(2, '07:30'), duration_min: 690, distance_km: 120, driver: 'person.patrick', soc: null }, [plusTage(heute, 6)]: null } },
+      driver: 'person.patrick', soc: null, keep_min_soc: true, name: 'Zur Arbeit', until: null,
+      exceptions: { [plusTage(heute, 2)]: { departure: tag(2, '07:30'), duration_min: 690, distance_km: 120, driver: 'person.patrick', soc: null, name: 'Kundentermin Köln' }, [plusTage(heute, 6)]: null } },
     // C12H: hinter dem Planende (Tag 7) und ueber Max-SoC -- 400 km brauchen voll.
     { id: 'e9', vehicle: 'buzz', departure: tag(9, '18:00'), duration_min: 245, repeat: 'once', distance_km: 400,
       driver: 'person.patrick', soc: null, keep_min_soc: true, until: null, exceptions: {} },
     { id: 'e2', vehicle: 'buzz', departure: tag(3, '10:00'), duration_min: 34 * 60, repeat: 'once', distance_km: 320,
       driver: 'person.anna', soc: 100, keep_min_soc: true, until: null, exceptions: {} },
     { id: 'e3', vehicle: 'zoe', departure: tag(0, '19:00'), duration_min: 270, repeat: 'once', distance_km: 90,
-      driver: 'person.anna', soc: 100, keep_min_soc: false, until: null, exceptions: {} },
+      driver: 'person.anna', soc: 100, keep_min_soc: false, name: 'Oma besuchen', until: null, exceptions: {} },
     { id: 'e4', vehicle: 'zoe', departure: tag(-8, '18:30'), duration_min: 150, repeat: 'weekly', distance_km: 25,
       driver: 'person.anna', soc: null, keep_min_soc: true, until: null, exceptions: {} },
     { id: 'e5', vehicle: 'zoe', departure: tag(3, '09:00'), duration_min: 180, repeat: 'once', distance_km: 30,
@@ -76,11 +76,11 @@ export function dienst(optionen = {}) {
         const ausnahme = e.exceptions[datum];
         if (ausnahme === null) continue;
         if (!regeldaten(start, e.repeat, datum, datum).length && !ausnahme) continue;
-        const w = ausnahme || { departure: datum + e.departure.slice(10), duration_min: e.duration_min, distance_km: e.distance_km, driver: e.driver, soc: e.soc, keep_min_soc: e.keep_min_soc };
+        const w = ausnahme || { departure: datum + e.departure.slice(10), duration_min: e.duration_min, distance_km: e.distance_km, driver: e.driver, soc: e.soc, keep_min_soc: e.keep_min_soc, name: e.name ?? null };
         const abfahrt = zuMs(w.departure, TZ);
         const rueckkehr = abfahrt + w.duration_min * MINUTE;
         if (rueckkehr <= von || abfahrt >= bis) continue;
-        liste.push({ e, datum, abfahrt, rueckkehr, km: w.distance_km, driver: w.driver, soc: w.soc, sichern: Boolean(w.keep_min_soc), changed: Boolean(ausnahme) });
+        liste.push({ e, datum, abfahrt, rueckkehr, km: w.distance_km, driver: w.driver, soc: w.soc, sichern: Boolean(w.keep_min_soc), name: 'name' in w ? w.name : (e.name ?? null), changed: Boolean(ausnahme) });
       }
     }
     return liste.sort((a, b) => a.abfahrt - b.abfahrt);
@@ -252,7 +252,7 @@ export function dienst(optionen = {}) {
       belegt.forEach((g) => hints.push({ type: 'driver_busy', vehicle: g }));
       return {
         entry: v.e.id, date: v.datum, vehicle: fz(v.e.vehicle).geraet, departure: iso(v.abfahrt), return: iso(v.rueckkehr),
-        distance_km: v.km, driver: v.driver, soc: v.soc, keep_min_soc: Boolean(v.sichern),
+        distance_km: v.km, driver: v.driver, soc: v.soc, keep_min_soc: Boolean(v.sichern), name: v.name,
         repeat: v.e.repeat, changed: v.changed, ignored: ignoriert.has(`${v.e.id}/${v.datum}`), plan: planwerte(v, jetzt), hints,
       };
     });
@@ -270,7 +270,7 @@ export function dienst(optionen = {}) {
   };
   const fahrzeugWerte = (f) => ({ soc_min_pct: f.min, capacity_kwh: f.kapazitaet,
     consumption_kwh_per_100km: f.verbrauch });
-  const werteAus = (d, vorgabe, vorgabeSichern = true) => {
+  const werteAus = (d, vorgabe, vorgabeSichern = true, vorgabeName = null) => {
     const f = fzGeraet(d.vehicle);
     if (!f) throw fehler('fahrzeug_unbekannt');
     const regel = d.repeat || vorgabe;
@@ -280,7 +280,9 @@ export function dienst(optionen = {}) {
     const erster = e.meldungen.find((m) => m.art === 'fehler');
     if (erster) throw fehler(erster.key);
     return { vehicle: f.id, departure: d.departure, duration_min: e.werte.dauerMin, repeat: regel, distance_km: Math.floor(Number(d.distance_km) + 0.5),
-      driver: d.driver || null, soc: d.soc ?? null, keep_min_soc: d.keep_min_soc ?? vorgabeSichern };
+      driver: d.driver || null, soc: d.soc ?? null, keep_min_soc: d.keep_min_soc ?? vorgabeSichern,
+      // C12N-Spec 8.1: fehlt name, bleibt er; leer loescht ihn.
+      name: 'name' in d ? (String(d.name ?? '').trim() || null) : vorgabeName };
   };
   const neu = (w) => {
     const e = { id: `e${naechsteId += 1}`, ...w, until: null, exceptions: {} };
@@ -298,8 +300,8 @@ export function dienst(optionen = {}) {
     const e = eintraege.find((x) => x.id === d.entry);
     if (!e) throw fehler('eintrag_unbekannt');
     // Fehlt keep_min_soc, bleibt der Haken des Termins (C10-Spec Abschnitt 8).
-    const bisher = (e.exceptions[d.date] ?? e).keep_min_soc;
-    const w = werteAus(d, e.repeat, Boolean(bisher));
+    const bisher = e.exceptions[d.date] ?? e;
+    const w = werteAus(d, e.repeat, Boolean(bisher.keep_min_soc), 'name' in bisher ? bisher.name : (e.name ?? null));
     const step = merken();
     const umfang = e.repeat === 'once' ? 'all' : d.scope || 'this';
     if (umfang === 'this') {
@@ -308,7 +310,7 @@ export function dienst(optionen = {}) {
         e.exceptions[d.date] = null;
         return { step, entries: [neu({ ...w, repeat: 'once' }).id, e.id], warnings: [] };
       }
-      e.exceptions[d.date] = { departure: w.departure, duration_min: w.duration_min, distance_km: w.distance_km, driver: w.driver, soc: w.soc, keep_min_soc: w.keep_min_soc };
+      e.exceptions[d.date] = { departure: w.departure, duration_min: w.duration_min, distance_km: w.distance_km, driver: w.driver, soc: w.soc, keep_min_soc: w.keep_min_soc, name: w.name };
       return { step, entries: [e.id], warnings: [] };
     }
     const erster = d.date <= e.departure.slice(0, 10);

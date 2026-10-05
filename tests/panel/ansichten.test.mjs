@@ -211,3 +211,40 @@ test('C13: ein verlaengerter laufender Termin sagt es in der Planzeile', () => {
   const ohne = String(fahrzeugHtml(kontext({ termine: [laufend({ plan: p })] }), fahrzeug));
   assert.ok(!ohne.includes('(verlängert)'));
 });
+
+// C12N-Spec Abschnitt 8.2
+const mitBlock = {
+  ...plan,
+  intervals: [{ from: iso(START + 4 * 15 * MIN), to: iso(START + 8 * 15 * MIN), kwh: 10, cost_eur: 1, avg_price_eur_kwh: 0.1,
+    soc_from_pct: 62, soc_to_pct: 75, reason: 'e1/2026-09-17/ziel' }],
+};
+
+test('C12N: der Name steht fett vorn, das Fahrzeug als Meta dahinter', () => {
+  const text = String(uebersichtHtml(kontext({ termine: [termin({ name: 'Zur Arbeit' })] })));
+  assert.ok(text.includes('<span class="tname">Zur Arbeit</span>'));
+  assert.ok(!text.includes('class="fzname"'));
+  assert.match(text, /class="tname">Zur Arbeit<\/span>\s*<span class="meta"><svg[^>]*>[\s\S]*?<\/svg>&lt;img src=x/, 'Name vor dem Fahrzeug');
+});
+
+test('C12N: ohne Namen bleibt die Zeile wie bisher', () => {
+  const text = String(uebersichtHtml(kontext()));
+  assert.ok(!text.includes('class="tname"'));
+  assert.ok(text.includes('class="fzname"'));
+});
+
+test('C12N: der Name wird escaped', () => {
+  const text = String(fahrzeugHtml(kontext({ termine: [termin({ name: BOESE })] }), fahrzeug));
+  assert.ok(text.includes('<span class="tname">&lt;img src=x onerror=alert(1)&gt;</span>'));
+});
+
+test('C12N: der Ladeblock nennt den Namen vor der Zeit, mit und ohne Ziel', () => {
+  const block = (felder, sp = 'de') => {
+    const z = kontext({ plan: mitBlock, termine: [termin(felder)] });
+    if (sp === 'en') z.f = formatierer('en', TZ);
+    return String(fahrzeugHtml(z, fahrzeug));
+  };
+  assert.ok(block({ name: 'Zur Arbeit' }).includes('für „Zur Arbeit“, Do 07:30'));
+  assert.ok(block({ name: 'Zur Arbeit', soc: 75 }).includes('für „Zur Arbeit“, Do 07:30, Ziel 75 %'));
+  assert.ok(block({}).includes('für Abfahrt Do 07:30'));
+  assert.ok(block({ name: 'Zur Arbeit' }, 'en').includes('for “Zur Arbeit”, Thu 07:30'));
+});

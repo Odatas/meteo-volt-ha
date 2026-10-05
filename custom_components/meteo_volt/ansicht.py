@@ -132,6 +132,7 @@ def termine_ansicht(
             "driver": termin.fahrer if termin.fahrer in personen else None,
             "soc": termin.ladestand,
             "keep_min_soc": termin.sichern,
+            "name": termin.name,
             "repeat": termin.wiederholung,
             "changed": termin.geaendert,
             "ignored": (termin.eintrag, termin.datum) in ignoriert,

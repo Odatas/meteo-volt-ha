@@ -205,11 +205,11 @@ class Terminverwaltung:
         jetzt = dt_util.utcnow()
         # Fehlt repeat, bleibt die Wiederholung. once waere hier eine stille Aenderung.
         # Fehlt keep_min_soc, bleibt der Haken dieses Termins -- aus der Ausnahme,
-        # wenn es eine gibt, sonst aus dem Eintrag (C10-Spec Abschnitt 8).
+        # wenn es eine gibt, sonst aus dem Eintrag (C10-Spec Abschnitt 8). Ebenso der Name (C12N).
         vorher = termine.termin_am(eintrag, datum, self.zeitzone())
         werte = pruefungen.werte_pruefen(
             felder, fahrzeug_id, jetzt, self.zeitzone(), eintrag[termine.WIEDERHOLUNG],
-            vorgabe_sichern=vorher.sichern)
+            vorgabe_sichern=vorher.sichern, vorgabe_name=vorher.name)
         schritt, eintraege = terminbuch.aendern(self.buch, eintrag_id, datum, umfang, werte, _neue_id)
         await self._nach_schritt()
         return {"step": schritt, "entries": eintraege, "warnings": self._warnungen(werte, eintraege[0], jetzt)}
