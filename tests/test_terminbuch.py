@@ -550,3 +550,71 @@ def test_das_ereignis_nennt_die_geraete_id_und_die_quelle():
     buch, _, eintrag = _buch_mit_serie()
     assert terminbuch.heimkehr_ereignisse(buch, [(eintrag, MI)], {"auto-1": "geraet-1"}, "person.ela") == [
         {"entry": eintrag, "date": "2026-09-16", "vehicle": "geraet-1", "source": "person.ela"}]
+
+
+# --- Eingesteckt an der eigenen Wallbox, Spec C9S Abschnitt 9 ------------------------
+
+from datetime import timedelta  # noqa: E402
+
+ZUORDNUNG = {"auto-1": "wb-1", "auto-2": "wb-2"}
+AUTO_STECKER = {"auto-1": "binary_sensor.golf", "auto-2": "binary_sensor.zoe"}
+WALLBOX_STECKER = {"wb-1": "binary_sensor.wb1", "wb-2": "binary_sensor.wb2"}
+
+
+@pytest.mark.parametrize(("alt", "neu", "erwartet"), [
+    ("off", "on", True), ("unavailable", "on", False), ("unknown", "on", False),
+    ("on", "on", False), (None, "on", False), ("on", "off", False),
+])
+def test_nur_off_nach_on_ist_einstecken(alt, neu, erwartet):
+    assert terminbuch.eingesteckt(alt, neu) is erwartet
+
+
+def _zu_hause(eingesteckt, quelle, zuordnung=ZUORDNUNG, auto=AUTO_STECKER, wallbox=WALLBOX_STECKER):
+    return terminbuch.eingesteckt_zu_hause(zuordnung, auto, wallbox, eingesteckt, quelle, _um(16))
+
+
+@pytest.mark.parametrize("abstand", [timedelta(0), timedelta(minutes=10)])
+def test_beide_stecker_binnen_zehn_minuten_in_beliebiger_reihenfolge(abstand):
+    jetzt = _um(16)
+    assert _zu_hause({"binary_sensor.golf": jetzt - abstand, "binary_sensor.wb1": jetzt}, "binary_sensor.wb1") == ["auto-1"]
+    assert _zu_hause({"binary_sensor.wb1": jetzt - abstand, "binary_sensor.golf": jetzt}, "binary_sensor.golf") == ["auto-1"]
+
+
+def test_eine_sekunde_ueber_zehn_minuten_oder_nur_ein_stecker_reicht_nicht():
+    jetzt = _um(16)
+    zu_lang = jetzt - timedelta(minutes=10, seconds=1)
+    assert _zu_hause({"binary_sensor.golf": zu_lang, "binary_sensor.wb1": jetzt}, "binary_sensor.wb1") == []
+    assert _zu_hause({"binary_sensor.golf": jetzt}, "binary_sensor.golf") == []
+    assert _zu_hause({"binary_sensor.wb1": jetzt}, "binary_sensor.wb1") == []
+
+
+def test_der_stecker_einer_fremden_wallbox_zaehlt_nicht():
+    jetzt = _um(16)
+    assert _zu_hause({"binary_sensor.golf": jetzt, "binary_sensor.wb2": jetzt}, "binary_sensor.wb2") == []
+
+
+def test_ohne_eigenen_stecker_reicht_die_wallbox_bei_einem_fahrzeug():
+    jetzt = _um(16)
+    allein = {"auto-1": "wb-1"}
+    assert _zu_hause({"binary_sensor.wb1": jetzt}, "binary_sensor.wb1", zuordnung=allein, auto={}) == ["auto-1"]
+    zwei = {"auto-1": "wb-1", "auto-2": "wb-1"}
+    assert _zu_hause({"binary_sensor.wb1": jetzt}, "binary_sensor.wb1", zuordnung=zwei, auto={}) == []
+
+
+def test_bei_zwei_fahrzeugen_trifft_der_eigene_stecker_nur_das_eigene():
+    jetzt = _um(16)
+    zwei = {"auto-1": "wb-1", "auto-2": "wb-1"}
+    eingesteckt = {"binary_sensor.zoe": jetzt - timedelta(minutes=3), "binary_sensor.wb1": jetzt}
+    assert _zu_hause(eingesteckt, "binary_sensor.wb1", zuordnung=zwei) == ["auto-2"]
+
+
+def test_ohne_stecker_am_ladepunkt_wirkt_es_nicht():
+    jetzt = _um(16)
+    assert _zu_hause({"binary_sensor.golf": jetzt}, "binary_sensor.golf", wallbox={}) == []
+
+
+def test_eingesteckt_zu_hause_ignoriert_auch_am_anfang_des_termins():
+    """C9S-Spec Abschnitt 9.4: das Fenster aus 8.3 gilt nicht."""
+    buch, _, eintrag = _buch_mit_serie()
+    assert terminbuch.heimkehr(buch, BERLIN, _um(8, 5), fahrzeug="auto-1", ab_anteil=0.0) == [(eintrag, MI)]
+    assert terminbuch.heimkehr(buch, BERLIN, _um(8, 5), fahrzeug="auto-1") == []

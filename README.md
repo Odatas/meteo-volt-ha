@@ -166,6 +166,11 @@ arrives first wins. The trip is then ignored, exactly as with the **Back home** 
 event `meteo_volt_trip_ignored` fires with `entry`, `date`, `vehicle` and `source`, for a
 notification of your own.
 
+**Plugged in at home.** If the charge point has a **Plugged in** entity, plugging the car into it
+ends a running trip at any time. The car's own plug entity and the charge point's must both switch
+on within 10 minutes; a car without its own plug entity counts on the charge point alone, as long
+as it is the only vehicle at that charge point. A public charger does not count.
+
 Without trips, Meteo-Volt plans without driving.
 
 ## Using it

@@ -70,10 +70,10 @@ ABSCHNITT_ENTITAETEN = "entitaeten"
 # None ist die oberste Ebene, dort ohne sections-Praefix. Die Reihenfolge
 # innerhalb eines Eintrags ist die Reihenfolge im Formular.
 
-# Der Ladepunkt: drei Felder. min_power_kw und phases liest meteovolt_planner
+# Der Ladepunkt: vier Felder, der Stecker aus C9S zuletzt. min_power_kw und phases liest meteovolt_planner
 # nicht (slots.py liest max_power_kw und available).
 LADEPUNKT_AUFBAU = {
-    None: (FELD_NAME, FELD_MAX_LEISTUNG, FELD_VERFUEGBAR),
+    None: (FELD_NAME, FELD_MAX_LEISTUNG, FELD_VERFUEGBAR, FELD_ANGESTECKT),  # C9S-Spec 9.2
 }
 
 # Das Fahrzeug: sieben Felder ohne Kasten, vier Entitaeten im Kasten.

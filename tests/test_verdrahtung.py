@@ -137,6 +137,33 @@ def test_ein_zustandswechsel_von_person_oder_standort_prueft_die_heimkehr():
 
 def test_die_heimkehr_geht_ueber_dieselbe_markierung_und_nach_schritt():
     methode = _methode("terminverwaltung.py", "_async_heimkehr")
-    for ziel in ("heimkehr_von", "ignorieren", "_nach_schritt", "heimkehr_ereignisse", "async_fire"):
-        assert _ruft(methode, ziel), ziel
+    assert _ruft(methode, "_heim_markieren")
     assert "self._standorte" in ast.unparse(_ruft(methode, "heimkehr_von")[0])
+    markieren = _methode("terminverwaltung.py", "_heim_markieren")
+    for ziel in ("ignorieren", "_nach_schritt", "heimkehr_ereignisse", "async_fire"):
+        assert _ruft(markieren, ziel), ziel
+
+
+# --- C9S: Einstecken an der eigenen Wallbox ----------------------------------------------
+
+
+def test_die_stecker_von_fahrzeugen_und_ladepunkten_werden_beobachtet():
+    quelle = ast.unparse(_methode("terminverwaltung.py", "_zustaende_bestellen"))
+    assert "standort.stecker_zuordnen(fahrzeuge, ladepunkte)" in quelle
+    assert "stammdaten.TYP_LADEPUNKT" in quelle
+    assert "| stecker)" in quelle
+
+
+def test_ein_einstecken_merkt_sich_die_zeit_und_prueft_die_wallbox():
+    methode = _methode("terminverwaltung.py", "_zustand_geaendert")
+    assert _ruft(methode, "eingesteckt") and _ruft(methode, "eingesteckt_zu_hause")
+    quelle = ast.unparse(methode)
+    assert "self._eingesteckt_um[entity_id] = jetzt" in quelle
+    assert "self._fahrzeug_stecker.values()" in quelle and "self._ladepunkt_stecker.values()" in quelle
+
+
+def test_eingesteckt_ignoriert_ohne_fenster_ueber_dieselbe_markierung():
+    methode = _methode("terminverwaltung.py", "_async_eingesteckt")
+    (aufruf,) = _ruft(methode, "heimkehr")
+    assert any(k.arg == "ab_anteil" and ast.unparse(k.value) == "0.0" for k in aufruf.keywords)
+    assert _ruft(methode, "_heim_markieren")

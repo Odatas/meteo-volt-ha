@@ -243,7 +243,7 @@ class LadepunktSubentryFlow(ConfigSubentryFlow):
     def _schema(self, vorgabe: dict[str, Any]) -> vol.Schema:
         """Das Formular, vorbelegt aus vorgabe.
 
-        Drei Felder, nichts eingeklappt. min_power_kw und phases fehlen:
+        Vier Felder, nichts eingeklappt. min_power_kw und phases fehlen:
         meteovolt_planner las sie nie, und seit schema_version 2 gibt es sie
         im Kontrakt nicht mehr (A5-Spec Abschnitt 7).
         """
@@ -274,6 +274,14 @@ class LadepunktSubentryFlow(ConfigSubentryFlow):
                     default=vor(stammdaten.FELD_VERFUEGBAR),
                 ),
                 bool,
+            ),
+            # C9S-Spec Abschnitt 9.2. suggested_value wie bei den Entitaeten des Fahrzeugs.
+            stammdaten.FELD_ANGESTECKT: (
+                vol.Optional(
+                    stammdaten.FELD_ANGESTECKT,
+                    description={"suggested_value": vorgabe.get(stammdaten.FELD_ANGESTECKT)},
+                ),
+                selector.EntitySelector(selector.EntitySelectorConfig(domain="binary_sensor")),
             ),
         }
         return _formular(stammdaten.LADEPUNKT_AUFBAU, bauplan)

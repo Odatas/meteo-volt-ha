@@ -60,6 +60,9 @@ HEIMKEHR_AB_ANTEIL = 0.7
 ZU_HAUSE = "home"
 KEIN_ZUSTAND = ("unavailable", "unknown")
 
+# C9S-Spec Abschnitt 9.3: so weit duerfen Stecker am Auto und am Ladepunkt auseinanderliegen.
+STECKER_VERSATZ = timedelta(minutes=10)
+
 
 @dataclass
 class Schritt:
@@ -363,13 +366,18 @@ def heimgekehrt(alt: str | None, neu: str | None) -> bool:
 
 
 def heimkehr(
-    buch: Buch, tz: tzinfo, jetzt: datetime, fahrzeug: str | None = None, fahrer: str | None = None
+    buch: Buch,
+    tz: tzinfo,
+    jetzt: datetime,
+    fahrzeug: str | None = None,
+    fahrer: str | None = None,
+    ab_anteil: float = HEIMKEHR_AB_ANTEIL,
 ) -> list[tuple[str, date]]:
     """Die Termine, die eine Heimkehr ignoriert. C9Z-Spec Abschnitt 8.3, Punkte 2 bis 4.
 
     fahrzeug: die subentry_id, deren Standort heimkam. fahrer: die Person, die
-    heimkam. Ohne beide keine. Nur laufende Termine in ihren letzten 30 %, die
-    noch nicht ignoriert sind.
+    heimkam. Ohne beide keine. Nur laufende Termine ab ab_anteil ihrer Dauer
+    (C9Z: die letzten 30 %, C9S: 0, also jederzeit), die noch nicht ignoriert sind.
     """
     if fahrzeug is None and fahrer is None:
         return []
@@ -380,7 +388,7 @@ def heimkehr(
             continue
         if not termine.laeuft(termin, jetzt) or (termin.eintrag, termin.datum) in buch.ignoriert:
             continue
-        ab = termine.utc(termin.abfahrt) + (termine.utc(termin.rueckkehr) - termine.utc(termin.abfahrt)) * HEIMKEHR_AB_ANTEIL
+        ab = termine.utc(termin.abfahrt) + (termine.utc(termin.rueckkehr) - termine.utc(termin.abfahrt)) * ab_anteil
         if termine.utc(jetzt) >= ab:
             ergebnis.append((termin.eintrag, termin.datum))
     return ergebnis
@@ -400,6 +408,46 @@ def heimkehr_von(
     for fahrzeug in sorted(standorte[quelle]):
         treffer += heimkehr(buch, tz, jetzt, fahrzeug=fahrzeug)
     return treffer
+
+
+def eingesteckt(alt: str | None, neu: str | None) -> bool:
+    """Nur off -> on, wie in C5. C9S-Spec Abschnitt 9.3."""
+    return alt == "off" and neu == "on"
+
+
+def eingesteckt_zu_hause(
+    zuordnung: dict[str, str],
+    fahrzeug_stecker: dict[str, str],
+    ladepunkt_stecker: dict[str, str],
+    eingesteckt_um: dict[str, datetime],
+    quelle: str,
+    jetzt: datetime,
+) -> list[str]:
+    """Die Fahrzeuge, die nach dem Einstecken an quelle zu Hause stecken. C9S-Spec Abschnitt 9.3.
+
+    zuordnung: Fahrzeug -> sein Ladepunkt nach C5. fahrzeug_stecker und
+    ladepunkt_stecker: die gesetzten Angesteckt-Entitaeten. eingesteckt_um: das
+    letzte off -> on je Entitaet, quelle eingeschlossen.
+    """
+    seit = jetzt - STECKER_VERSATZ
+    frisch = {entitaet for entitaet, um in eingesteckt_um.items() if seit <= um <= jetzt}
+    betroffen = [
+        fahrzeug for fahrzeug, ladepunkt in zuordnung.items()
+        if quelle in (fahrzeug_stecker.get(fahrzeug), ladepunkt_stecker.get(ladepunkt))
+    ]
+    zu_hause = []
+    for fahrzeug in sorted(betroffen):
+        ladepunkt = zuordnung[fahrzeug]
+        wallbox = ladepunkt_stecker.get(ladepunkt)
+        if wallbox is None or wallbox not in frisch:
+            continue
+        eigener = fahrzeug_stecker.get(fahrzeug)
+        if eigener is not None:
+            if eigener in frisch:
+                zu_hause.append(fahrzeug)
+        elif sum(1 for lp in zuordnung.values() if lp == ladepunkt) == 1:
+            zu_hause.append(fahrzeug)
+    return zu_hause
 
 
 def heimkehr_ereignisse(

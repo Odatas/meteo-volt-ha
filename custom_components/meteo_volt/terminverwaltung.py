@@ -86,6 +86,11 @@ class Terminverwaltung:
         self._c6_entitaeten: set[str] = set()
         self._personen: set[str] = set()
         self._standorte: dict[str, set[str]] = {}  # device_tracker -> subentry_ids, C9Z
+        # C9S: Fahrzeug -> Ladepunkt, die Stecker beider und das letzte Einstecken je Stecker.
+        self._zuordnung: dict[str, str] = {}
+        self._fahrzeug_stecker: dict[str, str] = {}
+        self._ladepunkt_stecker: dict[str, str] = {}
+        self._eingesteckt_um: dict[str, datetime] = {}
         self._zustaende_abmelden: CALLBACK_TYPE | None = None
 
     # --- Start ------------------------------------------------------------------
@@ -227,9 +232,19 @@ class Terminverwaltung:
     async def _async_heimkehr(self, quelle: str) -> None:
         """C9Z-Spec Abschnitt 8: die Quelle kam heim. Ignoriert, was passt, und meldet es."""
         jetzt, tz = dt_util.utcnow(), self.zeitzone()
-        treffer = terminbuch.heimkehr_von(self.buch, tz, jetzt, quelle, self._standorte)
+        await self._heim_markieren(terminbuch.heimkehr_von(self.buch, tz, jetzt, quelle, self._standorte), quelle)
+
+    async def _async_eingesteckt(self, quelle: str, fahrzeuge: list[str]) -> None:
+        """C9S-Spec Abschnitt 9.4: zu Hause eingesteckt. Jederzeit im Termin, ohne Fenster."""
+        jetzt, tz = dt_util.utcnow(), self.zeitzone()
+        treffer = [t for f in fahrzeuge for t in terminbuch.heimkehr(self.buch, tz, jetzt, fahrzeug=f, ab_anteil=0.0)]
+        await self._heim_markieren(treffer, quelle)
+
+    async def _heim_markieren(self, treffer: list[tuple[str, date]], quelle: str) -> None:
+        """Markiert wie der Knopf, plant einmal neu und meldet je Termin das Event (C9Z-Spec 8.4)."""
         if not treffer:
             return
+        jetzt, tz = dt_util.utcnow(), self.zeitzone()
         for eintrag_id, datum in treffer:
             terminbuch.ignorieren(self.buch, eintrag_id, datum, True, jetzt, tz)
         await self._nach_schritt()
@@ -389,13 +404,20 @@ class Terminverwaltung:
         }
         self._personen = set(self.hass.states.async_entity_ids("person"))
         self._standorte = stammdaten.standorte_von(fahrzeuge)
+        ladepunkte = {
+            subentry_id: dict(subentry.data) for subentry_id, subentry in self.entry.subentries.items()
+            if subentry.subentry_type == stammdaten.TYP_LADEPUNKT
+        }
+        self._zuordnung, self._fahrzeug_stecker, self._ladepunkt_stecker = standort.stecker_zuordnen(
+            fahrzeuge, ladepunkte)
         self._c6_entitaeten = set()
         for fahrzeug_id in fahrzeuge:
             for plattform, schluessel in C6_WERTE:
                 entity_id = register.async_get_entity_id(plattform, DOMAIN, f"{DOMAIN}_{fahrzeug_id}_{schluessel}")
                 if entity_id:
                     self._c6_entitaeten.add(entity_id)
-        alle = sorted(self._soc_entitaeten | self._c6_entitaeten | self._personen | set(self._standorte))
+        stecker = set(self._fahrzeug_stecker.values()) | set(self._ladepunkt_stecker.values())
+        alle = sorted(self._soc_entitaeten | self._c6_entitaeten | self._personen | set(self._standorte) | stecker)
         if alle:
             self._zustaende_abmelden = async_track_state_change_event(self.hass, alle, self._zustand_geaendert)
 
@@ -412,6 +434,16 @@ class Terminverwaltung:
             alt, neu = event.data["old_state"], event.data["new_state"]
             if terminbuch.heimgekehrt(None if alt is None else alt.state, None if neu is None else neu.state):
                 self.entry.async_create_task(self.hass, self._async_heimkehr(entity_id))
+        if entity_id in self._fahrzeug_stecker.values() or entity_id in self._ladepunkt_stecker.values():
+            alt, neu = event.data["old_state"], event.data["new_state"]
+            if terminbuch.eingesteckt(None if alt is None else alt.state, None if neu is None else neu.state):
+                jetzt = dt_util.utcnow()
+                self._eingesteckt_um[entity_id] = jetzt
+                fahrzeuge = terminbuch.eingesteckt_zu_hause(
+                    self._zuordnung, self._fahrzeug_stecker, self._ladepunkt_stecker,
+                    self._eingesteckt_um, entity_id, jetzt)
+                if fahrzeuge:
+                    self.entry.async_create_task(self.hass, self._async_eingesteckt(entity_id, fahrzeuge))
         if entity_id in self._soc_entitaeten:
             self._melden(STANDORT)
         if entity_id in self._c6_entitaeten:
