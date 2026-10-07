@@ -36,7 +36,8 @@ Ein Stand erreicht die Testinstanz als **GitHub-Prerelease**, nicht als kopierte
   Release mit demselben Namen nimmt stillschweigend den alten — egal, welches Target eingestellt
   ist. Löschen und neu anlegen geht nur, solange die Version noch niemand installiert hat;
   danach gilt: neue Nummer.
-- Die Beta-Linie läuft weiter, bis ihr `x.y.0` final erscheint. `1.1.0` ist noch offen.
+- Die Beta-Linie läuft weiter, bis ihr `x.y.0` final erscheint. Das finale Release legt der
+  Mensch nach dem Merge von `beta` auf `master` an: Pre-release aus, Latest an.
 
 Auf der Testinstanz meldet HACS Prereleases nur, wenn `switch.<name>_pre_release` an ist. Der
 ist von HACS aus deaktiviert und muss in Home Assistant erst aktiviert werden; ohne ihn steht
