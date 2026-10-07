@@ -39,6 +39,15 @@ async def async_setup_entry(
         MeteoVoltTimestampSensor(coordinator, entry.entry_id, "computed_at", "Computed At"),
     ])
 
+    # Spec C6 Abschnitt 8: die sechs zuerst, die Fahrzeugsensoren danach und
+    # abgeschirmt. Auch der Import steht im try: scheitert er, laufen die sechs.
+    try:
+        from .fahrzeugsensor import fahrzeugsensoren_anbinden
+
+        fahrzeugsensoren_anbinden(hass, entry, async_add_entities)
+    except Exception:  # pylint: disable=broad-except
+        _LOGGER.exception("Fahrzeugsensoren nicht angelegt, die Prognose laeuft weiter")
+
 
 class MeteoVoltBaseSensor(CoordinatorEntity, SensorEntity):
     """Base class for Meteo-Volt sensors to provide device info."""

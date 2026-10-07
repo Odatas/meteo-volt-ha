@@ -30,3 +30,7 @@ Thumbs.db
 # Secrets (falls je lokale Tokens/Configs abgelegt werden)
 .env
 secrets.yaml
+
+# Lokale Ueberschreibung fuer Tests gegen eine andere API.
+# Enthaelt eine nicht oeffentliche Adresse und gehoert nie ins Repo.
+const_overwrite.json

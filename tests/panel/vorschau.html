@@ -1,0 +1,84 @@
+<!doctype html>
+<!-- Vorschau des Panels mit nachgebautem hass und C3. Geht nicht an Nutzer. Spec C8 Abschnitt 11.
+     Aus der Wurzel des Repos ausliefern:  py -3 -m http.server 8765
+     dann http://localhost:8765/tests/panel/vorschau.html oeffnen. -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vorschau Meteo-Volt-Panel</title>
+<style>
+  :root { --primary-color: #03a9f4; --primary-background-color: #fafafa; --card-background-color: #ffffff;
+    --primary-text-color: #212121; --secondary-text-color: #727272; --divider-color: rgba(0, 0, 0, .12);
+    --error-color: #db4437; font-family: Roboto, "Segoe UI", system-ui, sans-serif; }
+  :root.dunkel { --primary-background-color: #111111; --card-background-color: #1c1c1c; --primary-text-color: #e1e1e1;
+    --secondary-text-color: #9b9b9b; --divider-color: rgba(225, 225, 225, .12); }
+  body { margin: 0; background: #e9ecef; color: #212121; }
+  .leiste { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 10px 16px; font: 14px system-ui, sans-serif; }
+  .leiste label { display: inline-flex; gap: 6px; align-items: center; }
+  .rahmen { margin: 0 auto 16px; background: var(--primary-background-color); box-shadow: 0 8px 28px rgba(0, 0, 0, .18); overflow: hidden; }
+  .rahmen.handy { width: 390px; height: 800px; border: 10px solid #2b2f33; border-radius: 40px; }
+  .rahmen.desktop { width: min(1280px, 100% - 32px); height: 780px; border-radius: 12px; }
+</style>
+<div class="leiste">
+  <label><input type="radio" name="geraet" value="handy" checked> Handy</label>
+  <label><input type="radio" name="geraet" value="desktop"> Desktop</label>
+  <label><input type="checkbox" id="englisch"> Englisch</label>
+  <label><input type="checkbox" id="dunkel"> Dunkel</label>
+  <label><input type="checkbox" id="ohneNetzentgelt"> Ohne Netzentgelt</label>
+  <label><input type="checkbox" id="ohneFahrzeug"> Ohne Fahrzeug</label>
+  <label><input type="checkbox" id="planFehler"> Planfehler</label>
+  <label><input type="checkbox" id="leseFehler"> Lesefehler</label>
+  <label><input type="checkbox" id="nichtGeladen"> Nicht geladen</label>
+</div>
+<div class="rahmen handy" id="rahmen"></div>
+<script type="module">
+  import '../../custom_components/meteo_volt/frontend/meteo-volt-panel.js';
+  import { dienst } from './vorschau-dienst.js';
+
+  const $ = (s) => document.querySelector(s);
+  const praefix = `${location.pathname}#`;
+  let panel = null;
+
+  function hassFuer(backend) {
+    return {
+      locale: { language: $('#englisch').checked ? 'en' : 'de' },
+      config: { time_zone: 'Europe/Berlin' },
+      themes: { darkMode: $('#dunkel').checked },
+      dockedSidebar: 'docked',
+      connection: {
+        sendMessagePromise: (msg) => backend.nachricht(msg),
+        subscribeMessage: (ruf, msg) => backend.abonnieren(ruf, msg),
+        addEventListener() {},
+        removeEventListener() {},
+      },
+    };
+  }
+
+  function aufbauen() {
+    const optionen = {};
+    for (const id of ['ohneNetzentgelt', 'ohneFahrzeug', 'planFehler', 'leseFehler', 'nichtGeladen']) optionen[id] = $(`#${id}`).checked;
+    document.documentElement.classList.toggle('dunkel', $('#dunkel').checked);
+    const backend = dienst(optionen);
+    $('#rahmen').replaceChildren();
+    panel = document.createElement('meteo-volt-panel');
+    panel.narrow = $('input[name="geraet"]:checked').value === 'handy';
+    panel.route = { prefix: praefix, path: location.hash.slice(1) };
+    panel.panel = { url_path: 'meteo-volt' };
+    panel.hass = hassFuer(backend);
+    $('#rahmen').appendChild(panel);
+  }
+
+  window.addEventListener('location-changed', () => {
+    panel.route = { prefix: praefix, path: location.hash.slice(1) };
+  });
+  window.addEventListener('hass-toggle-menu', () => console.info('hass-toggle-menu'));
+  for (const knopf of document.querySelectorAll('input[name="geraet"]')) {
+    knopf.addEventListener('change', () => {
+      $('#rahmen').className = `rahmen ${knopf.value}`;
+      panel.narrow = knopf.value === 'handy';
+    });
+  }
+  for (const id of ['englisch', 'dunkel', 'ohneNetzentgelt', 'ohneFahrzeug', 'planFehler', 'leseFehler', 'nichtGeladen']) {
+    $(`#${id}`).addEventListener('change', aufbauen);
+  }
+  aufbauen();
+</script>

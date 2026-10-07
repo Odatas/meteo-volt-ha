@@ -1,0 +1,153 @@
+# Die Actions der Termine, C3-Spec Abschnitt 5. Namen und Beschreibungen
+# stehen in den Uebersetzungen; die Felder hier muessen zu pruefungen.AKTIONEN
+# passen, das prueft tests/test_uebersetzungen.py. Jedes Feld ist optional,
+# geprueft wird im Backend.
+create_appointment:
+  fields:
+    vehicle:
+      selector:
+        device:
+          integration: meteo_volt
+    departure:
+      selector:
+        datetime:
+    return:
+      selector:
+        datetime:
+    repeat:
+      selector:
+        select:
+          options: [once, daily, weekdays, weekly, monthly, yearly]
+    distance_km:
+      selector:
+        number:
+          min: 0
+          max: 10000
+          unit_of_measurement: km
+          mode: box
+    driver:
+      selector:
+        entity:
+          domain: person
+    soc:
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+          mode: box
+    keep_min_soc:
+      selector:
+        boolean:
+
+update_appointment:
+  fields:
+    entry:
+      selector:
+        text:
+    date:
+      selector:
+        date:
+    scope:
+      selector:
+        select:
+          options: [this, following, all]
+    vehicle:
+      selector:
+        device:
+          integration: meteo_volt
+    departure:
+      selector:
+        datetime:
+    return:
+      selector:
+        datetime:
+    repeat:
+      selector:
+        select:
+          options: [once, daily, weekdays, weekly, monthly, yearly]
+    distance_km:
+      selector:
+        number:
+          min: 0
+          max: 10000
+          unit_of_measurement: km
+          mode: box
+    driver:
+      selector:
+        entity:
+          domain: person
+    soc:
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+          mode: box
+    keep_min_soc:
+      selector:
+        boolean:
+
+delete_appointment:
+  fields:
+    entry:
+      selector:
+        text:
+    date:
+      selector:
+        date:
+    scope:
+      selector:
+        select:
+          options: [this, following, all]
+
+cancel_appointments:
+  fields:
+    appointments:
+      selector:
+        object:
+    step:
+      selector:
+        text:
+
+undo:
+  fields:
+    step:
+      selector:
+        text:
+
+ignore_appointment:
+  fields:
+    entry:
+      selector:
+        text:
+    date:
+      selector:
+        date:
+    ignored:
+      selector:
+        boolean:
+
+set_risk:
+  fields:
+    risk:
+      required: true
+      selector:
+        select:
+          options: ["1", "2", "3"]
+    config_entry:
+      selector:
+        config_entry:
+          integration: meteo_volt
+
+replan:
+  fields:
+    config_entry:
+      selector:
+        config_entry:
+          integration: meteo_volt
+
+# Temporaer. Gehoert zur Dev-Action in dev.py und geht mit ihr.
+dev_plan:
+  name: Dev-Plan
+  description: Temporaer. Holt sofort einen Plan ueber den Standort-Koordinator und zeigt den Planstand.

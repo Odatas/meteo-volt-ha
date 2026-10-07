@@ -1,0 +1,138 @@
+{
+  "schema_version": 2,
+  "computed_at": "2026-08-18T22:00:00+02:00",
+  "model": "wx_syslag_2023",
+  "risk": 2,
+  "horizon_end": "2026-08-19T00:00:00+02:00",
+  "prices_known_until": "2026-08-18T22:45:00+02:00",
+  "slot_minutes": 15,
+  "site": {
+    "peak_power_kw": 11.0,
+    "total_kwh": 11.0,
+    "total_cost_eur": 1.36,
+    "feasible": true
+  },
+  "vehicles": [
+    {
+      "id": "auto-a",
+      "charge_now": true,
+      "charge_now_kw": 11.0,
+      "charge_now_station_id": "wb",
+      "current_slot_end": "2026-08-18T22:15:00+02:00",
+      "next_charge_start": "2026-08-18T23:15:00+02:00",
+      "slots": [
+        {
+          "t": "2026-08-18T22:00:00+02:00",
+          "charge": true,
+          "price": 0.0412,
+          "source": "epex",
+          "soc_end_pct": 51.46,
+          "station_id": "wb",
+          "kw": 11.0,
+          "kwh": 2.75,
+          "kwh_battery": 2.585,
+          "cost_eur": 0.1133,
+          "reason": "base"
+        },
+        {
+          "t": "2026-08-18T22:15:00+02:00",
+          "charge": true,
+          "price": 0.0409,
+          "source": "epex",
+          "soc_end_pct": 55.91,
+          "station_id": "wb",
+          "kw": 11.0,
+          "kwh": 2.75,
+          "kwh_battery": 2.585,
+          "cost_eur": 0.1125,
+          "reason": "base"
+        },
+        {
+          "t": "2026-08-18T22:30:00+02:00",
+          "charge": false,
+          "price": 0.0501,
+          "source": "epex",
+          "soc_end_pct": 55.91
+        },
+        {
+          "t": "2026-08-18T22:45:00+02:00",
+          "charge": false,
+          "price": 0.062,
+          "source": "epex",
+          "soc_end_pct": 55.91
+        },
+        {
+          "t": "2026-08-18T23:00:00+02:00",
+          "charge": false,
+          "price": 0.114,
+          "source": "forecast",
+          "soc_end_pct": 55.91
+        },
+        {
+          "t": "2026-08-18T23:15:00+02:00",
+          "charge": true,
+          "price": 0.198,
+          "source": "forecast",
+          "soc_end_pct": 60.37,
+          "station_id": "wb",
+          "kw": 11.0,
+          "kwh": 2.75,
+          "kwh_battery": 2.585,
+          "cost_eur": 0.5445,
+          "reason": "base"
+        },
+        {
+          "t": "2026-08-18T23:30:00+02:00",
+          "charge": true,
+          "price": 0.214,
+          "source": "forecast",
+          "soc_end_pct": 64.83,
+          "station_id": "wb",
+          "kw": 11.0,
+          "kwh": 2.75,
+          "kwh_battery": 2.585,
+          "cost_eur": 0.5885,
+          "reason": "base"
+        },
+        {
+          "t": "2026-08-18T23:45:00+02:00",
+          "charge": false,
+          "price": 0.226,
+          "source": "forecast",
+          "soc_end_pct": 64.83
+        }
+      ],
+      "intervals": [
+        {
+          "station_id": "wb",
+          "from": "2026-08-18T22:00:00+02:00",
+          "to": "2026-08-18T22:30:00+02:00",
+          "kwh": 5.5,
+          "cost_eur": 0.23,
+          "avg_price_eur_kwh": 0.0411,
+          "soc_from_pct": 47.0,
+          "soc_to_pct": 55.91,
+          "reason": "base"
+        },
+        {
+          "station_id": "wb",
+          "from": "2026-08-18T23:15:00+02:00",
+          "to": "2026-08-18T23:45:00+02:00",
+          "kwh": 5.5,
+          "cost_eur": 1.13,
+          "avg_price_eur_kwh": 0.206,
+          "soc_from_pct": 55.91,
+          "soc_to_pct": 64.83,
+          "reason": "base"
+        }
+      ],
+      "total_kwh": 11.0,
+      "total_cost_eur": 1.36,
+      "soc_end_pct": 64.83,
+      "feasible": true,
+      "violations": []
+    }
+  ],
+  "actions_required": [],
+  "warnings": []
+}

@@ -1,0 +1,148 @@
+{
+  "generated_by": "meteo-volt-brain/scripts/export_contract.py",
+  "do_not_edit": true,
+  "schema_version": 2,
+  "brain_commit": "9fd8963",
+  "files": {
+    "tests/fixtures/contract/drive_ready.request.json": {
+      "sha256": "2287b2b810f5f83f0250b89bfac43e4f72406f37a26f028bdd76a5a4a0d500ef",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/drive_ready.response.json": {
+      "sha256": "37513c15682c6a3aeb2345e39a9a320ee10f0214406cee035d25be11879000f4",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/errors/400_empty_window.problem.json": {
+      "sha256": "fc0a443c95f7f3d9f4d78ac7155dce1341d4464f541d54962155e637d399c782",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/errors/400_empty_window.request.json": {
+      "sha256": "b8d6a9baf8b5304a1415474419da4b6629bfe3c4c763ff2f7d61840368109b90",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/errors/400_naive_timestamp.problem.json": {
+      "sha256": "6030037bbfce7dcd9e7bbec1a0bf544db9868de745c1ac61cdd008b4e9586346",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/errors/400_naive_timestamp.request.json": {
+      "sha256": "bf08661c2de51fe58446672cea4ded4ccbac050c259372404c82343e4b32d482",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/errors/400_reserved_id.problem.json": {
+      "sha256": "0a85727889e79f05907206a03a3ad159a2a0614a5c9c5efa1e68a4115ffd33ca",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/errors/400_reserved_id.request.json": {
+      "sha256": "308c55abbedb4b2e585b700e2551c67b3e4ff6c0d0812fbeecc4f9615d482b44",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/errors/400_unknown_schema_version.problem.json": {
+      "sha256": "25647d8f40f573e75e16af54e9c7dfee728df6e9b05247d7efbbf22b3e11c7be",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/errors/400_unknown_schema_version.request.json": {
+      "sha256": "80303b5fe05b6f3119011f6309059cbed6a88e20e8478c19f091f683b50bb979",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/errors/404_unknown_model.problem.json": {
+      "sha256": "10b86dc8bfa949c1410fb57cf68c0a7f90d9fbe10864f63fd4c0f3629675f5bb",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/errors/404_unknown_model.request.json": {
+      "sha256": "4427d50d4d96ec0360758dd15681d2cf4d20151b107e251e0b78e322ed9dd716",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/errors/429_rate_limited.problem.json": {
+      "sha256": "71c0cfcba7a2ad7724f5c5680813fb25cb91ac1b43590bc81f5c972acf94fee0",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/errors/429_rate_limited.request.json": {
+      "sha256": "bd33431c361658020b7df53ce021811e611aacc77751791c70f756db007837e7",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/errors/503_no_snapshot.problem.json": {
+      "sha256": "b9f4ad9e3fe8b540fa552ddd03a0bf371780467500a81deccc1414d09d09a72c",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/errors/503_no_snapshot.request.json": {
+      "sha256": "bd33431c361658020b7df53ce021811e611aacc77751791c70f756db007837e7",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/full.request.json": {
+      "sha256": "bf3e060d4a8f71cd1f965e96251372c9a9ee2301c6a437dac129d153ecf13432",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/full.response.json": {
+      "sha256": "d2ad5f0ae4403ea14c137675881594c03e20b8575998e0f9b89df687225f569a",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/grid_fees.request.json": {
+      "sha256": "b3658d3cc62e3b4a4e755b9f0213dbadfd9ba8055b9455511e269e7a67e2457e",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/grid_fees.response.json": {
+      "sha256": "ce87820b710c8f931445d17cca2d21a1ede701d9b90cdddea7f96e05554abbc4",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/infeasible.request.json": {
+      "sha256": "6782de495742466672f49fcc8776a92dea55eab608fd77aeda2d5a6fecad6ac2",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/infeasible.response.json": {
+      "sha256": "8ee04d200c67ecdf3182b74c6eae58ba016dee3adbcd1acb17c1e4152b11c2b9",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/minimal.request.json": {
+      "sha256": "bd33431c361658020b7df53ce021811e611aacc77751791c70f756db007837e7",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/minimal.response.json": {
+      "sha256": "bd7a9bac2c7d539eb3cfacb33e6f69e73f0a907d665eedeb7d11ff999d3b0755",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/plan-error.schema.json": {
+      "sha256": "04cb12b241772b5b3264f9abf937085ea2268c05f3f80ff072062ebcae46d86d",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/plan-request.schema.json": {
+      "sha256": "784d69aa51309914557cc4cd1fef3c36426180555248281b6a030f5c7b860af3",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/plan-response.schema.json": {
+      "sha256": "7f8bce6d568b56ea2d7443755eed44b15269e84645f50a64af8cdadee5d318ac",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/rounding.request.json": {
+      "sha256": "bd33431c361658020b7df53ce021811e611aacc77751791c70f756db007837e7",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/rounding.response.json": {
+      "sha256": "3b4e8b03b2dd7d6eaaba9b11b54a0f60d5d0d051508a1513f0a0328437c3ab37",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/second_block.request.json": {
+      "sha256": "bd33431c361658020b7df53ce021811e611aacc77751791c70f756db007837e7",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/second_block.response.json": {
+      "sha256": "8501bfe672bae49481e8bba74a66681d9071cfe93af3456601538bc7ad02bccb",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/station_overbooked.request.json": {
+      "sha256": "0c6a9a739a5c7adf971718965c2141ef34eff8695f375d1449312e26c2ed1a6d",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/station_overbooked.response.json": {
+      "sha256": "e0a6b761feabecb5452a827af7bea5254b4043dce5cfd0d138fe9c652d18bb4c",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/unavailable.request.json": {
+      "sha256": "b4f7dbc10fd1db3bd220842943942138c8430131efdea4e18a1e3bd41d35b321",
+      "scope": "document"
+    },
+    "tests/fixtures/contract/unavailable.response.json": {
+      "sha256": "07f21508598f9e60937c155133f145c9a9b9bbada004b90b58357a0a1364aefb",
+      "scope": "document"
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "type": "https://api.meteo-volt.de/problems/snapshot-unavailable",
+  "title": "Planning unavailable",
+  "status": 503,
+  "detail": "Es liegt kein Prediction-Snapshot vor"
+}

@@ -1,0 +1,88 @@
+{
+  "x-meteo-volt-contract": {
+    "generated_by": "meteo-volt-brain/scripts/export_contract.py",
+    "do_not_edit": true,
+    "schema_version": 2,
+    "brain_commit": "9fd8963",
+    "sha256": "04cb12b241772b5b3264f9abf937085ea2268c05f3f80ff072062ebcae46d86d"
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "FieldError": {
+      "additionalProperties": false,
+      "description": "Ein einzelner Verstoss gegen den Kontrakt, auf ein Feld bezogen.",
+      "properties": {
+        "field": {
+          "description": "Pfad des beanstandeten Feldes, etwa vehicles[0].constraints[1].deadline. Betrifft der Fehler das Objekt als Ganzes, steht hier (root).",
+          "title": "Field",
+          "type": "string"
+        },
+        "problem": {
+          "description": "Kurzer Token, der benennt, was an diesem Feld nicht stimmt.",
+          "title": "Problem",
+          "type": "string"
+        },
+        "expected": {
+          "description": "Was an dieser Stelle erwartet wird. Der eingesandte Wert wird nie genannt.",
+          "title": "Expected",
+          "type": "string"
+        }
+      },
+      "required": [
+        "expected",
+        "field",
+        "problem"
+      ],
+      "title": "FieldError",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Ein Fehlerdokument im Problem-Details-Stil. Es nennt nie den eingesandten\nWert -- im Request stehen Ladestand und Fahrgewohnheiten.",
+  "properties": {
+    "type": {
+      "description": "URI, die den Fehlertyp benennt und ihn ueber alle Vorkommen hinweg identifiziert.",
+      "title": "Type",
+      "type": "string"
+    },
+    "title": {
+      "description": "Kurze Bezeichnung des Fehlertyps, fuer jeden Fall desselben Typs gleich.",
+      "title": "Title",
+      "type": "string"
+    },
+    "status": {
+      "description": "Der HTTP-Statuscode dieser Antwort.",
+      "title": "Status",
+      "type": "integer"
+    },
+    "detail": {
+      "description": "Was in diesem einen Fall schiefging, im Klartext.",
+      "title": "Detail",
+      "type": "string"
+    },
+    "errors": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/FieldError"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Die einzelnen Feldverstoesse. Fehlt ganz, wenn kein einzelnes Feld verantwortlich ist.",
+      "title": "Errors"
+    }
+  },
+  "required": [
+    "detail",
+    "status",
+    "title",
+    "type"
+  ],
+  "title": "ProblemDetails",
+  "type": "object"
+}
