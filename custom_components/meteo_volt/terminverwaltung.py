@@ -166,7 +166,7 @@ class Terminverwaltung:
         register = dr.async_get(self.hass)
         geraete = {}
         for fahrzeug_id in self.fahrzeugdaten():
-            geraet = register.async_get_device(identifiers={(DOMAIN, fahrzeug_id)})
+            geraet = register.async_get_device_by_identifier((DOMAIN, fahrzeug_id))
             if geraet is not None:
                 geraete[fahrzeug_id] = geraet.id
         return geraete
