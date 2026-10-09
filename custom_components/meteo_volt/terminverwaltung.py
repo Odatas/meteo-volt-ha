@@ -62,6 +62,9 @@ PREISE = "prices"
 # Die Entitaeten aus C6, aus denen meteo_volt/plan liest (C6-Spec Abschnitt 9).
 C6_WERTE = (("binary_sensor", "charge_now"), ("sensor", "charge_now_kw"), ("sensor", "next_charge_start"))
 
+# C3-Spec 7.1: Planstand, Zeitpunkt und Fragmente vor einem Schritt.
+Vorher = tuple[standort.Planstand, datetime, dict[str, dict]]
+
 
 def speicher_schluessel(entry_id: str) -> str:
     """Spec Abschnitt 3: ein Store je Standort."""
@@ -187,13 +190,19 @@ class Terminverwaltung:
         auswahl = terminbuch.ausrollen(self.buch, self.zeitzone(), jetzt, bis)
         return terminanfrage.fragmente(auswahl, self._fahrzeugwerte(), jetzt, self.buch.ignoriert), self.risiko
 
+    def _vorher(self, jetzt: datetime) -> Vorher:
+        """C3-Spec 7.1: festgehalten, bevor ein Schritt das Buch aendert."""
+        stand = self.koordinator.data
+        return stand, jetzt, self.fragmente(stand, jetzt)[0]
+
     # --- Schreiben, Spec Abschnitt 5 --------------------------------------------------------
 
     async def async_anlegen(self, fahrzeug_id: str, felder: dict) -> dict:
         jetzt = dt_util.utcnow()
         werte = pruefungen.werte_pruefen(felder, fahrzeug_id, jetzt, self.zeitzone())
+        vorher = self._vorher(jetzt)
         schritt, eintraege = terminbuch.anlegen(self.buch, werte, _neue_id)
-        await self._nach_schritt()
+        await self._nach_schritt(vorher)
         return {"step": schritt, "entry": eintraege[0], "warnings": self._warnungen(werte, eintraege[0], jetzt)}
 
     async def async_aendern(
@@ -206,32 +215,38 @@ class Terminverwaltung:
         # Fehlt repeat, bleibt die Wiederholung. once waere hier eine stille Aenderung.
         # Fehlt keep_min_soc, bleibt der Haken dieses Termins -- aus der Ausnahme,
         # wenn es eine gibt, sonst aus dem Eintrag (C10-Spec Abschnitt 8). Ebenso der Name (C12N).
-        vorher = termine.termin_am(eintrag, datum, self.zeitzone())
+        bisher = termine.termin_am(eintrag, datum, self.zeitzone())
         werte = pruefungen.werte_pruefen(
             felder, fahrzeug_id, jetzt, self.zeitzone(), eintrag[termine.WIEDERHOLUNG],
-            vorgabe_sichern=vorher.sichern, vorgabe_name=vorher.name)
+            vorgabe_sichern=bisher.sichern, vorgabe_name=bisher.name)
+        vorher = self._vorher(jetzt)
         schritt, eintraege = terminbuch.aendern(self.buch, eintrag_id, datum, umfang, werte, _neue_id)
-        await self._nach_schritt()
+        await self._nach_schritt(vorher)
         return {"step": schritt, "entries": eintraege, "warnings": self._warnungen(werte, eintraege[0], jetzt)}
 
     async def async_loeschen(self, eintrag_id: str, datum: date, umfang: str | None) -> dict:
+        vorher = self._vorher(dt_util.utcnow())
         schritt = terminbuch.loeschen(self.buch, eintrag_id, datum, umfang, _neue_id)
-        await self._nach_schritt()
+        await self._nach_schritt(vorher)
         return {"step": schritt}
 
     async def async_absagen(self, liste: list[tuple[str, date]], zu_schritt: str | None) -> dict:
+        vorher = self._vorher(dt_util.utcnow())
         schritt = terminbuch.absagen(self.buch, liste, zu_schritt, _neue_id)
-        await self._nach_schritt()
+        await self._nach_schritt(vorher)
         return {"step": schritt}
 
     async def async_rueckgaengig(self, schritt: str) -> None:
+        vorher = self._vorher(dt_util.utcnow())
         terminbuch.rueckgaengig(self.buch, schritt)
-        await self._nach_schritt()
+        await self._nach_schritt(vorher)
 
     async def async_ignorieren(self, eintrag_id: str, datum: date, ignoriert: bool | None) -> None:
         """C9R-Spec Abschnitt 4: kein Schritt, plant aber neu wie einer. _nach_schritt bereinigt."""
-        terminbuch.ignorieren(self.buch, eintrag_id, datum, ignoriert, dt_util.utcnow(), self.zeitzone())
-        await self._nach_schritt()
+        jetzt = dt_util.utcnow()
+        vorher = self._vorher(jetzt)
+        terminbuch.ignorieren(self.buch, eintrag_id, datum, ignoriert, jetzt, self.zeitzone())
+        await self._nach_schritt(vorher)
 
     async def _async_heimkehr(self, quelle: str) -> None:
         """C9Z-Spec Abschnitt 8: die Quelle kam heim. Ignoriert, was passt, und meldet es."""
@@ -249,9 +264,10 @@ class Terminverwaltung:
         if not treffer:
             return
         jetzt, tz = dt_util.utcnow(), self.zeitzone()
+        vorher = self._vorher(jetzt)
         for eintrag_id, datum in treffer:
             terminbuch.ignorieren(self.buch, eintrag_id, datum, True, jetzt, tz)
-        await self._nach_schritt()
+        await self._nach_schritt(vorher)
         for daten in terminbuch.heimkehr_ereignisse(self.buch, treffer, self.geraete(), quelle):
             self.hass.bus.async_fire(EVENT_HEIMKEHR, daten)
 
@@ -268,11 +284,13 @@ class Terminverwaltung:
     @callback
     def _verlaengern_pruefen(self, _jetzt: datetime) -> None:
         """C13-Spec Abschnitt 3, jede Minute."""
+        jetzt = dt_util.utcnow()
+        vorher = self._vorher(jetzt)
         verlaengert = terminbuch.verlaengern(
-            self.buch, self.zeitzone(), dt_util.utcnow(), lambda termin: terminbuch.ist_weg(
+            self.buch, self.zeitzone(), jetzt, lambda termin: terminbuch.ist_weg(
                 [self._zustand(q) for q in terminbuch.quellen_von(termin, self._standorte)]))
         if verlaengert:
-            self.entry.async_create_task(self.hass, self._nach_schritt())
+            self.entry.async_create_task(self.hass, self._nach_schritt(vorher))
 
     def _zustand(self, entity_id: str) -> str | None:
         zustand = self.hass.states.get(entity_id)
@@ -292,11 +310,16 @@ class Terminverwaltung:
         if meldung is not None:
             raise pruefungen.Terminfehler(meldung)
 
-    async def _nach_schritt(self) -> None:
+    async def _nach_schritt(self, vorher: Vorher) -> None:
         self._markierungen_bereinigen()
+        # C3-Spec 7.1: gespeichert und gemeldet wird jeder Schritt, geplant nur,
+        # wenn sich der Request aendert. Verglichen mit demselben Planstand und Zeitpunkt.
+        stand, jetzt, fragmente = vorher
+        neu = terminanfrage.neu_planen(stand, fragmente, self.fragmente(stand, jetzt)[0])
         await self._speichern()
         self._melden(TERMINE)
-        self.koordinator.termine_geaendert()
+        if neu:
+            self.koordinator.termine_geaendert()
 
     async def _speichern(self) -> None:
         """Sofort, nicht verzoegert (Spec Abschnitt 3)."""

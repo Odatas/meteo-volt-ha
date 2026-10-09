@@ -203,3 +203,43 @@ def test_start_und_jeder_schritt_bereinigen_auch_die_verlaengerungen(methode):
 def test_das_panel_bekommt_die_geplante_rueckkehr_der_verlaengerten_termine():
     (aufruf,) = _ruft(_methode("terminverwaltung.py", "termine_im_fenster"), "termine_ansicht")
     assert ast.unparse(aufruf.args[-1]) == "terminbuch.geplante_rueckkehr(self.buch, auswahl)"
+
+
+# --- C3P: neu planen nur, wenn sich der Request aendert ----------------------------------
+
+
+def _vor_dem_schritt() -> list[str]:
+    """Jede Methode, die _nach_schritt ruft."""
+    baum = ast.parse((INTEGRATION / "terminverwaltung.py").read_text(encoding="utf-8"))
+    return [k.name for k in ast.walk(baum) if isinstance(k, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and k.name != "_nach_schritt" and _ruft(k, "_nach_schritt")]
+
+
+def test_jeder_schritt_haelt_die_termin_teile_vor_seiner_aenderung_fest():
+    """C3-Spec 7.1: verglichen wird vor und nach dem Schritt.
+
+    Ein Vorher, das erst nach der Aenderung am Buch entsteht, gleicht dem Nachher
+    immer, und kein Schritt plante mehr neu.
+    """
+    methoden = _vor_dem_schritt()
+    assert len(methoden) >= 8, methoden
+    for name in methoden:
+        methode = _methode("terminverwaltung.py", name)
+        (vorher,) = _ruft(methode, "_vorher")
+        am_buch = [a.lineno for a in ast.walk(methode) if isinstance(a, ast.Call)
+                   and ast.unparse(a.func).startswith("terminbuch.")]
+        assert am_buch and all(vorher.lineno < zeile for zeile in am_buch), name
+        assert all(ast.unparse(a.args[0]) == "vorher" for a in _ruft(methode, "_nach_schritt")), name
+
+
+def test_jeder_schritt_speichert_und_meldet_geplant_wird_nur_bei_aenderung():
+    """C3-Spec 7.1: nur der Planlauf entfaellt."""
+    methode = _methode("terminverwaltung.py", "_nach_schritt")
+    assert _ruft(methode, "neu_planen")
+    bedingt = [k for k in ast.walk(methode) if isinstance(k, ast.If)]
+    assert any(_ruft(wenn, "termine_geaendert") for wenn in bedingt)
+    assert not any(_ruft(wenn, "_melden") or _ruft(wenn, "_speichern") for wenn in bedingt)
+    assert _ruft(methode, "_melden") and _ruft(methode, "_speichern")
+    quelle = ast.unparse(methode)
+    assert "self.fragmente(stand, jetzt)" in quelle
+    assert "self.koordinator.data" in ast.unparse(_methode("terminverwaltung.py", "_vorher"))
