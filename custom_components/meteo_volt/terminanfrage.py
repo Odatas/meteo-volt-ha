@@ -16,9 +16,13 @@ from __future__ import annotations
 
 from collections.abc import Collection
 from datetime import date, datetime, timedelta
+from typing import TYPE_CHECKING
 
 from . import ladereserve
 from .termine import Termin, utc
+
+if TYPE_CHECKING:
+    from .standort import Planstand
 
 # Ohne Plan wird so weit ausgerollt: die Laenge des Admin-Horizonts.
 AUSROLLEN_OHNE_PLAN = timedelta(days=14)
@@ -109,6 +113,20 @@ def fragmente(
                 "target_soc_pct": ziel,
             })
     return ergebnis
+
+
+def neu_planen(
+    stand: Planstand, vorher: dict[str, dict], nachher: dict[str, dict], *, gescheitert: bool
+) -> bool:
+    """Ob ein Schritt neu plant. C3-Spec Abschnitt 7.1.
+
+    Nur, wenn sich die Fragmente durch ihn aendern. Keine Feldliste: was nicht
+    in den Request geht, plant nicht neu. Ohne gueltigen Plan -- keiner da oder
+    der letzte Lauf gescheitert -- ist jeder Schritt ein neuer Versuch.
+    gescheitert meint einen Lauf, der mit einer Ausnahme endete: der laesst
+    den alten Planstand stehen, und dessen fehler bleibt None.
+    """
+    return gescheitert or stand.plan is None or stand.fehler is not None or vorher != nachher
 
 
 def _ziel(termin: Termin, werte: ladereserve.Fahrzeugwerte) -> float | None:
