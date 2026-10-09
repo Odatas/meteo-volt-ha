@@ -257,6 +257,16 @@ def test_following_an_einem_verlegten_termin_behaelt_die_uhrzeit_der_serie():
         "2026-09-21": {**_ausnahme("2026-09-22T09:00:00"), "name": "Y"}}
 
 
+def test_ein_neuer_tag_an_einem_verlegten_termin_behaelt_die_uhrzeit_der_serie():
+    """Di 22.09. 09:00 im Formular auf Mi 23.09. 09:00: die Serie wandert einen Tag und bleibt um 08:00."""
+    for umfang, beginn in (("all", "2026-09-15T08:00:00"), ("following", "2026-09-22T08:00:00")):
+        buch, neue_id, serie = _um_neun_verlegt("2026-09-22T09:00:00")
+        _, (neu, *_) = terminbuch.aendern(buch, serie, date(2026, 9, 21), umfang,
+                                         _werte("2026-09-23T09:00:00", wiederholung="weekly"), neue_id)
+        assert (buch.eintraege[neu]["departure"], buch.eintraege[neu]["exceptions"]) == (
+            beginn, {"2026-09-22": _ausnahme("2026-09-23T09:00:00")})
+
+
 def test_all_mit_neuer_uhrzeit_an_einem_verlegten_termin_nimmt_die_aus_dem_formular():
     """Nicht um dieselbe Spanne: 09:00 auf 10:00 gibt der Serie 10:00, nicht 09:00."""
     for verlegt, formular, ausnahmen in (
