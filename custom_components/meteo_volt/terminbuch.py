@@ -167,10 +167,10 @@ def _datum(text: str) -> date:
     return date.fromisoformat(text[:10])
 
 
-def _angezeigt(eintrag: dict, datum: date) -> date:
-    """Das Datum, das der Termin zeigt: bei einer geaenderten Ausnahme ihre Abfahrt."""
+def _angezeigt(eintrag: dict, datum: date) -> str:
+    """Die Abfahrt, die der Termin zeigt: bei einer geaenderten Ausnahme ihre."""
     werte = eintrag[AUSNAHMEN].get(datum.isoformat())
-    return datum if werte is None else _datum(werte[ABFAHRT])
+    return datum.isoformat() + eintrag[ABFAHRT][10:] if werte is None else werte[ABFAHRT]
 
 
 def _anwenden(
@@ -306,11 +306,15 @@ def aendern(
         neu[BIS] = eintrag[BIS]
     else:
         # Verschoben ist das Datum gegen das, das der Termin zeigt; entschieden
-        # am 2026-09-19. Um dieselben Tage wandern die uebrigen Termine.
-        verschiebung = _datum(werte.abfahrt) - _angezeigt(eintrag, datum)
+        # am 2026-09-19. Um dieselben Tage wandern die uebrigen Termine. Die
+        # Uhrzeit ebenso: die der Serie bleibt, solange das Formular die
+        # angezeigte traegt; entschieden am 2026-10-09.
+        angezeigt = _angezeigt(eintrag, datum)
+        verschiebung = _datum(werte.abfahrt) - _datum(angezeigt)
         tag = datum + verschiebung
         anker = datum if folgende else _datum(eintrag[ABFAHRT])
-        neu[ABFAHRT] = (anker + verschiebung).isoformat() + werte.abfahrt[10:]
+        uhrzeit = eintrag[ABFAHRT][10:] if werte.abfahrt[10:] == angezeigt[10:] else werte.abfahrt[10:]
+        neu[ABFAHRT] = (anker + verschiebung).isoformat() + uhrzeit
         if eintrag[BIS] is not None:
             neu[BIS] = (date.fromisoformat(eintrag[BIS]) + verschiebung).isoformat()
         if not verschiebung:
@@ -326,7 +330,7 @@ def aendern(
     if not termine.ist_regeldatum(neu, tag):
         einmalig = _neuer_eintrag(neue_id(), replace(werte, wiederholung=EINMALIG))
         aenderungen[einmalig[ID]] = einmalig
-    elif _datum(werte.abfahrt) != tag:
+    elif werte.abfahrt != tag.isoformat() + neu[ABFAHRT][10:]:
         neu[AUSNAHMEN][tag.isoformat()] = _ausnahme(werte)
     if folgende:
         aenderungen[eintrag_id] = _beendet(eintrag, datum)
