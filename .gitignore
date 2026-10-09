@@ -34,3 +34,11 @@ secrets.yaml
 # Lokale Ueberschreibung fuer Tests gegen eine andere API.
 # Enthaelt eine nicht oeffentliche Adresse und gehoert nie ins Repo.
 const_overwrite.json
+
+# Nur fuer die Entwicklung. Das Repo ist oeffentlich; was Endnutzer brauchen,
+# liegt in custom_components/. Plaene und Notizen gehoeren ins Brain.
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+docs/superpowers/
+.superpowers/
