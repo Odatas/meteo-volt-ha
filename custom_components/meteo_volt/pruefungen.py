@@ -31,6 +31,7 @@ STRECKE_FEHLT = "strecke_fehlt"
 STRECKE_NEGATIV = "strecke_negativ"
 LADESTAND_BEREICH = "ladestand_bereich"
 LADESTAND_UNTER_MIN = "ladestand_unter_min"
+NAME_ZU_LANG = "name_zu_lang"  # C12N-Spec Abschnitt 8.1
 # Die drei aus C10 stehen in ladereserve.py: dort entscheidet die Rechnung,
 # welcher gilt, und das Panel spiegelt dieselbe Reihenfolge.
 FAHRT_ZU_WEIT = ladereserve.FAHRT_ZU_WEIT
@@ -56,6 +57,7 @@ MELDUNGEN = {
     STRECKE_NEGATIV: (),
     LADESTAND_BEREICH: (),
     LADESTAND_UNTER_MIN: ("min",),
+    NAME_ZU_LANG: (),
     FAHRT_ZU_WEIT: ("km",),
     FAHRT_UNTER_MIN: ("min",),
     LADESTAND_OFFEN: (),
@@ -70,13 +72,16 @@ MELDUNGEN = {
     PLAN_GESTOPPT: (),
 }
 
+# So lang darf ein Name sein, C12N-Spec Abschnitt 8.1.
+NAME_LAENGE = 40
+
 # Der Fahrer wird so weit voraus geprueft, Spec Abschnitt 2.3.
 FAHRER_VORAUS = timedelta(weeks=8)
 
 # --- Die Actions und ihre Felder, Spec Abschnitt 5 ---------------------------
 
 TERMIN_FELDER = ("vehicle", "departure", "return", "repeat", "distance_km", "driver", "soc",
-                 "keep_min_soc")
+                 "keep_min_soc", "name")
 AKTIONEN = {
     "create_appointment": TERMIN_FELDER,
     "update_appointment": ("entry", "date", "scope", *TERMIN_FELDER),
@@ -124,6 +129,7 @@ class Werte:
     fahrer: str | None
     ladestand: float | None
     sichern: bool
+    name: str | None = None
 
 
 # --- Die Pruefung beim Speichern ----------------------------------------------
@@ -170,6 +176,7 @@ def werte_pruefen(
     tz: tzinfo,
     vorgabe_wiederholung: str = termine.EINMALIG,
     vorgabe_sichern: bool = True,
+    vorgabe_name: str | None = None,
 ) -> Werte:
     """Die Felder eines Termins, geprueft in der Reihenfolge der Tabelle 2.3.
 
@@ -180,6 +187,9 @@ def werte_pruefen(
     Fehlt keep_min_soc, gilt vorgabe_sichern -- beim Anlegen True, beim
     Aendern der bisherige Wert des Termins (C10-Spec Abschnitt 8). Sonst
     naehme ein Aendern ohne das Feld einem Termin still seine Sicherung.
+
+    Fehlt name, gilt vorgabe_name -- aus demselben Grund (C12N-Spec 8.1).
+    None oder Leerraum loeschen den Namen.
     """
     abfahrt_text = _lokal_text(felder.get("departure"), tz)
     rueckkehr_text = _lokal_text(felder.get("return"), tz)
@@ -208,6 +218,11 @@ def werte_pruefen(
     ladestand = felder.get("soc")
     if ladestand is not None and not 0 <= ladestand <= 100:
         raise fehler(LADESTAND_BEREICH, "soc")
+    name = vorgabe_name
+    if "name" in felder:
+        name = (felder["name"] or "").strip() or None
+    if name is not None and len(name) > NAME_LAENGE:
+        raise fehler(NAME_ZU_LANG, "name")
     return Werte(
         fahrzeug=fahrzeug,
         abfahrt=abfahrt_text,
@@ -218,6 +233,7 @@ def werte_pruefen(
         fahrer=felder.get("driver") or None,
         ladestand=None if ladestand is None else float(ladestand),
         sichern=vorgabe_sichern if felder.get(termine.SICHERN) is None else bool(felder[termine.SICHERN]),
+        name=name,
     )
 
 

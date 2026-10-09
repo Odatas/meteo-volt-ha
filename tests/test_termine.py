@@ -253,3 +253,31 @@ def test_eine_ausnahme_aus_der_zeit_vor_c10_hat_den_haken_nicht_gesetzt():
         "2026-09-17": {"departure": "2026-09-17T08:00:00", "duration_min": 600,
                        "distance_km": 42, "driver": None, "soc": None}})
     assert termine.termin_am(eintrag, date(2026, 9, 17), BERLIN).sichern is False
+
+
+# --- Der Name, C12N-Spec Abschnitt 8.1 ----------------------------------------
+
+_AUSNAHME = {"departure": "2026-09-17T08:00:00", "duration_min": 600, "distance_km": 42,
+             "driver": None, "soc": None}
+
+
+def test_ein_eintrag_ohne_das_feld_hat_keinen_namen():
+    assert termine.termin_am(_eintrag(), date(2026, 9, 16), BERLIN).name is None
+
+
+def test_der_name_des_eintrags_steht_am_termin():
+    eintrag = _eintrag(wiederholung="daily", name="Zur Arbeit")
+    assert termine.termin_am(eintrag, date(2026, 9, 16), BERLIN).name == "Zur Arbeit"
+
+
+def test_eine_ausnahme_traegt_ihren_eigenen_namen_auch_keinen():
+    eintrag = _eintrag(wiederholung="daily", name="Zur Arbeit", exceptions={
+        "2026-09-17": {**_AUSNAHME, "name": "Zahnarzt"},
+        "2026-09-18": {**_AUSNAHME, "departure": "2026-09-18T08:00:00", "name": None}})
+    assert termine.termin_am(eintrag, date(2026, 9, 17), BERLIN).name == "Zahnarzt"
+    assert termine.termin_am(eintrag, date(2026, 9, 18), BERLIN).name is None
+
+
+def test_eine_ausnahme_aus_der_zeit_vor_c12n_uebernimmt_den_namen_des_eintrags():
+    eintrag = _eintrag(wiederholung="daily", name="Zur Arbeit", exceptions={"2026-09-17": dict(_AUSNAHME)})
+    assert termine.termin_am(eintrag, date(2026, 9, 17), BERLIN).name == "Zur Arbeit"

@@ -49,6 +49,8 @@ export function oeffneTermin(panel, termin) {
         <button type="button" class="btn kopfspeichern" data-d="speichern">${f.t('speichern')}</button>
       </header>
       <div class="koerper">
+        <div class="feld"><label for="f-name">${f.t('f_name')}</label>
+          <input type="text" id="f-name" maxlength="40" placeholder="${f.t('f_optional')}" value="${termin && termin.name ? termin.name : ''}"></div>
         <div class="feld"><span class="label" id="l-ab">${f.t('f_abfahrt')}</span>
           <div class="paar"><input type="date" id="f-ab-datum" aria-labelledby="l-ab" value="${abfahrt.slice(0, 10)}"><input type="time" id="f-ab-zeit" aria-labelledby="l-ab" value="${abfahrt.slice(11, 16)}"></div></div>
         <div class="feld" id="feld-rueckkehr"><span class="label" id="l-zu">${f.t('f_rueckkehr')}</span>
@@ -94,6 +96,7 @@ export function oeffneTermin(panel, termin) {
     sichern: q('#f-sichern').checked,
     fahrzeug: q('#f-fahrzeug').value,
     fahrer: q('#f-fahrer').value || null,
+    name: q('#f-name').value.trim() || null,
   });
   const regelOptionen = () => {
     const bezug = (lese().abfahrt || abfahrt).slice(0, 10);
@@ -192,7 +195,7 @@ export function oeffneTermin(panel, termin) {
     if (!e.ok) return;
     const daten = {
       vehicle: w.fahrzeug, departure: w.abfahrt, return: w.rueckkehr, repeat: w.regel, distance_km: Number(w.km),
-      driver: w.fahrer, soc: w.soc === '' ? null : Number(w.soc), keep_min_soc: w.sichern,
+      driver: w.fahrer, soc: w.soc === '' ? null : Number(w.soc), keep_min_soc: w.sichern, name: w.name,
     };
     if (termin && termin.repeat !== 'once') oeffneUmfang(panel, 'speichern', termin, w, (umfang) => senden(daten, umfang));
     else senden(daten, null);
@@ -295,7 +298,7 @@ async function ueberschneidungPruefen(panel, daten, eintrag, schritt) {
   }
   const z = panel.kontext();
   const zeile = (t) => {
-    const unten = [t.repeat === 'once' ? f.t('ue_einmalig') : f.regelKurz(t.repeat, t.date), personName(z, t.driver)].filter(Boolean);
+    const unten = [t.name, t.repeat === 'once' ? f.t('ue_einmalig') : f.regelKurz(t.repeat, t.date), personName(z, t.driver)].filter(Boolean);
     return html`<label><input type="checkbox" checked data-entry="${t.entry}" data-date="${t.date}"><span class="num"><b>${f.tag(t.abfahrt)}</b> ${f.t('von_bis', { von: f.zeit(t.abfahrt), bis: f.zeit(t.rueckkehr) })}${f.t('trenner')}${f.t('km', { km: t.distance_km })}
       <small>${unten.join(f.t('trenner'))}</small></span></label>`;
   };

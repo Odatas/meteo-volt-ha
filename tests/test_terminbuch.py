@@ -61,7 +61,7 @@ def test_anlegen_legt_einen_eintrag_und_einen_schritt_an():
     assert buch.eintraege[eintrag] == {
         "id": eintrag, "vehicle": "auto-1", "departure": "2026-09-16T08:00:00", "duration_min": 600,
         "repeat": "weekdays", "distance_km": 42, "driver": None, "soc": None, "keep_min_soc": True,
-        "until": None, "exceptions": {}}
+        "name": None, "until": None, "exceptions": {}}
     assert len(buch.schritte) == 1
 
 
@@ -90,7 +90,7 @@ def test_this_legt_eine_ausnahme_an():
     assert eintraege == [eintrag]
     assert buch.eintraege[eintrag]["exceptions"] == {"2026-09-17": {
         "departure": "2026-09-17T09:00:00", "duration_min": 600, "distance_km": 7,
-        "driver": None, "soc": None, "keep_min_soc": True}}
+        "driver": None, "soc": None, "keep_min_soc": True, "name": None}}
     assert buch.eintraege[eintrag]["departure"] == "2026-09-16T08:00:00"
 
 
@@ -186,7 +186,7 @@ def test_all_mit_neuer_regel_setzt_die_ausnahmen_zurueck():
 
 def _ausnahme(abfahrt, strecke_km=42, keep_min_soc=True):
     return {"departure": abfahrt, "duration_min": 600, "distance_km": strecke_km,
-            "driver": None, "soc": None, "keep_min_soc": keep_min_soc}
+            "driver": None, "soc": None, "keep_min_soc": keep_min_soc, "name": None}
 
 
 def _verlegte_serie():
@@ -818,3 +818,20 @@ def test_der_request_traegt_die_wirksame_rueckkehr():
     werte = ladereserve.Fahrzeugwerte(soc_min_pct=15.0, capacity_kwh=58.0, consumption_kwh_per_100km=19.5)
     teil = terminanfrage.fragmente(auswahl, {"auto-1": werte}, _um(18, 10))["auto-1"]
     assert teil["constraints"][0]["to"] == "2026-09-16T18:30:00+02:00"
+
+
+# --- Der Name, C12N-Spec Abschnitt 8.1 ----------------------------------------
+
+
+def test_der_name_steht_im_eintrag_und_in_der_ausnahme():
+    buch, neue_id, eintrag = _buch_mit_serie(name="Zur Arbeit")
+    assert buch.eintraege[eintrag]["name"] == "Zur Arbeit"
+    terminbuch.aendern(buch, eintrag, DO, "this", _werte("2026-09-17T08:00:00", name="Zahnarzt"), neue_id)
+    assert buch.eintraege[eintrag]["exceptions"]["2026-09-17"]["name"] == "Zahnarzt"
+    assert buch.eintraege[eintrag]["name"] == "Zur Arbeit"
+
+
+def test_all_benennt_die_serie_um():
+    buch, neue_id, eintrag = _buch_mit_serie(name="Zur Arbeit")
+    terminbuch.aendern(buch, eintrag, MI, "all", _werte(name="Ins Büro"), neue_id)
+    assert buch.eintraege[eintrag]["name"] == "Ins Büro"

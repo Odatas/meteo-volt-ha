@@ -41,6 +41,7 @@ _FELDER = {
     "driver": _TEXT,
     "soc": _ZAHL,
     "keep_min_soc": vol.Any(None, cv.boolean),
+    "name": _TEXT,
     "entry": _TEXT,
     "date": _TEXT,
     "scope": vol.Any(None, vol.In(terminbuch.UMFAENGE)),

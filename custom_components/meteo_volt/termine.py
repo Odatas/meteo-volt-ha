@@ -55,8 +55,9 @@ LADESTAND = "soc"
 SICHERN = "keep_min_soc"  # der Haken "Min-SoC sichern", Spec C10 Abschnitt 3
 BIS = "until"  # lokales Datum, ab dem die Serie endet, oder None
 AUSNAHMEN = "exceptions"  # Datum -> None (abgesagt) oder die Werte unten
+NAME = "name"  # Text oder None, C12N-Spec Abschnitt 8.1
 
-AUSNAHME_FELDER = (ABFAHRT, DAUER, STRECKE, FAHRER, LADESTAND, SICHERN)
+AUSNAHME_FELDER = (ABFAHRT, DAUER, STRECKE, FAHRER, LADESTAND, SICHERN, NAME)
 
 
 def sichern_von(werte: dict) -> bool:
@@ -84,6 +85,7 @@ class Termin:
     wiederholung: str
     geaendert: bool  # eine geaenderte Ausnahme
     sichern: bool  # der Haken "Min-SoC sichern", Spec C10 Abschnitt 3
+    name: str | None = None  # C12N-Spec Abschnitt 8.1
 
 
 def lokal(text: str, tz: tzinfo) -> datetime:
@@ -221,10 +223,11 @@ def termin_am(eintrag: dict, datum: date, tz: tzinfo) -> Termin | None:
         return None
     werte = (eintrag.get(AUSNAHMEN) or {}).get(datum.isoformat())
     if werte is None:
-        # SICHERN getrennt: ein Eintrag von vor C10 traegt das Feld nicht,
-        # die uebrigen Felder sind Pflicht und sollen laut fehlen.
-        werte = {feld: eintrag[feld] for feld in AUSNAHME_FELDER if feld != SICHERN}
+        # SICHERN und NAME getrennt: ein Eintrag von vor C10 oder C12N traegt das
+        # Feld nicht, die uebrigen Felder sind Pflicht und sollen laut fehlen.
+        werte = {feld: eintrag[feld] for feld in AUSNAHME_FELDER if feld not in (SICHERN, NAME)}
         werte[SICHERN] = sichern_von(eintrag)
+        werte[NAME] = eintrag.get(NAME)
         werte[ABFAHRT] = datum.isoformat() + eintrag[ABFAHRT][10:]
         geaendert = False
     else:
@@ -242,6 +245,8 @@ def termin_am(eintrag: dict, datum: date, tz: tzinfo) -> Termin | None:
         wiederholung=eintrag[WIEDERHOLUNG],
         geaendert=geaendert,
         sichern=sichern_von(werte),
+        # Eine Ausnahme von vor C12N traegt keinen Namen und uebernimmt den des Eintrags.
+        name=werte[NAME] if NAME in werte else eintrag.get(NAME),
     )
 
 

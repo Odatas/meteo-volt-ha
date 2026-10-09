@@ -68,7 +68,10 @@ export function terminHtml(z, termin, mitFahrzeug, kopfDatum) {
   const zeitText = (ms) => (datumVon(ms, z.tz) === kopfDatum ? f.zeit(ms) : f.wochentagZeit(ms));
   const min = socMin(z, termin.vehicle);
   const z1 = [];
-  if (mitFahrzeug) z1.push(html`<span class="fzname">${fahrzeugTitel(z, termin.vehicle) ?? ''}</span>`);
+  // C12N-Spec 8.2: der Name steht fett vorn, das Fahrzeug rueckt dann als Meta dahinter.
+  if (termin.name) z1.push(html`<span class="tname">${termin.name}</span>`);
+  if (mitFahrzeug && termin.name) z1.push(html`<span class="meta">${symbol('auto')}${fahrzeugTitel(z, termin.vehicle) ?? ''}</span>`);
+  else if (mitFahrzeug) z1.push(html`<span class="fzname">${fahrzeugTitel(z, termin.vehicle) ?? ''}</span>`);
   const fahrer = termin.driver ? personName(z, termin.driver) : null;
   if (fahrer) z1.push(html`<span class="meta">${symbol('person')}${fahrer}</span>`);
   if (termin.repeat !== 'once') {
@@ -147,6 +150,8 @@ export function bloeckeHtml(z, fz, bloecke) {
     if (!t) return null;
     const abfahrt = f.wochentagZeit(t.abfahrt);
     const soc = blockZiel(t, fz);
+    // C12N-Spec 8.2: mit Namen steht er vor der Zeit.
+    if (t.name) return soc === null ? f.t('grund_name', { name: t.name, abfahrt }) : f.t('grund_name_ziel', { name: t.name, abfahrt, soc: f.prozent(soc) });
     return soc === null ? f.t('grund_abfahrt', { abfahrt }) : f.t('grund_ziel', { abfahrt, soc: f.prozent(soc) });
   };
   const info = (b) => [

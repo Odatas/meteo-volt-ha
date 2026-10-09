@@ -238,6 +238,10 @@
         "keep_min_soc": {
           "name": "Min-SoC sichern",
           "description": "Hebt die Abfahrt auf den Min-SoC plus den Verbrauch der Fahrt. Fehlt das Feld, beim Anlegen an, beim Ändern wie bisher."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Optionale Bezeichnung des Termins, höchstens 40 Zeichen. Fehlt das Feld beim Ändern, bleibt der Name; leer löscht ihn."
         }
       }
     },
@@ -283,6 +287,10 @@
         "keep_min_soc": {
           "name": "Min-SoC sichern",
           "description": "Hebt die Abfahrt auf den Min-SoC plus den Verbrauch der Fahrt. Fehlt das Feld, beim Anlegen an, beim Ändern wie bisher."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Optionale Bezeichnung des Termins, höchstens 40 Zeichen. Fehlt das Feld beim Ändern, bleibt der Name; leer löscht ihn."
         }
       }
     },
@@ -383,6 +391,9 @@
     },
     "strecke_fehlt": {
       "message": "Strecke fehlt."
+    },
+    "name_zu_lang": {
+      "message": "Der Name darf höchstens 40 Zeichen haben."
     },
     "strecke_negativ": {
       "message": "Die Strecke kann nicht negativ sein."
