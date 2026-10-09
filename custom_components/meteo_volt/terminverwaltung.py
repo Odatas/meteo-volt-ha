@@ -315,7 +315,9 @@ class Terminverwaltung:
         # C3-Spec 7.1: gespeichert und gemeldet wird jeder Schritt, geplant nur,
         # wenn sich der Request aendert. Verglichen mit demselben Planstand und Zeitpunkt.
         stand, jetzt, fragmente = vorher
-        neu = terminanfrage.neu_planen(stand, fragmente, self.fragmente(stand, jetzt)[0])
+        neu = terminanfrage.neu_planen(
+            stand, fragmente, self.fragmente(stand, jetzt)[0],
+            gescheitert=not self.koordinator.last_update_success)
         await self._speichern()
         self._melden(TERMINE)
         if neu:

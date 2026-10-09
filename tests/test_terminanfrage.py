@@ -268,11 +268,12 @@ ZWEI_AUTOS = {"auto-1": AUTO, "auto-2": AUTO}
 
 
 def test_gleiche_termin_teile_planen_nicht_neu():
-    assert terminanfrage.neu_planen(GUELTIG, _fragmente(FAHRT), _fragmente(dict(FAHRT))) is False
+    assert terminanfrage.neu_planen(GUELTIG, _fragmente(FAHRT), _fragmente(dict(FAHRT)), gescheitert=False) is False
 
 
 def test_geaenderte_termin_teile_planen_neu():
-    assert terminanfrage.neu_planen(GUELTIG, _fragmente(FAHRT), _fragmente({**FAHRT, "distance_km": 50})) is True
+    nachher = _fragmente({**FAHRT, "distance_km": 50})
+    assert terminanfrage.neu_planen(GUELTIG, _fragmente(FAHRT), nachher, gescheitert=False) is True
 
 
 @pytest.mark.parametrize("stand", [
@@ -281,7 +282,13 @@ def test_geaenderte_termin_teile_planen_neu():
 ], ids=["kein Plan", "letzter Lauf gescheitert"])
 def test_ohne_gueltigen_plan_plant_jeder_schritt(stand):
     teile = _fragmente(FAHRT)
-    assert terminanfrage.neu_planen(stand, teile, teile) is True
+    assert terminanfrage.neu_planen(stand, teile, teile, gescheitert=False) is True
+
+
+def test_nach_einem_lauf_mit_ausnahme_plant_jeder_schritt():
+    """Review C3P: eine Ausnahme ausser PlanFehler laesst den alten Planstand stehen, fehler bleibt None."""
+    teile = _fragmente(FAHRT)
+    assert terminanfrage.neu_planen(GUELTIG, teile, teile, gescheitert=True) is True
 
 
 @pytest.mark.parametrize(("feld", "wert"), [("name", "Zur Arbeit"), ("driver", "person.anna")])

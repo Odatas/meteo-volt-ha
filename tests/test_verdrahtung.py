@@ -235,9 +235,14 @@ def test_jeder_schritt_haelt_die_termin_teile_vor_seiner_aenderung_fest():
 def test_jeder_schritt_speichert_und_meldet_geplant_wird_nur_bei_aenderung():
     """C3-Spec 7.1: nur der Planlauf entfaellt."""
     methode = _methode("terminverwaltung.py", "_nach_schritt")
-    assert _ruft(methode, "neu_planen")
+    (aufruf,) = _ruft(methode, "neu_planen")
+    gescheitert = {k.arg: ast.unparse(k.value) for k in aufruf.keywords}.get("gescheitert")
+    assert gescheitert == "not self.koordinator.last_update_success"
+    (zuweisung,) = [k for k in ast.walk(methode) if isinstance(k, ast.Assign) and k.value is aufruf]
     bedingt = [k for k in ast.walk(methode) if isinstance(k, ast.If)]
-    assert any(_ruft(wenn, "termine_geaendert") for wenn in bedingt)
+    # Review C3P: die Bedingung selbst, sonst bliebe ein "if not neu" gruen.
+    (wenn,) = [w for w in bedingt if _ruft(w, "termine_geaendert")]
+    assert ast.unparse(wenn.test) == ast.unparse(zuweisung.targets[0])
     assert not any(_ruft(wenn, "_melden") or _ruft(wenn, "_speichern") for wenn in bedingt)
     assert _ruft(methode, "_melden") and _ruft(methode, "_speichern")
     quelle = ast.unparse(methode)
