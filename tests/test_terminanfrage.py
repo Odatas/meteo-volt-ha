@@ -18,6 +18,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import jsonschema
+import pytest
 
 WURZEL = Path(__file__).resolve().parents[1]
 INTEGRATION = WURZEL / "custom_components" / "meteo_volt"
@@ -257,3 +258,59 @@ def test_bei_null_kilometern_sichert_der_haken_den_min_soc():
 def test_eine_abfahrt_in_der_vergangenheit_bekommt_auch_mit_haken_kein_ziel():
     teil = _fragmente(_eintrag("e1", "2026-09-16T08:00:00", sichern=True, km=175))["auto-1"]
     assert _ziel(teil) is None
+
+
+# --- C3P: neu planen nur, wenn sich der Request aendert, Spec Abschnitt 7.1 -------------
+
+GUELTIG = standort.Planstand(plan={"horizon_end": BIS.isoformat()})
+FAHRT = _eintrag("e1", "2026-09-17T08:00:00", sichern=True)
+ZWEI_AUTOS = {"auto-1": AUTO, "auto-2": AUTO}
+
+
+def test_gleiche_termin_teile_planen_nicht_neu():
+    assert terminanfrage.neu_planen(GUELTIG, _fragmente(FAHRT), _fragmente(dict(FAHRT)), gescheitert=False) is False
+
+
+def test_geaenderte_termin_teile_planen_neu():
+    nachher = _fragmente({**FAHRT, "distance_km": 50})
+    assert terminanfrage.neu_planen(GUELTIG, _fragmente(FAHRT), nachher, gescheitert=False) is True
+
+
+@pytest.mark.parametrize("stand", [
+    standort.Planstand(),
+    standort.Planstand(plan=GUELTIG.plan, fehler=standort.PlanFehler(status=500)),
+], ids=["kein Plan", "letzter Lauf gescheitert"])
+def test_ohne_gueltigen_plan_plant_jeder_schritt(stand):
+    teile = _fragmente(FAHRT)
+    assert terminanfrage.neu_planen(stand, teile, teile, gescheitert=False) is True
+
+
+def test_nach_einem_lauf_mit_ausnahme_plant_jeder_schritt():
+    """Review C3P: eine Ausnahme ausser PlanFehler laesst den alten Planstand stehen, fehler bleibt None."""
+    teile = _fragmente(FAHRT)
+    assert terminanfrage.neu_planen(GUELTIG, teile, teile, gescheitert=True) is True
+
+
+@pytest.mark.parametrize(("feld", "wert"), [("name", "Zur Arbeit"), ("driver", "person.anna")])
+def test_name_und_fahrer_gehen_nicht_in_den_request(feld, wert):
+    """Keine Feldliste: dass sie nicht neu planen, folgt allein aus Abschnitt 4."""
+    assert _fragmente(FAHRT) == _fragmente({**FAHRT, feld: wert})
+
+
+@pytest.mark.parametrize(("feld", "wert"), [
+    ("departure", "2026-09-17T09:00:00"), ("duration_min", 300), ("distance_km", 50),
+    ("soc", 80), ("keep_min_soc", False), ("vehicle", "auto-2"),
+    ("exceptions", {"2026-09-17": None}),
+])
+def test_was_der_planer_sieht_aendert_den_request(feld, wert):
+    assert _fragmente(FAHRT, fahrzeuge=ZWEI_AUTOS) != _fragmente({**FAHRT, feld: wert}, fahrzeuge=ZWEI_AUTOS)
+
+
+def test_loeschen_und_ignorieren_aendern_den_request():
+    assert _fragmente(FAHRT) != _fragmente()
+    assert _fragmente(FAHRT) != _fragmente(FAHRT, ignoriert={("e1", date(2026, 9, 17))})
+
+
+def test_hinter_dem_horizont_verschoben_bleibt_der_request_gleich():
+    hinten = _eintrag("e1", "2026-09-25T08:00:00", sichern=True)
+    assert _fragmente(hinten) == _fragmente({**hinten, "departure": "2026-09-26T08:00:00"})
