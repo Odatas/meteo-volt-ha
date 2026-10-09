@@ -98,6 +98,7 @@ export const TEXTE = {
 
     // Status eines Fahrzeugs
     st_unterwegs_bis: 'Unterwegs bis {zeit}',
+    st_unterwegs_verlaengert: 'Unterwegs bis {zeit} (verlängert)',  // C13-Spec Abschnitt 6
     // C9R-Spec Abschnitt 5
     ist_zurueck: 'Ist zurück',
     beachten: 'Beachten',
@@ -316,6 +317,7 @@ export const TEXTE = {
     tip_unterwegs: 'Away',
 
     st_unterwegs_bis: 'Away until {zeit}',
+    st_unterwegs_verlaengert: 'Away until {zeit} (extended)',
     ist_zurueck: 'Back home',
     beachten: 'Restore',
     ignoriert: 'Ignored, not planned',

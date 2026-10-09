@@ -79,6 +79,27 @@ def ladepunkt_zuordnen(
     return gebunden, None
 
 
+def stecker_zuordnen(
+    fahrzeuge: dict[str, dict], ladepunkte: dict[str, dict]
+) -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
+    """Fuer C9S: (Fahrzeug -> Ladepunkt, Fahrzeug -> Stecker, Ladepunkt -> Stecker).
+
+    Der Ladepunkt eines Fahrzeugs nach ladepunkt_zuordnen; ein Fahrzeug ohne
+    gueltigen fehlt. ladepunkte steht in Anlagereihenfolge. Nur gesetzte
+    Angesteckt-Entitaeten. C9S-Spec Abschnitt 9.3.
+    """
+    ids = list(ladepunkte)
+    zuordnung = {}
+    for fahrzeug_id, daten in fahrzeuge.items():
+        ladepunkt, _grund = ladepunkt_zuordnen(daten, ids)
+        if ladepunkt is not None:
+            zuordnung[fahrzeug_id] = ladepunkt
+
+    def stecker(quelle: dict[str, dict]) -> dict[str, str]:
+        return {k: d[stammdaten.FELD_ANGESTECKT] for k, d in quelle.items() if d.get(stammdaten.FELD_ANGESTECKT)}
+    return zuordnung, stecker(fahrzeuge), stecker(ladepunkte)
+
+
 def anfrage_bauen(
     ladepunkte: list[tuple[str, dict]],
     fahrzeuge: list[tuple[str, dict]],

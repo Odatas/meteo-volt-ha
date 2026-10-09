@@ -462,3 +462,16 @@ def test_nach_abgelehnt_nur_der_herzschlag_nach_key_fehler_nichts(takt, vor, erw
     jetzt = datetime(2026, 9, 14, 20, 0, tzinfo=timezone.utc)
     letzter = None if vor is None else jetzt - vor
     assert standort.takt_ausloeser(takt, letzter, jetzt) == erwartet
+
+
+def test_stecker_zuordnen_folgt_der_zuordnung_aus_c5():
+    """C9S-Spec Abschnitt 9.3: gebunden, ohne Bindung der erste, geloescht gar nicht."""
+    a = stammdaten.FELD_ANGESTECKT
+    fahrzeuge = {
+        "auto-1": {stammdaten.FELD_LADEPUNKT: "wb-2", a: "binary_sensor.golf"},
+        "auto-2": {a: None},
+        "auto-3": {stammdaten.FELD_LADEPUNKT: "weg"},
+    }
+    ladepunkte = {"wb-1": {a: "binary_sensor.wb1"}, "wb-2": {}}
+    assert standort.stecker_zuordnen(fahrzeuge, ladepunkte) == (
+        {"auto-1": "wb-2", "auto-2": "wb-1"}, {"auto-1": "binary_sensor.golf"}, {"wb-1": "binary_sensor.wb1"})

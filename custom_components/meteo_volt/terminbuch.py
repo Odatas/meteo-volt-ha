@@ -15,7 +15,8 @@ Jede Operation prueft zuerst und aendert dann: scheitert sie, bleibt das
 Buch, wie es war.
 
 Spec: meteo-volt-brain/docs/features/C3-konfig-entitaeten/spec.md, Abschnitte 2.1, 2.2 und 3
-      meteo-volt-brain/docs/features/C9-termine-im-alltag/spec.md, Abschnitte 2 und 3
+      meteo-volt-brain/docs/features/C9-termine-im-alltag/spec.md, Abschnitte 2, 3, 8 und 9
+      meteo-volt-brain/docs/features/C13-termin-verlaengern/spec.md
 """
 
 from __future__ import annotations
@@ -24,7 +25,7 @@ import copy
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from datetime import date, datetime, tzinfo
+from datetime import date, datetime, timedelta, tzinfo
 
 from . import termine
 from .pruefungen import (
@@ -55,6 +56,19 @@ RISIKO = "risk"
 EINTRAEGE = "entries"
 IGNORIERT = "ignored"  # C9R-Spec Abschnitt 3
 
+# C9Z-Spec Abschnitt 8.3: nur in den letzten 30 % eines Termins. Fest, siehe Karte C14.
+HEIMKEHR_AB_ANTEIL = 0.7
+ZU_HAUSE = "home"
+KEIN_ZUSTAND = ("unavailable", "unknown")
+
+# C9S-Spec Abschnitt 9.3: so weit duerfen Stecker am Auto und am Ladepunkt auseinanderliegen.
+STECKER_VERSATZ = timedelta(minutes=10)
+
+# C13-Spec Abschnitte 3 und 4.
+VERLAENGERT = "extended"
+VERLAENGERUNG_SCHRITT = timedelta(minutes=15)
+VERLAENGERUNG_HOECHSTENS = timedelta(hours=12)
+
 
 @dataclass
 class Schritt:
@@ -76,16 +90,24 @@ class Buch:
         # Eintraegen, damit Umschalten kein Rueckgaengig eines Schritts bricht.
         self.ignoriert: set[tuple[str, date]] = {
             (paar["entry"], date.fromisoformat(paar["date"])) for paar in daten.get(IGNORIERT, [])}
+        # C13: (Eintrag, Datum) -> verlaengerte Rueckkehr, ebenfalls neben den Eintraegen.
+        self.verlaengert: dict[tuple[str, date], datetime] = {
+            (paar["entry"], date.fromisoformat(paar["date"])): datetime.fromisoformat(paar["return"])
+            for paar in daten.get(VERLAENGERT, [])}
         self.schritte: deque[Schritt] = deque(maxlen=MAX_SCHRITTE) if schritte is None else schritte
 
     def speicherform(self) -> dict:
-        """Was in den Store geht. Risiko und ignorierte Termine nur, wenn es sie gibt."""
+        """Was in den Store geht. Risiko, ignorierte und verlaengerte Termine nur, wenn es sie gibt."""
         daten: dict = {EINTRAEGE: [copy.deepcopy(eintrag) for eintrag in self.eintraege.values()]}
         if self.risiko is not None:
             daten[RISIKO] = self.risiko
         if self.ignoriert:
             daten[IGNORIERT] = [
                 {"entry": eintrag_id, "date": datum.isoformat()} for eintrag_id, datum in sorted(self.ignoriert)]
+        if self.verlaengert:
+            daten[VERLAENGERT] = [
+                {"entry": eintrag_id, "date": datum.isoformat(), "return": termine.utc(um).isoformat()}
+                for (eintrag_id, datum), um in sorted(self.verlaengert.items())]
         return daten
 
 
@@ -176,6 +198,57 @@ def _anwenden(
             buch.eintraege[eintrag_id] = neu
         schritt.nachher[eintrag_id] = copy.deepcopy(neu)
     return schritt.kennung
+
+
+# --- Die wirksame Rueckkehr, C13-Spec Abschnitt 4 ------------------------------
+
+
+def wirksam(buch: Buch, termin: termine.Termin) -> termine.Termin:
+    """Der Termin mit der spaeteren aus eigener und verlaengerter Rueckkehr."""
+    um = buch.verlaengert.get((termin.eintrag, termin.datum))
+    if um is None or termine.utc(um) <= termine.utc(termin.rueckkehr):
+        return termin
+    return replace(termin, rueckkehr=um.astimezone(termin.rueckkehr.tzinfo))
+
+
+def ist_verlaengert(buch: Buch, termin: termine.Termin) -> bool:
+    """Ob die Verlaengerung die eigene Rueckkehr des Termins gerade schlaegt."""
+    um = buch.verlaengert.get((termin.eintrag, termin.datum))
+    eigener = termine.termin_am(buch.eintraege[termin.eintrag], termin.datum, termin.abfahrt.tzinfo)
+    return um is not None and eigener is not None and termine.utc(um) > termine.utc(eigener.rueckkehr)
+
+
+def geplante_rueckkehr(buch: Buch, auswahl: list[termine.Termin]) -> dict[tuple[str, date], datetime]:
+    """Je verlaengertem Termin der Auswahl seine eigene Rueckkehr. C13-Spec Abschnitt 6.
+
+    Das Formular nimmt sie statt der wirksamen: sonst schriebe jedes Speichern
+    die Verlaengerung als Dauer in den Eintrag, bei einer Serie in alle Termine.
+    """
+    geplant = {}
+    for termin in auswahl:
+        if ist_verlaengert(buch, termin):
+            eigener = termine.termin_am(buch.eintraege[termin.eintrag], termin.datum, termin.abfahrt.tzinfo)
+            geplant[(termin.eintrag, termin.datum)] = eigener.rueckkehr
+    return geplant
+
+
+def ausrollen(
+    buch: Buch, tz: tzinfo, von: datetime, bis: datetime, fahrzeug: str | None = None
+) -> list[termine.Termin]:
+    """Wie termine.ausrollen, mit wirksamer Rueckkehr.
+
+    Weiter zurueck ausgerollt, weil eine Verlaengerung einen Termin ins Fenster
+    holen kann, dessen eigene Rueckkehr davor liegt.
+    """
+    roh = termine.ausrollen(list(buch.eintraege.values()), tz, von - VERLAENGERUNG_HOECHSTENS, bis, fahrzeug)
+    return [t for t in (wirksam(buch, t) for t in roh) if termine.utc(t.rueckkehr) > termine.utc(von)]
+
+
+def termin_am(buch: Buch, eintrag_id: str, datum: date, tz: tzinfo) -> termine.Termin | None:
+    """Wie termine.termin_am, mit wirksamer Rueckkehr."""
+    eintrag = buch.eintraege.get(eintrag_id)
+    termin = None if eintrag is None else termine.termin_am(eintrag, datum, tz)
+    return None if termin is None else wirksam(buch, termin)
 
 
 # --- Die Operationen, Spec Abschnitte 2.1 und 2.2 ------------------------------
@@ -327,7 +400,7 @@ def ignorieren(
     if ignoriert is False:
         buch.ignoriert.discard((eintrag_id, datum))
         return
-    if not termine.laeuft(termine.termin_am(buch.eintraege[eintrag_id], datum, tz), jetzt):
+    if not termine.laeuft(termin_am(buch, eintrag_id, datum, tz), jetzt):
         raise fehler(TERMIN_LAEUFT_NICHT, "date")
     buch.ignoriert.add((eintrag_id, datum))
 
@@ -340,12 +413,219 @@ def ignoriert_bereinigen(buch: Buch, jetzt: datetime, tz: tzinfo) -> bool:
     """
     weg = set()
     for eintrag_id, datum in buch.ignoriert:
-        eintrag = buch.eintraege.get(eintrag_id)
-        termin = None if eintrag is None else termine.termin_am(eintrag, datum, tz)
+        termin = termin_am(buch, eintrag_id, datum, tz)
         if termin is None or not termine.laeuft(termin, jetzt):
             weg.add((eintrag_id, datum))
     buch.ignoriert -= weg
     return bool(weg)
+
+
+def verlaengert_bereinigen(buch: Buch, jetzt: datetime, tz: tzinfo) -> bool:
+    """Entfernt die Verlaengerungen, deren Termin fehlt oder deren Rueckkehr einen Schritt her ist.
+
+    Nicht schon ab der Rueckkehr: verlaengern prueft nur jede Minute, und ein
+    Aufraeumen in dieser Luecke beendete den Termin, obwohl das Auto noch weg
+    ist (Review C13). Einen Schritt lang kann verlaengern ihn noch fortsetzen.
+    C13-Spec Abschnitt 4.
+    """
+    weg = [
+        schluessel for schluessel in buch.verlaengert
+        if (termin := termin_am(buch, *schluessel, tz)) is None
+        or termine.utc(jetzt) >= termine.utc(termin.rueckkehr) + VERLAENGERUNG_SCHRITT
+    ]
+    for schluessel in weg:
+        del buch.verlaengert[schluessel]
+    return bool(weg)
+
+
+def heimgekehrt(alt: str | None, neu: str | None) -> bool:
+    """Ein echter Wechsel nach home. C9Z-Spec Abschnitt 8.3, Punkt 1.
+
+    Nicht aus home, nicht aus unavailable oder unknown und nicht ohne alten
+    Zustand: sonst loesten der Start und eine flatternde Cloud-Entitaet aus.
+    """
+    return neu == ZU_HAUSE and alt is not None and alt != ZU_HAUSE and alt not in KEIN_ZUSTAND
+
+
+def heimkehr(
+    buch: Buch,
+    tz: tzinfo,
+    jetzt: datetime,
+    fahrzeug: str | None = None,
+    fahrer: str | None = None,
+    ab_anteil: float = HEIMKEHR_AB_ANTEIL,
+) -> list[tuple[str, date]]:
+    """Die Termine, die eine Heimkehr ignoriert. C9Z-Spec Abschnitt 8.3, Punkte 2 bis 4.
+
+    fahrzeug: die subentry_id, deren Standort heimkam. fahrer: die Person, die
+    heimkam. Ohne beide keine. Nur laufende Termine ab ab_anteil ihrer Dauer
+    (C9Z: die letzten 30 %, C9S: 0, also jederzeit), die noch nicht ignoriert sind.
+    """
+    if fahrzeug is None and fahrer is None:
+        return []
+    ergebnis = []
+    # Ein Termin, der jetzt laeuft, hat Rueckkehr nach jetzt und Abfahrt bis jetzt.
+    for termin in ausrollen(buch, tz, jetzt, jetzt + timedelta(microseconds=1)):
+        if (fahrzeug is not None and termin.fahrzeug != fahrzeug) or (fahrer is not None and termin.fahrer != fahrer):
+            continue
+        if not termine.laeuft(termin, jetzt) or (termin.eintrag, termin.datum) in buch.ignoriert:
+            continue
+        # Ein verlaengerter Termin ist ueber seiner Zeit: kein Fenster (C13-Spec Abschnitt 5).
+        anteil = 0.0 if ist_verlaengert(buch, termin) else ab_anteil
+        ab = termine.utc(termin.abfahrt) + (termine.utc(termin.rueckkehr) - termine.utc(termin.abfahrt)) * anteil
+        if termine.utc(jetzt) >= ab:
+            ergebnis.append((termin.eintrag, termin.datum))
+    return ergebnis
+
+
+def heimkehr_von(
+    buch: Buch, tz: tzinfo, jetzt: datetime, quelle: str, standorte: dict[str, set[str]]
+) -> list[tuple[str, date]]:
+    """Die Termine, die die Heimkehr dieser Quelle ignoriert. C9Z-Spec Abschnitt 8.3, Punkt 2.
+
+    Ein Standort trifft die Termine seiner Fahrzeuge, jede andere Quelle ist eine
+    Person und trifft die Termine, die sie als Fahrer tragen.
+    """
+    if quelle not in standorte:
+        return heimkehr(buch, tz, jetzt, fahrer=quelle)
+    treffer: list[tuple[str, date]] = []
+    for fahrzeug in sorted(standorte[quelle]):
+        treffer += heimkehr(buch, tz, jetzt, fahrzeug=fahrzeug)
+    return treffer
+
+
+def eingesteckt(alt: str | None, neu: str | None) -> bool:
+    """Nur off -> on, wie in C5. C9S-Spec Abschnitt 9.3."""
+    return alt == "off" and neu == "on"
+
+
+def eingesteckt_zu_hause(
+    zuordnung: dict[str, str],
+    fahrzeug_stecker: dict[str, str],
+    ladepunkt_stecker: dict[str, str],
+    eingesteckt_um: dict[str, datetime],
+    quelle: str,
+    jetzt: datetime,
+) -> list[str]:
+    """Die Fahrzeuge, die nach dem Einstecken an quelle zu Hause stecken. C9S-Spec Abschnitt 9.3.
+
+    zuordnung: Fahrzeug -> sein Ladepunkt nach C5. fahrzeug_stecker und
+    ladepunkt_stecker: die gesetzten Angesteckt-Entitaeten. eingesteckt_um: das
+    letzte off -> on je Entitaet, quelle eingeschlossen.
+    """
+    seit = jetzt - STECKER_VERSATZ
+    frisch = {entitaet for entitaet, um in eingesteckt_um.items() if seit <= um <= jetzt}
+    betroffen = [
+        fahrzeug for fahrzeug, ladepunkt in zuordnung.items()
+        if quelle in (fahrzeug_stecker.get(fahrzeug), ladepunkt_stecker.get(ladepunkt))
+    ]
+    zu_hause = []
+    for fahrzeug in sorted(betroffen):
+        ladepunkt = zuordnung[fahrzeug]
+        wallbox = ladepunkt_stecker.get(ladepunkt)
+        if wallbox is None or wallbox not in frisch:
+            continue
+        nachbarn = [f for f, lp in zuordnung.items() if lp == ladepunkt]
+        # Stecken zwei Autos dieses Ladepunkts frisch, ist nicht zu sagen, welches an
+        # der Wallbox haengt: dann keines (C9S-Spec Abschnitt 9.3).
+        if sum(1 for f in nachbarn if fahrzeug_stecker.get(f) in frisch) > 1:
+            continue
+        eigener = fahrzeug_stecker.get(fahrzeug)
+        if eigener is not None:
+            if eigener in frisch:
+                zu_hause.append(fahrzeug)
+        elif len(nachbarn) == 1:
+            zu_hause.append(fahrzeug)
+    return zu_hause
+
+
+def stecker_wechsel(
+    entity_id: str,
+    alt: str | None,
+    neu: str | None,
+    jetzt: datetime,
+    eingesteckt_um: dict[str, datetime],
+    zuordnung: dict[str, str],
+    fahrzeug_stecker: dict[str, str],
+    ladepunkt_stecker: dict[str, str],
+) -> list[str]:
+    """Ein Zustandswechsel eines Steckers. Gibt die Fahrzeuge zurueck, die jetzt zu Hause stecken.
+
+    Fuehrt eingesteckt_um: off -> on merkt die Zeit, -> off loescht sie, denn ein
+    Stecker zaehlt nur, solange er steckt. C9S-Spec Abschnitt 9.3.
+    """
+    if neu == "off":
+        eingesteckt_um.pop(entity_id, None)
+        return []
+    if not eingesteckt(alt, neu):
+        return []
+    eingesteckt_um[entity_id] = jetzt
+    return eingesteckt_zu_hause(zuordnung, fahrzeug_stecker, ladepunkt_stecker, eingesteckt_um, entity_id, jetzt)
+
+
+def heimkehr_ereignisse(
+    buch: Buch, treffer: list[tuple[str, date]], geraete: dict[str, str], quelle: str
+) -> list[dict]:
+    """Die Daten von meteo_volt_trip_ignored je Termin. C9Z-Spec Abschnitt 8.4.
+
+    vehicle ist die Geraete-ID aus C6, nicht die subentry_id.
+    """
+    return [
+        {"entry": eintrag_id, "date": datum.isoformat(),
+         "vehicle": geraete.get((buch.eintraege.get(eintrag_id) or {}).get(FAHRZEUG)), "source": quelle}
+        for eintrag_id, datum in treffer
+    ]
+
+
+# --- Verlaengern, C13-Spec Abschnitte 2 und 3 ------------------------------------
+
+
+def ist_weg(zustaende: list[str | None]) -> bool:
+    """Keine Quelle zu Hause, mindestens eine mit echtem Zustand. C13-Spec Abschnitt 2."""
+    if ZU_HAUSE in zustaende:
+        return False
+    return any(z is not None and z not in KEIN_ZUSTAND for z in zustaende)
+
+
+def quellen_von(termin: termine.Termin, standorte: dict[str, set[str]]) -> list[str]:
+    """Die Standorte seines Fahrzeugs, dann sein Fahrer. C9-Spec Abschnitt 8.2."""
+    quellen = sorted(entitaet for entitaet, fahrzeuge in standorte.items() if termin.fahrzeug in fahrzeuge)
+    if termin.fahrer:
+        quellen.append(termin.fahrer)
+    return quellen
+
+
+def verlaengern(
+    buch: Buch, tz: tzinfo, jetzt: datetime, weg: Callable[[termine.Termin], bool]
+) -> list[tuple[str, date]]:
+    """Verlaengert jeden Termin, dessen wirksame Rueckkehr gerade erreicht ist und der weg ist.
+
+    Gerade erreicht: jetzt liegt in [Rueckkehr, Rueckkehr + Schritt). Ein Termin,
+    der laenger her endete, etwa vor einem Neustart, bleibt zu. Die Grenze: die
+    eigene Rueckkehr plus 12 h und die Abfahrt des naechsten nicht ignorierten
+    Termins desselben Fahrzeugs. Gibt die verlaengerten zurueck.
+    """
+    jetzt_utc = termine.utc(jetzt)
+    verlaengert = []
+    # Das Fenster liefert nur Rueckkehren nach jetzt - Schritt; erreicht ist davon, was nicht nach jetzt liegt.
+    for termin in ausrollen(buch, tz, jetzt - VERLAENGERUNG_SCHRITT, jetzt + timedelta(microseconds=1)):
+        rueckkehr = termine.utc(termin.rueckkehr)
+        if rueckkehr > jetzt_utc:
+            continue
+        schluessel = (termin.eintrag, termin.datum)
+        if schluessel in buch.ignoriert or not weg(termin):
+            continue
+        eigener = termine.termin_am(buch.eintraege[termin.eintrag], termin.datum, tz)
+        grenze = termine.utc(eigener.rueckkehr) + VERLAENGERUNG_HOECHSTENS
+        for naechster in termine.ausrollen(list(buch.eintraege.values()), tz, termin.abfahrt, grenze, termin.fahrzeug):
+            nach_ihm = termine.utc(naechster.abfahrt) > termine.utc(termin.abfahrt)
+            if nach_ihm and (naechster.eintrag, naechster.datum) not in buch.ignoriert:
+                grenze = min(grenze, termine.utc(naechster.abfahrt))
+        neu = min(rueckkehr + VERLAENGERUNG_SCHRITT, grenze)
+        if neu > rueckkehr:
+            buch.verlaengert[schluessel] = neu
+            verlaengert.append(schluessel)
+    return verlaengert
 
 
 def fahrzeuge_bereinigen(buch: Buch, fahrzeuge: set[str]) -> bool:

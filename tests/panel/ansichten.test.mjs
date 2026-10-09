@@ -201,3 +201,13 @@ test('C9R: eine veraltete Markierung an einem vergangenen Termin zeigt keine Ign
   assert.ok(!text.includes('Ignoriert, wird nicht geplant'));
   assert.ok(!text.includes('data-aktion="ignorieren"'));
 });
+
+test('C13: ein verlaengerter laufender Termin sagt es in der Planzeile', () => {
+  const p = { soc_at_departure: null, soc_after_trip: null, target_missing_kwh: null, below_min: false, running_until: '2026-09-16T17:30:00+02:00' };
+  const text = String(fahrzeugHtml(kontext({ termine: [laufend({ extended: true, plan: p })] }), fahrzeug));
+  assert.ok(text.includes('(verlängert)'));
+  const en = String(fahrzeugHtml(kontext({ termine: [laufend({ extended: true, plan: p })], z: { f: formatierer('en', TZ) } }), fahrzeug));
+  assert.ok(en.includes('(extended)'));
+  const ohne = String(fahrzeugHtml(kontext({ termine: [laufend({ plan: p })] }), fahrzeug));
+  assert.ok(!ohne.includes('(verlängert)'));
+});

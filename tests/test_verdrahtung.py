@@ -110,9 +110,96 @@ def test_die_ignorierten_termine_gehen_in_request_und_panel(methode, ziel):
 @pytest.mark.parametrize("methode", ["async_starten", "_nach_schritt"])
 def test_start_und_jeder_schritt_bereinigen_die_markierungen(methode):
     """C9R-Spec Abschnitt 2: nach jedem Schritt, jedem Umschalten und beim Start."""
-    assert _ruft(_methode("terminverwaltung.py", methode), "ignoriert_bereinigen")
+    assert _ruft(_methode("terminverwaltung.py", methode), "_markierungen_bereinigen")
 
 
 def test_umschalten_laeuft_ueber_nach_schritt():
     """Speichern, Meldung an das Panel, Neuplanen und Bereinigen haengen an _nach_schritt."""
     assert _ruft(_methode("terminverwaltung.py", "async_ignorieren"), "_nach_schritt")
+
+
+# --- C9Z: eine Heimkehr setzt dieselbe Markierung ---------------------------------------
+
+
+def test_die_standorte_der_fahrzeuge_werden_beobachtet():
+    """C9Z-Spec Abschnitt 8.2. Ohne sie im Abo meldet ein device_tracker nie eine Heimkehr."""
+    quelle = ast.unparse(_methode("terminverwaltung.py", "_zustaende_bestellen"))
+    assert "stammdaten.standorte_von(fahrzeuge)" in quelle
+    assert "set(self._standorte)" in quelle
+
+
+def test_ein_zustandswechsel_von_person_oder_standort_prueft_die_heimkehr():
+    methode = _methode("terminverwaltung.py", "_zustand_geaendert")
+    assert _ruft(methode, "heimgekehrt")
+    quelle = ast.unparse(methode)
+    assert "in self._personen" in quelle and "in self._standorte" in quelle
+
+
+def test_die_heimkehr_geht_ueber_dieselbe_markierung_und_nach_schritt():
+    methode = _methode("terminverwaltung.py", "_async_heimkehr")
+    assert _ruft(methode, "_heim_markieren")
+    assert "self._standorte" in ast.unparse(_ruft(methode, "heimkehr_von")[0])
+    markieren = _methode("terminverwaltung.py", "_heim_markieren")
+    for ziel in ("ignorieren", "_nach_schritt", "heimkehr_ereignisse", "async_fire"):
+        assert _ruft(markieren, ziel), ziel
+
+
+# --- C9S: Einstecken an der eigenen Wallbox ----------------------------------------------
+
+
+def test_die_stecker_von_fahrzeugen_und_ladepunkten_werden_beobachtet():
+    quelle = ast.unparse(_methode("terminverwaltung.py", "_zustaende_bestellen"))
+    assert "standort.stecker_zuordnen(fahrzeuge, ladepunkte)" in quelle
+    assert "stammdaten.TYP_LADEPUNKT" in quelle
+    assert "| stecker)" in quelle
+
+
+def test_ein_stecker_geht_mit_allen_argumenten_in_richtiger_reihenfolge_an_stecker_wechsel():
+    """Review C9S: vertauschte Stecker-Zuordnungen blieben gruen."""
+    methode = _methode("terminverwaltung.py", "_zustand_geaendert")
+    (aufruf,) = _ruft(methode, "stecker_wechsel")
+    assert [ast.unparse(a) for a in aufruf.args] == [
+        "entity_id", "None if alt is None else alt.state", "None if neu is None else neu.state",
+        "dt_util.utcnow()", "self._eingesteckt_um",
+        "self._zuordnung", "self._fahrzeug_stecker", "self._ladepunkt_stecker"]
+    quelle = ast.unparse(methode)
+    assert "self._fahrzeug_stecker.values()" in quelle and "self._ladepunkt_stecker.values()" in quelle
+
+
+def test_eingesteckt_ignoriert_ohne_fenster_ueber_dieselbe_markierung():
+    methode = _methode("terminverwaltung.py", "_async_eingesteckt")
+    (aufruf,) = _ruft(methode, "heimkehr")
+    assert any(k.arg == "ab_anteil" and ast.unparse(k.value) == "0.0" for k in aufruf.keywords)
+    assert _ruft(methode, "_heim_markieren")
+
+
+# --- C13: Verlaengern --------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("methode", ["fragmente", "termine_im_fenster"])
+def test_request_und_panel_rollen_mit_wirksamer_rueckkehr_aus(methode):
+    """C13-Spec Abschnitt 4: termine.ausrollen direkt saehe die Verlaengerung nicht."""
+    m = _methode("terminverwaltung.py", methode)
+    assert _ruft(m, "ausrollen")
+    assert all(ast.unparse(a.func) == "terminbuch.ausrollen" for a in _ruft(m, "ausrollen"))
+
+
+def test_jede_minute_wird_verlaengert_und_ueber_nach_schritt_geplant():
+    start = ast.unparse(_methode("terminverwaltung.py", "async_starten"))
+    assert "async_track_time_interval(self.hass, self._verlaengern_pruefen, VERLAENGERN_PRUEFEN)" in start
+    pruefen = _methode("terminverwaltung.py", "_verlaengern_pruefen")
+    for ziel in ("verlaengern", "ist_weg", "quellen_von", "_nach_schritt"):
+        assert _ruft(pruefen, ziel), ziel
+    assert "self._standorte" in ast.unparse(_ruft(pruefen, "quellen_von")[0])
+
+
+@pytest.mark.parametrize("methode", ["async_starten", "_nach_schritt"])
+def test_start_und_jeder_schritt_bereinigen_auch_die_verlaengerungen(methode):
+    assert _ruft(_methode("terminverwaltung.py", methode), "_markierungen_bereinigen")
+    bereinigen = _methode("terminverwaltung.py", "_markierungen_bereinigen")
+    assert _ruft(bereinigen, "ignoriert_bereinigen") and _ruft(bereinigen, "verlaengert_bereinigen")
+
+
+def test_das_panel_bekommt_die_geplante_rueckkehr_der_verlaengerten_termine():
+    (aufruf,) = _ruft(_methode("terminverwaltung.py", "termine_im_fenster"), "termine_ansicht")
+    assert ast.unparse(aufruf.args[-1]) == "terminbuch.geplante_rueckkehr(self.buch, auswahl)"

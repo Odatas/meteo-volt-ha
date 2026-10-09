@@ -49,7 +49,8 @@
           "data": {
             "name": "Name",
             "max_power_kw": "Max. Leistung (kW)",
-            "available": "Verfügbar"
+            "available": "Verfügbar",
+            "plugged_entity": "Angesteckt"
           },
           "data_description": {
             "name": "Leer lassen vergibt einen Namen aus der Leistung, etwa Wallbox 11 kW.",
@@ -62,7 +63,8 @@
           "data": {
             "name": "Name",
             "max_power_kw": "Max. Leistung (kW)",
-            "available": "Verfügbar"
+            "available": "Verfügbar",
+            "plugged_entity": "Angesteckt"
           },
           "data_description": {
             "name": "Leer lassen vergibt einen Namen aus der Leistung, etwa Wallbox 11 kW.",
@@ -104,7 +106,8 @@
               "data": {
                 "soc_entity": "Ladestand (%)",
                 "station_id": "Ladepunkt",
-                "plugged_entity": "Angesteckt"
+                "plugged_entity": "Angesteckt",
+                "location_entity": "Standort"
               },
               "data_description": {
                 "station_id": "Optional. Wenn gesetzt, lädt das Fahrzeug nur hier, sonst am zuerst angelegten Ladepunkt. Mehrere Fahrzeuge werden noch nicht gemeinsam geplant."
@@ -134,7 +137,8 @@
               "data": {
                 "soc_entity": "Ladestand (%)",
                 "station_id": "Ladepunkt",
-                "plugged_entity": "Angesteckt"
+                "plugged_entity": "Angesteckt",
+                "location_entity": "Standort"
               },
               "data_description": {
                 "station_id": "Optional. Wenn gesetzt, lädt das Fahrzeug nur hier, sonst am zuerst angelegten Ladepunkt. Mehrere Fahrzeuge werden noch nicht gemeinsam geplant."

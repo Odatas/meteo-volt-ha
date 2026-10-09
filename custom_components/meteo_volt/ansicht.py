@@ -111,11 +111,15 @@ def termine_ansicht(
     geraete: dict[str, str],
     personen: set[str],
     ignoriert: Collection[tuple[str, date]] = (),
+    verlaengert: dict[tuple[str, date], datetime] | None = None,
 ) -> list[dict]:
     """Die Termine fuer meteo_volt/appointments, nach Abfahrt sortiert. Abgesagte fehlen schon.
 
     ignored nennt einen ignorierten Termin (C9R-Spec Abschnitt 5); plan bleibt davon unberuehrt.
+    extended einen verlaengerten (C13-Spec Abschnitt 6): return ist dann die wirksame Rueckkehr,
+    planned_return seine eigene, die das Formular nimmt. verlaengert: Termin -> eigene Rueckkehr.
     """
+    verlaengert = verlaengert or {}
     return [
         {
             "entry": termin.eintrag,
@@ -131,6 +135,8 @@ def termine_ansicht(
             "repeat": termin.wiederholung,
             "changed": termin.geaendert,
             "ignored": (termin.eintrag, termin.datum) in ignoriert,
+            "extended": (termin.eintrag, termin.datum) in verlaengert,
+            "planned_return": verlaengert.get((termin.eintrag, termin.datum), termin.rueckkehr).isoformat(),
             "plan": planwerte(termin, stand, jetzt, soc_min.get(termin.fahrzeug, 0.0)),
             "hints": hinweise(termin, umfeld, geraete, personen),
         }

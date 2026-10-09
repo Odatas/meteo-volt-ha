@@ -228,3 +228,11 @@ test('horizontHinweis: ohne Plan kein Hinweis', () => {
   assert.equal(horizontHinweis(hTermin(H_ENDE + H_TAG), H_AUTO, null), null);
 });
 
+
+test('C13: das Formular nimmt die geplante Rueckkehr, nicht die verlaengerte', () => {
+  const [t] = termineAus([{ departure: '2026-09-16T08:00:00+02:00', return: '2026-09-16T18:30:00+02:00', planned_return: '2026-09-16T18:00:00+02:00' }]);
+  assert.equal(t.rueckkehr, Date.UTC(2026, 8, 16, 16, 30));
+  assert.equal(t.geplant, Date.UTC(2026, 8, 16, 16, 0));
+  const [ohne] = termineAus([{ departure: '2026-09-16T08:00:00+02:00', return: '2026-09-16T18:00:00+02:00' }]);
+  assert.equal(ohne.geplant, ohne.rueckkehr);
+});

@@ -17,13 +17,14 @@ from __future__ import annotations
 
 import uuid
 from collections import deque
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import CALLBACK_TYPE, Event, EventStateChangedData, HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dispatcher_send
 from homeassistant.helpers.event import (
+    async_track_time_interval,
     async_track_state_added_domain,
     async_track_state_change_event,
     async_track_state_removed_domain,
@@ -50,6 +51,10 @@ SPEICHER_VERSION = 1
 SIGNAL_PANEL = f"{DOMAIN}_panel_{{}}"
 TERMINE = "appointments"
 STANDORT = "site"
+# C9Z-Spec Abschnitt 8.4: je Termin, den eine Heimkehr ignoriert.
+EVENT_HEIMKEHR = f"{DOMAIN}_trip_ignored"
+# C13-Spec Abschnitt 3: so oft wird geprueft, ob ein Termin sich verlaengert.
+VERLAENGERN_PRUEFEN = timedelta(minutes=1)
 PLAN = "plan"
 PLANUNG = "planning"
 PREISE = "prices"
@@ -83,6 +88,12 @@ class Terminverwaltung:
         self._soc_entitaeten: set[str] = set()
         self._c6_entitaeten: set[str] = set()
         self._personen: set[str] = set()
+        self._standorte: dict[str, set[str]] = {}  # device_tracker -> subentry_ids, C9Z
+        # C9S: Fahrzeug -> Ladepunkt, die Stecker beider und das letzte Einstecken je Stecker.
+        self._zuordnung: dict[str, str] = {}
+        self._fahrzeug_stecker: dict[str, str] = {}
+        self._ladepunkt_stecker: dict[str, str] = {}
+        self._eingesteckt_um: dict[str, datetime] = {}
         self._zustaende_abmelden: CALLBACK_TYPE | None = None
 
     # --- Start ------------------------------------------------------------------
@@ -97,7 +108,7 @@ class Terminverwaltung:
         # Verschwand ein Fahrzeug, waehrend C3 nicht lief, gehen seine Termine jetzt.
         # Mit ihnen jede Markierung, deren Termin nicht mehr laeuft (C9R-Spec Abschnitt 2).
         geloescht = terminbuch.fahrzeuge_bereinigen(self.buch, self._fahrzeuge)
-        if terminbuch.ignoriert_bereinigen(self.buch, dt_util.utcnow(), self.zeitzone()) or geloescht:
+        if self._markierungen_bereinigen() or geloescht:
             await self._speichern()
 
         entry = self.entry
@@ -116,6 +127,7 @@ class Terminverwaltung:
             er.EVENT_ENTITY_REGISTRY_UPDATED, self._register_geaendert))
         entry.async_on_unload(self._zustaende_abbestellen)
         self._zustaende_bestellen()
+        entry.async_on_unload(async_track_time_interval(self.hass, self._verlaengern_pruefen, VERLAENGERN_PRUEFEN))
         # Zuletzt: erst ab hier traegt jeder Request die Termine.
         self.koordinator.termine_quelle = self.fragmente
 
@@ -172,7 +184,7 @@ class Terminverwaltung:
     @callback
     def fragmente(self, stand: standort.Planstand, jetzt: datetime) -> tuple[dict[str, dict], int]:
         bis = terminanfrage.ausrollen_bis(stand.plan, jetzt)
-        auswahl = termine.ausrollen(list(self.buch.eintraege.values()), self.zeitzone(), jetzt, bis)
+        auswahl = terminbuch.ausrollen(self.buch, self.zeitzone(), jetzt, bis)
         return terminanfrage.fragmente(auswahl, self._fahrzeugwerte(), jetzt, self.buch.ignoriert), self.risiko
 
     # --- Schreiben, Spec Abschnitt 5 --------------------------------------------------------
@@ -221,6 +233,51 @@ class Terminverwaltung:
         terminbuch.ignorieren(self.buch, eintrag_id, datum, ignoriert, dt_util.utcnow(), self.zeitzone())
         await self._nach_schritt()
 
+    async def _async_heimkehr(self, quelle: str) -> None:
+        """C9Z-Spec Abschnitt 8: die Quelle kam heim. Ignoriert, was passt, und meldet es."""
+        jetzt, tz = dt_util.utcnow(), self.zeitzone()
+        await self._heim_markieren(terminbuch.heimkehr_von(self.buch, tz, jetzt, quelle, self._standorte), quelle)
+
+    async def _async_eingesteckt(self, quelle: str, fahrzeuge: list[str]) -> None:
+        """C9S-Spec Abschnitt 9.4: zu Hause eingesteckt. Jederzeit im Termin, ohne Fenster."""
+        jetzt, tz = dt_util.utcnow(), self.zeitzone()
+        treffer = [t for f in fahrzeuge for t in terminbuch.heimkehr(self.buch, tz, jetzt, fahrzeug=f, ab_anteil=0.0)]
+        await self._heim_markieren(treffer, quelle)
+
+    async def _heim_markieren(self, treffer: list[tuple[str, date]], quelle: str) -> None:
+        """Markiert wie der Knopf, plant einmal neu und meldet je Termin das Event (C9Z-Spec 8.4)."""
+        if not treffer:
+            return
+        jetzt, tz = dt_util.utcnow(), self.zeitzone()
+        for eintrag_id, datum in treffer:
+            terminbuch.ignorieren(self.buch, eintrag_id, datum, True, jetzt, tz)
+        await self._nach_schritt()
+        for daten in terminbuch.heimkehr_ereignisse(self.buch, treffer, self.geraete(), quelle):
+            self.hass.bus.async_fire(EVENT_HEIMKEHR, daten)
+
+    def _markierungen_bereinigen(self) -> bool:
+        """Ignoriert und verlaengert, beide nur solange ihr Termin laeuft. True, wenn eine ging.
+
+        Erst das Ignorieren, dann die Verlaengerung: das Ignorieren misst an der
+        wirksamen Rueckkehr, die die Verlaengerung noch traegt.
+        """
+        jetzt, tz = dt_util.utcnow(), self.zeitzone()
+        ignoriert = terminbuch.ignoriert_bereinigen(self.buch, jetzt, tz)
+        return terminbuch.verlaengert_bereinigen(self.buch, jetzt, tz) or ignoriert
+
+    @callback
+    def _verlaengern_pruefen(self, _jetzt: datetime) -> None:
+        """C13-Spec Abschnitt 3, jede Minute."""
+        verlaengert = terminbuch.verlaengern(
+            self.buch, self.zeitzone(), dt_util.utcnow(), lambda termin: terminbuch.ist_weg(
+                [self._zustand(q) for q in terminbuch.quellen_von(termin, self._standorte)]))
+        if verlaengert:
+            self.entry.async_create_task(self.hass, self._nach_schritt())
+
+    def _zustand(self, entity_id: str) -> str | None:
+        zustand = self.hass.states.get(entity_id)
+        return None if zustand is None else zustand.state
+
     async def async_risiko_setzen(self, risiko: int) -> None:
         """Das Risiko ist kein Schritt (Spec Abschnitt 2.2)."""
         self.buch.risiko = risiko
@@ -236,7 +293,7 @@ class Terminverwaltung:
             raise pruefungen.Terminfehler(meldung)
 
     async def _nach_schritt(self) -> None:
-        terminbuch.ignoriert_bereinigen(self.buch, dt_util.utcnow(), self.zeitzone())
+        self._markierungen_bereinigen()
         await self._speichern()
         self._melden(TERMINE)
         self.koordinator.termine_geaendert()
@@ -284,18 +341,17 @@ class Terminverwaltung:
     def termine_im_fenster(self, start: datetime, ende: datetime, fahrzeug_id: str | None) -> list[dict]:
         """Die Termine, deren Rueckkehr nach start und deren Abfahrt vor ende liegt."""
         tz = self.zeitzone()
-        eintraege = list(self.buch.eintraege.values())
-        auswahl = termine.ausrollen(eintraege, tz, start, ende, fahrzeug_id)
+        auswahl = terminbuch.ausrollen(self.buch, tz, start, ende, fahrzeug_id)
         umfeld: list[termine.Termin] = []
         if auswahl:
             # Die Hinweise brauchen alle Termine aller Fahrzeuge, die einen der
             # gewaehlten ueberschneiden koennten, auch ausserhalb des Fensters.
             von = min((t.abfahrt for t in auswahl), key=termine.utc)
             bis = max((t.rueckkehr for t in auswahl), key=termine.utc)
-            umfeld = termine.ausrollen(eintraege, tz, von, bis)
+            umfeld = terminbuch.ausrollen(self.buch, tz, von, bis)
         return ansicht.termine_ansicht(
             auswahl, umfeld, self.koordinator.data, dt_util.utcnow(), self._soc_min(), self.geraete(),
-            set(self.personen()), self.buch.ignoriert)
+            set(self.personen()), self.buch.ignoriert, terminbuch.geplante_rueckkehr(self.buch, auswahl))
 
     def plan(self, fahrzeug_id: str) -> dict:
         register = er.async_get(self.hass)
@@ -361,7 +417,10 @@ class Terminverwaltung:
 
     @callback
     def _zustaende_bestellen(self) -> None:
-        """Ladestand-Entitaeten und Personen melden site, die drei Entitaeten aus C6 plan."""
+        """Ladestand-Entitaeten und Personen melden site, die drei Entitaeten aus C6 plan.
+
+        Personen und Standorte der Fahrzeuge melden ausserdem eine Heimkehr (C9Z).
+        """
         self._zustaende_abbestellen()
         register = er.async_get(self.hass)
         fahrzeuge = self.fahrzeugdaten()
@@ -370,13 +429,21 @@ class Terminverwaltung:
             if daten.get(stammdaten.FELD_SOC_ENTITAET)
         }
         self._personen = set(self.hass.states.async_entity_ids("person"))
+        self._standorte = stammdaten.standorte_von(fahrzeuge)
+        ladepunkte = {
+            subentry_id: dict(subentry.data) for subentry_id, subentry in self.entry.subentries.items()
+            if subentry.subentry_type == stammdaten.TYP_LADEPUNKT
+        }
+        self._zuordnung, self._fahrzeug_stecker, self._ladepunkt_stecker = standort.stecker_zuordnen(
+            fahrzeuge, ladepunkte)
         self._c6_entitaeten = set()
         for fahrzeug_id in fahrzeuge:
             for plattform, schluessel in C6_WERTE:
                 entity_id = register.async_get_entity_id(plattform, DOMAIN, f"{DOMAIN}_{fahrzeug_id}_{schluessel}")
                 if entity_id:
                     self._c6_entitaeten.add(entity_id)
-        alle = sorted(self._soc_entitaeten | self._c6_entitaeten | self._personen)
+        stecker = set(self._fahrzeug_stecker.values()) | set(self._ladepunkt_stecker.values())
+        alle = sorted(self._soc_entitaeten | self._c6_entitaeten | self._personen | set(self._standorte) | stecker)
         if alle:
             self._zustaende_abmelden = async_track_state_change_event(self.hass, alle, self._zustand_geaendert)
 
@@ -389,6 +456,18 @@ class Terminverwaltung:
     @callback
     def _zustand_geaendert(self, event: Event[EventStateChangedData]) -> None:
         entity_id = event.data["entity_id"]
+        if entity_id in self._personen or entity_id in self._standorte:
+            alt, neu = event.data["old_state"], event.data["new_state"]
+            if terminbuch.heimgekehrt(None if alt is None else alt.state, None if neu is None else neu.state):
+                self.entry.async_create_task(self.hass, self._async_heimkehr(entity_id))
+        if entity_id in self._fahrzeug_stecker.values() or entity_id in self._ladepunkt_stecker.values():
+            alt, neu = event.data["old_state"], event.data["new_state"]
+            fahrzeuge = terminbuch.stecker_wechsel(
+                entity_id, None if alt is None else alt.state, None if neu is None else neu.state,
+                dt_util.utcnow(), self._eingesteckt_um,
+                self._zuordnung, self._fahrzeug_stecker, self._ladepunkt_stecker)
+            if fahrzeuge:
+                self.entry.async_create_task(self.hass, self._async_eingesteckt(entity_id, fahrzeuge))
         if entity_id in self._soc_entitaeten:
             self._melden(STANDORT)
         if entity_id in self._c6_entitaeten:

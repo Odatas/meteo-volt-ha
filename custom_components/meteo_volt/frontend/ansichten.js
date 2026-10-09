@@ -83,7 +83,8 @@ export function terminHtml(z, termin, mitFahrzeug, kopfDatum) {
   if (ignoriert) {
     zeilen.push(html`<span class="plan">${f.t('ignoriert')}</span>`);
   } else if (zeile && zeile.art === 'unterwegs') {
-    zeilen.push(html`<span class="plan">${f.t('st_unterwegs_bis', { zeit: f.zeitMitTag(zeile.bis, z.jetzt) })}</span>`);
+    const schluessel = termin.extended ? 'st_unterwegs_verlaengert' : 'st_unterwegs_bis';
+    zeilen.push(html`<span class="plan">${f.t(schluessel, { zeit: f.zeitMitTag(zeile.bis, z.jetzt) })}</span>`);
   } else if (zeile && zeile.art === 'abfahrt') {
     zeilen.push(html`<span class="plan num">${f.t('abfahrt_mit', { soc: f.prozent(zeile.soc) })}</span>`);
   } else if (zeile) {
