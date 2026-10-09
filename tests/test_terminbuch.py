@@ -8,7 +8,7 @@ import importlib
 import itertools
 import sys
 import types
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 from pathlib import Path
 
@@ -61,7 +61,7 @@ def test_anlegen_legt_einen_eintrag_und_einen_schritt_an():
     assert buch.eintraege[eintrag] == {
         "id": eintrag, "vehicle": "auto-1", "departure": "2026-09-16T08:00:00", "duration_min": 600,
         "repeat": "weekdays", "distance_km": 42, "driver": None, "soc": None, "keep_min_soc": True,
-        "until": None, "exceptions": {}}
+        "name": None, "until": None, "exceptions": {}}
     assert len(buch.schritte) == 1
 
 
@@ -90,7 +90,7 @@ def test_this_legt_eine_ausnahme_an():
     assert eintraege == [eintrag]
     assert buch.eintraege[eintrag]["exceptions"] == {"2026-09-17": {
         "departure": "2026-09-17T09:00:00", "duration_min": 600, "distance_km": 7,
-        "driver": None, "soc": None, "keep_min_soc": True}}
+        "driver": None, "soc": None, "keep_min_soc": True, "name": None}}
     assert buch.eintraege[eintrag]["departure"] == "2026-09-16T08:00:00"
 
 
@@ -186,7 +186,7 @@ def test_all_mit_neuer_regel_setzt_die_ausnahmen_zurueck():
 
 def _ausnahme(abfahrt, strecke_km=42, keep_min_soc=True):
     return {"departure": abfahrt, "duration_min": 600, "distance_km": strecke_km,
-            "driver": None, "soc": None, "keep_min_soc": keep_min_soc}
+            "driver": None, "soc": None, "keep_min_soc": keep_min_soc, "name": None}
 
 
 def _verlegte_serie():
@@ -481,3 +481,357 @@ def test_ohne_angabe_wird_ignoriert():
     buch, _, eintrag = _buch_mit_serie()
     terminbuch.ignorieren(buch, eintrag, MI, None, MI_MITTAG, BERLIN)
     assert buch.ignoriert == {(eintrag, MI)}
+
+
+# --- Heimkehr, Spec C9Z Abschnitt 8 ------------------------------------------------
+# Der Termin am MI laeuft 08:00 bis 18:00, zehn Stunden: die letzten 30 % beginnen um 15:00.
+
+
+@pytest.mark.parametrize(("alt", "neu", "erwartet"), [
+    ("not_home", "home", True),
+    ("Arbeit", "home", True),
+    ("home", "home", False),
+    ("unavailable", "home", False),
+    ("unknown", "home", False),
+    (None, "home", False),
+    ("home", "not_home", False),
+    ("not_home", None, False),
+])
+def test_nur_ein_echter_wechsel_nach_home_ist_eine_heimkehr(alt, neu, erwartet):
+    assert terminbuch.heimgekehrt(alt, neu) is erwartet
+
+
+def _um(stunde, minute=0):
+    return datetime(2026, 9, 16, stunde, minute, tzinfo=BERLIN)
+
+
+def test_nur_in_den_letzten_30_prozent():
+    buch, _, eintrag = _buch_mit_serie()
+    assert terminbuch.heimkehr(buch, BERLIN, _um(14, 59), fahrzeug="auto-1") == []
+    assert terminbuch.heimkehr(buch, BERLIN, _um(15), fahrzeug="auto-1") == [(eintrag, MI)]
+    assert terminbuch.heimkehr(buch, BERLIN, _um(17, 59), fahrzeug="auto-1") == [(eintrag, MI)]
+    assert terminbuch.heimkehr(buch, BERLIN, _um(18), fahrzeug="auto-1") == []
+
+
+def test_der_standort_trifft_nur_sein_fahrzeug_die_person_nur_ihre_termine():
+    buch, neue_id, eigener = _buch_mit_serie(fahrer="person.ela")
+    _, (fremder,) = terminbuch.anlegen(buch, _werte(fahrzeug="auto-2", fahrer="person.ela"), neue_id)
+    _, (ohne,) = terminbuch.anlegen(buch, _werte(fahrzeug="auto-2"), neue_id)
+    assert terminbuch.heimkehr(buch, BERLIN, _um(16), fahrzeug="auto-1") == [(eigener, MI)]
+    assert sorted(terminbuch.heimkehr(buch, BERLIN, _um(16), fahrer="person.ela")) == sorted(
+        [(eigener, MI), (fremder, MI)])
+    assert terminbuch.heimkehr(buch, BERLIN, _um(16), fahrer="person.anna") == []
+    assert set(terminbuch.heimkehr(buch, BERLIN, _um(16), fahrzeug="auto-2")) == {(fremder, MI), (ohne, MI)}
+
+
+def test_ein_schon_ignorierter_termin_kommt_nicht_noch_einmal():
+    buch, _, eintrag = _buch_mit_serie()
+    terminbuch.ignorieren(buch, eintrag, MI, True, _um(16), BERLIN)
+    assert terminbuch.heimkehr(buch, BERLIN, _um(16), fahrzeug="auto-1") == []
+
+
+def test_ohne_quelle_keine_heimkehr():
+    buch, _, _ = _buch_mit_serie()
+    assert terminbuch.heimkehr(buch, BERLIN, _um(16)) == []
+
+
+def test_ein_standort_trifft_seine_fahrzeuge_jede_andere_quelle_ist_ein_fahrer():
+    buch, neue_id, eigener = _buch_mit_serie(fahrer="person.ela")
+    _, (zweiter,) = terminbuch.anlegen(buch, _werte(fahrzeug="auto-2"), neue_id)
+    _, (dritter,) = terminbuch.anlegen(buch, _werte(fahrzeug="auto-3"), neue_id)
+    standorte = {"device_tracker.golf": {"auto-1", "auto-2"}}
+    assert set(terminbuch.heimkehr_von(buch, BERLIN, _um(16), "device_tracker.golf", standorte)) == {
+        (eigener, MI), (zweiter, MI)}
+    assert terminbuch.heimkehr_von(buch, BERLIN, _um(16), "person.ela", standorte) == [(eigener, MI)]
+    assert terminbuch.heimkehr_von(buch, BERLIN, _um(16), "device_tracker.fremd", standorte) == []
+
+
+def test_das_ereignis_nennt_die_geraete_id_und_die_quelle():
+    buch, _, eintrag = _buch_mit_serie()
+    assert terminbuch.heimkehr_ereignisse(buch, [(eintrag, MI)], {"auto-1": "geraet-1"}, "person.ela") == [
+        {"entry": eintrag, "date": "2026-09-16", "vehicle": "geraet-1", "source": "person.ela"}]
+
+
+# --- Eingesteckt an der eigenen Wallbox, Spec C9S Abschnitt 9 ------------------------
+
+
+ZUORDNUNG = {"auto-1": "wb-1", "auto-2": "wb-2"}
+AUTO_STECKER = {"auto-1": "binary_sensor.golf", "auto-2": "binary_sensor.zoe"}
+WALLBOX_STECKER = {"wb-1": "binary_sensor.wb1", "wb-2": "binary_sensor.wb2"}
+
+
+@pytest.mark.parametrize(("alt", "neu", "erwartet"), [
+    ("off", "on", True), ("unavailable", "on", False), ("unknown", "on", False),
+    ("on", "on", False), (None, "on", False), ("on", "off", False),
+])
+def test_nur_off_nach_on_ist_einstecken(alt, neu, erwartet):
+    assert terminbuch.eingesteckt(alt, neu) is erwartet
+
+
+def _zu_hause(eingesteckt, quelle, zuordnung=ZUORDNUNG, auto=AUTO_STECKER, wallbox=WALLBOX_STECKER):
+    return terminbuch.eingesteckt_zu_hause(zuordnung, auto, wallbox, eingesteckt, quelle, _um(16))
+
+
+@pytest.mark.parametrize("abstand", [timedelta(0), timedelta(minutes=10)])
+def test_beide_stecker_binnen_zehn_minuten_in_beliebiger_reihenfolge(abstand):
+    jetzt = _um(16)
+    assert _zu_hause({"binary_sensor.golf": jetzt - abstand, "binary_sensor.wb1": jetzt}, "binary_sensor.wb1") == ["auto-1"]
+    assert _zu_hause({"binary_sensor.wb1": jetzt - abstand, "binary_sensor.golf": jetzt}, "binary_sensor.golf") == ["auto-1"]
+
+
+def test_eine_sekunde_ueber_zehn_minuten_oder_nur_ein_stecker_reicht_nicht():
+    jetzt = _um(16)
+    zu_lang = jetzt - timedelta(minutes=10, seconds=1)
+    assert _zu_hause({"binary_sensor.golf": zu_lang, "binary_sensor.wb1": jetzt}, "binary_sensor.wb1") == []
+    assert _zu_hause({"binary_sensor.wb1": zu_lang, "binary_sensor.golf": jetzt}, "binary_sensor.golf") == []
+    assert _zu_hause({"binary_sensor.golf": jetzt}, "binary_sensor.golf") == []
+    assert _zu_hause({"binary_sensor.wb1": jetzt}, "binary_sensor.wb1") == []
+
+
+def test_der_stecker_einer_fremden_wallbox_zaehlt_nicht():
+    jetzt = _um(16)
+    assert _zu_hause({"binary_sensor.golf": jetzt, "binary_sensor.wb2": jetzt}, "binary_sensor.wb2") == []
+
+
+def test_ohne_eigenen_stecker_reicht_die_wallbox_bei_einem_fahrzeug():
+    jetzt = _um(16)
+    allein = {"auto-1": "wb-1"}
+    assert _zu_hause({"binary_sensor.wb1": jetzt}, "binary_sensor.wb1", zuordnung=allein, auto={}) == ["auto-1"]
+    zwei = {"auto-1": "wb-1", "auto-2": "wb-1"}
+    assert _zu_hause({"binary_sensor.wb1": jetzt}, "binary_sensor.wb1", zuordnung=zwei, auto={}) == []
+
+
+def test_bei_zwei_fahrzeugen_trifft_der_eigene_stecker_nur_das_eigene():
+    jetzt = _um(16)
+    zwei = {"auto-1": "wb-1", "auto-2": "wb-1"}
+    eingesteckt = {"binary_sensor.zoe": jetzt - timedelta(minutes=3), "binary_sensor.wb1": jetzt}
+    assert _zu_hause(eingesteckt, "binary_sensor.wb1", zuordnung=zwei) == ["auto-2"]
+
+
+def test_ohne_stecker_am_ladepunkt_wirkt_es_nicht():
+    jetzt = _um(16)
+    assert _zu_hause({"binary_sensor.golf": jetzt}, "binary_sensor.golf", wallbox={}) == []
+
+
+def test_eingesteckt_zu_hause_ignoriert_auch_am_anfang_des_termins():
+    """C9S-Spec Abschnitt 9.4: das Fenster aus 8.3 gilt nicht."""
+    buch, _, eintrag = _buch_mit_serie()
+    assert terminbuch.heimkehr(buch, BERLIN, _um(8, 5), fahrzeug="auto-1", ab_anteil=0.0) == [(eintrag, MI)]
+    assert terminbuch.heimkehr(buch, BERLIN, _um(8, 5), fahrzeug="auto-1") == []
+
+
+def test_zwei_frische_autos_am_selben_ladepunkt_zaehlen_beide_nicht():
+    """Review C9S: Auto 1 steckt an einer fremden Saeule, Auto 2 an der eigenen Wallbox."""
+    jetzt = _um(16)
+    zwei = {"auto-1": "wb-1", "auto-2": "wb-1"}
+    eingesteckt = {"binary_sensor.golf": jetzt - timedelta(minutes=2),
+                   "binary_sensor.zoe": jetzt - timedelta(minutes=1), "binary_sensor.wb1": jetzt}
+    assert _zu_hause(eingesteckt, "binary_sensor.wb1", zuordnung=zwei) == []
+    assert _zu_hause(eingesteckt, "binary_sensor.golf", zuordnung=zwei) == []
+
+
+def test_ein_fremder_stecker_trifft_kein_fahrzeug():
+    """Der Quellenfilter: nur Fahrzeuge, zu denen der eingesteckte Stecker gehoert."""
+    jetzt = _um(16)
+    eingesteckt = {"binary_sensor.golf": jetzt, "binary_sensor.wb1": jetzt, "binary_sensor.fremd": jetzt}
+    assert _zu_hause(eingesteckt, "binary_sensor.fremd") == []
+
+
+def _wechsel(entity_id, alt, neu, eingesteckt, zuordnung=ZUORDNUNG):
+    return terminbuch.stecker_wechsel(
+        entity_id, alt, neu, _um(16), eingesteckt, zuordnung, AUTO_STECKER, WALLBOX_STECKER)
+
+
+def test_stecker_wechsel_merkt_einstecken_und_vergisst_abstecken():
+    eingesteckt = {}
+    assert _wechsel("binary_sensor.golf", "off", "on", eingesteckt) == []
+    assert eingesteckt == {"binary_sensor.golf": _um(16)}
+    assert _wechsel("binary_sensor.wb1", "off", "on", eingesteckt) == ["auto-1"]
+    assert _wechsel("binary_sensor.golf", "on", "off", eingesteckt) == []
+    assert "binary_sensor.golf" not in eingesteckt
+    assert _wechsel("binary_sensor.wb1", "unavailable", "on", eingesteckt) == []
+
+
+def test_ein_abgesteckter_stecker_zaehlt_nicht_mehr():
+    eingesteckt = {}
+    _wechsel("binary_sensor.golf", "off", "on", eingesteckt)
+    _wechsel("binary_sensor.golf", "on", "off", eingesteckt)
+    assert _wechsel("binary_sensor.wb1", "off", "on", eingesteckt) == []
+
+
+# --- Verlaengern, Spec C13 ----------------------------------------------------------------
+# Der Termin am MI laeuft 08:00 bis 18:00; der am DO beginnt 08:00.
+
+
+@pytest.mark.parametrize(("zustaende", "erwartet"), [
+    (["not_home"], True),
+    (["Arbeit"], True),
+    (["not_home", "home"], False),
+    (["unavailable"], False),
+    (["unknown", None], False),
+    (["unavailable", "not_home"], True),
+    ([], False),
+])
+def test_weg_ist_ein_termin_nur_mit_echtem_zustand_und_ohne_home(zustaende, erwartet):
+    assert terminbuch.ist_weg(zustaende) is erwartet
+
+
+def test_die_quellen_eines_termins_sind_sein_standort_und_sein_fahrer():
+    buch, _, eintrag = _buch_mit_serie(fahrer="person.ela")
+    (termin,) = terminbuch.ausrollen(buch, BERLIN, _um(12), _um(12, 1))
+    standorte = {"device_tracker.golf": {"auto-1"}, "device_tracker.zoe": {"auto-2"}}
+    assert terminbuch.quellen_von(termin, standorte) == ["device_tracker.golf", "person.ela"]
+
+
+def _weg(_termin):
+    return True
+
+
+def test_zur_rueckkehr_verlaengert_sich_ein_weg_termin_um_15_minuten():
+    buch, _, eintrag = _buch_mit_serie()
+    assert terminbuch.verlaengern(buch, BERLIN, _um(17, 59), _weg) == []
+    assert terminbuch.verlaengern(buch, BERLIN, _um(18), _weg) == [(eintrag, MI)]
+    assert buch.verlaengert == {(eintrag, MI): _um(18, 15)}
+    (termin,) = terminbuch.ausrollen(buch, BERLIN, _um(18, 5), _um(18, 6))
+    assert termin.rueckkehr == _um(18, 15)
+    assert terminbuch.verlaengern(buch, BERLIN, _um(18, 15), _weg) == [(eintrag, MI)]
+    assert buch.verlaengert[(eintrag, MI)] == _um(18, 30)
+
+
+def test_nicht_weg_ignoriert_oder_zu_lange_her_verlaengert_nicht():
+    buch, _, eintrag = _buch_mit_serie()
+    assert terminbuch.verlaengern(buch, BERLIN, _um(18), lambda _t: False) == []
+    assert terminbuch.verlaengern(buch, BERLIN, _um(18, 15), _weg) == []  # ein Schritt her: Neustart
+    terminbuch.ignorieren(buch, eintrag, MI, True, _um(17), BERLIN)
+    assert terminbuch.verlaengern(buch, BERLIN, _um(18), _weg) == []
+
+
+def _buch_mit_folgetermin():
+    """Einmalig MI 08:00 bis 18:00, danach MI 20:00 dasselbe Fahrzeug."""
+    buch, neue_id = terminbuch.Buch(), _ids()
+    _, (eintrag,) = terminbuch.anlegen(buch, _werte(wiederholung="once"), neue_id)
+    _, (folge,) = terminbuch.anlegen(buch, _werte(abfahrt="2026-09-16T20:00:00", wiederholung="once"), neue_id)
+    return buch, eintrag, folge
+
+
+def test_die_grenze_ist_der_naechste_termin_desselben_fahrzeugs():
+    buch, eintrag, _ = _buch_mit_folgetermin()
+    buch.verlaengert[(eintrag, MI)] = _um(19, 50)
+    assert terminbuch.verlaengern(buch, BERLIN, _um(19, 50), _weg) == [(eintrag, MI)]
+    assert buch.verlaengert[(eintrag, MI)] == _um(20)
+    assert terminbuch.verlaengern(buch, BERLIN, _um(20), _weg) == []
+
+
+def test_die_grenze_sind_zwoelf_stunden_und_andere_fahrzeuge_zaehlen_nicht():
+    buch, neue_id = terminbuch.Buch(), _ids()
+    _, (eintrag,) = terminbuch.anlegen(buch, _werte(wiederholung="once"), neue_id)
+    terminbuch.anlegen(buch, _werte(abfahrt="2026-09-16T19:00:00", wiederholung="once", fahrzeug="auto-2"), neue_id)
+    buch.verlaengert[(eintrag, MI)] = datetime(2026, 9, 17, 5, 55, tzinfo=BERLIN)
+    assert terminbuch.verlaengern(buch, BERLIN, datetime(2026, 9, 17, 5, 55, tzinfo=BERLIN), _weg) == [(eintrag, MI)]
+    assert buch.verlaengert[(eintrag, MI)] == datetime(2026, 9, 17, 6, 0, tzinfo=BERLIN)  # 18:00 + 12 h
+    assert terminbuch.verlaengern(buch, BERLIN, datetime(2026, 9, 17, 6, 0, tzinfo=BERLIN), _weg) == []
+
+
+def test_ein_ignorierter_naechster_termin_ist_keine_grenze():
+    buch, eintrag, folge = _buch_mit_folgetermin()
+    buch.ignoriert.add((folge, MI))
+    buch.verlaengert[(eintrag, MI)] = _um(19, 50)
+    terminbuch.verlaengern(buch, BERLIN, _um(19, 50), _weg)
+    assert buch.verlaengert[(eintrag, MI)] == _um(20, 5)
+
+
+def test_eine_eigene_spaetere_rueckkehr_schlaegt_die_verlaengerung():
+    buch, _, eintrag = _buch_mit_serie()
+    buch.verlaengert[(eintrag, MI)] = _um(17)
+    (termin,) = terminbuch.ausrollen(buch, BERLIN, _um(12), _um(12, 1))
+    assert termin.rueckkehr == _um(18)
+
+
+def test_die_verlaengerte_rueckkehr_gilt_fuer_ignorieren_und_heimkehr_ohne_fenster():
+    buch, _, eintrag = _buch_mit_serie(fahrer="person.ela")
+    buch.verlaengert[(eintrag, MI)] = _um(18, 30)
+    assert terminbuch.heimkehr(buch, BERLIN, _um(18, 10), fahrer="person.ela") == [(eintrag, MI)]
+    terminbuch.ignorieren(buch, eintrag, MI, True, _um(18, 10), BERLIN)
+    assert buch.ignoriert == {(eintrag, MI)}
+    assert terminbuch.ignoriert_bereinigen(buch, _um(18, 10), BERLIN) is False
+
+
+def test_waehrend_der_verlaengerung_gilt_das_fenster_nicht():
+    """C13-Spec Abschnitt 5: auch eine Heimkehr kurz nach der geplanten Rueckkehr zaehlt."""
+    buch, _, eintrag = _buch_mit_serie()
+    buch.verlaengert[(eintrag, MI)] = _um(23)  # Dauer jetzt 15 h: 70 % laege bei 18:30
+    assert terminbuch.heimkehr(buch, BERLIN, _um(18, 5), fahrzeug="auto-1") == [(eintrag, MI)]
+
+
+def test_verlaengerungen_werden_erst_einen_schritt_nach_der_rueckkehr_aufgeraeumt():
+    """Review C13: ein Aufraeumen in der Minute bis zur naechsten Pruefung beendete den Termin."""
+    buch, _, eintrag = _buch_mit_serie()
+    buch.verlaengert[(eintrag, MI)] = _um(18, 15)
+    assert terminbuch.verlaengert_bereinigen(buch, _um(18, 15), BERLIN) is False
+    assert terminbuch.verlaengert_bereinigen(buch, datetime(2026, 9, 16, 18, 15, 20, tzinfo=BERLIN), BERLIN) is False
+    assert terminbuch.verlaengern(buch, BERLIN, datetime(2026, 9, 16, 18, 15, 40, tzinfo=BERLIN), _weg) == [(eintrag, MI)]
+    assert terminbuch.verlaengert_bereinigen(buch, _um(18, 44), BERLIN) is False
+    assert terminbuch.verlaengert_bereinigen(buch, _um(18, 45), BERLIN) is True
+    assert buch.verlaengert == {}
+
+
+def test_eine_verlaengerung_eines_geloeschten_termins_wird_aufgeraeumt():
+    buch, neue_id, eintrag = _buch_mit_serie()
+    buch.verlaengert[(eintrag, MI)] = _um(18, 15)
+    terminbuch.loeschen(buch, eintrag, MI, "all", neue_id)
+    assert terminbuch.verlaengert_bereinigen(buch, _um(18, 5), BERLIN) is True
+
+
+def test_die_speicherform_traegt_extended_nur_wenn_es_eine_gibt():
+    buch, _, eintrag = _buch_mit_serie()
+    assert "extended" not in buch.speicherform()
+    buch.verlaengert[(eintrag, MI)] = _um(18, 15)
+    gespeichert = buch.speicherform()["extended"]
+    assert gespeichert == [{"entry": eintrag, "date": "2026-09-16", "return": "2026-09-16T16:15:00+00:00"}]
+    assert terminbuch.Buch(buch.speicherform()).verlaengert == {(eintrag, MI): _um(18, 15)}
+
+
+def test_eine_eigene_spaetere_rueckkehr_ist_keine_verlaengerung_und_das_fenster_gilt():
+    """Review C13: ist_verlaengert vergleicht mit der eigenen Rueckkehr."""
+    buch, _, eintrag = _buch_mit_serie()
+    buch.verlaengert[(eintrag, MI)] = _um(17)
+    (termin,) = terminbuch.ausrollen(buch, BERLIN, _um(12), _um(12, 1))
+    assert terminbuch.ist_verlaengert(buch, termin) is False
+    assert terminbuch.geplante_rueckkehr(buch, [termin]) == {}
+    assert terminbuch.heimkehr(buch, BERLIN, _um(12), fahrzeug="auto-1") == []
+
+
+def test_die_geplante_rueckkehr_eines_verlaengerten_termins_ist_seine_eigene():
+    buch, _, eintrag = _buch_mit_serie()
+    buch.verlaengert[(eintrag, MI)] = _um(18, 30)
+    (termin,) = terminbuch.ausrollen(buch, BERLIN, _um(18, 10), _um(18, 11))
+    assert terminbuch.geplante_rueckkehr(buch, [termin]) == {(eintrag, MI): _um(18)}
+
+
+def test_der_request_traegt_die_wirksame_rueckkehr():
+    """C13-Spec Abschnitt 4: to des unavailable."""
+    terminanfrage = importlib.import_module(f"{_PAKET}.terminanfrage")
+    ladereserve = importlib.import_module(f"{_PAKET}.ladereserve")
+    buch, _, eintrag = _buch_mit_serie()
+    buch.verlaengert[(eintrag, MI)] = _um(18, 30)
+    auswahl = terminbuch.ausrollen(buch, BERLIN, _um(18, 10), _um(18, 11))
+    werte = ladereserve.Fahrzeugwerte(soc_min_pct=15.0, capacity_kwh=58.0, consumption_kwh_per_100km=19.5)
+    teil = terminanfrage.fragmente(auswahl, {"auto-1": werte}, _um(18, 10))["auto-1"]
+    assert teil["constraints"][0]["to"] == "2026-09-16T18:30:00+02:00"
+
+
+# --- Der Name, C12N-Spec Abschnitt 8.1 ----------------------------------------
+
+
+def test_der_name_steht_im_eintrag_und_in_der_ausnahme():
+    buch, neue_id, eintrag = _buch_mit_serie(name="Zur Arbeit")
+    assert buch.eintraege[eintrag]["name"] == "Zur Arbeit"
+    terminbuch.aendern(buch, eintrag, DO, "this", _werte("2026-09-17T08:00:00", name="Zahnarzt"), neue_id)
+    assert buch.eintraege[eintrag]["exceptions"]["2026-09-17"]["name"] == "Zahnarzt"
+    assert buch.eintraege[eintrag]["name"] == "Zur Arbeit"
+
+
+def test_all_benennt_die_serie_um():
+    buch, neue_id, eintrag = _buch_mit_serie(name="Zur Arbeit")
+    terminbuch.aendern(buch, eintrag, MI, "all", _werte(name="Ins Büro"), neue_id)
+    assert buch.eintraege[eintrag]["name"] == "Ins Büro"

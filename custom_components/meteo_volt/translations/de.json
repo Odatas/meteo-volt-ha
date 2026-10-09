@@ -49,7 +49,8 @@
           "data": {
             "name": "Name",
             "max_power_kw": "Max. Leistung (kW)",
-            "available": "Verfügbar"
+            "available": "Verfügbar",
+            "plugged_entity": "Angesteckt"
           },
           "data_description": {
             "name": "Leer lassen vergibt einen Namen aus der Leistung, etwa Wallbox 11 kW.",
@@ -62,7 +63,8 @@
           "data": {
             "name": "Name",
             "max_power_kw": "Max. Leistung (kW)",
-            "available": "Verfügbar"
+            "available": "Verfügbar",
+            "plugged_entity": "Angesteckt"
           },
           "data_description": {
             "name": "Leer lassen vergibt einen Namen aus der Leistung, etwa Wallbox 11 kW.",
@@ -104,7 +106,8 @@
               "data": {
                 "soc_entity": "Ladestand (%)",
                 "station_id": "Ladepunkt",
-                "plugged_entity": "Angesteckt"
+                "plugged_entity": "Angesteckt",
+                "location_entity": "Standort"
               },
               "data_description": {
                 "station_id": "Optional. Wenn gesetzt, lädt das Fahrzeug nur hier, sonst am zuerst angelegten Ladepunkt. Mehrere Fahrzeuge werden noch nicht gemeinsam geplant."
@@ -134,7 +137,8 @@
               "data": {
                 "soc_entity": "Ladestand (%)",
                 "station_id": "Ladepunkt",
-                "plugged_entity": "Angesteckt"
+                "plugged_entity": "Angesteckt",
+                "location_entity": "Standort"
               },
               "data_description": {
                 "station_id": "Optional. Wenn gesetzt, lädt das Fahrzeug nur hier, sonst am zuerst angelegten Ladepunkt. Mehrere Fahrzeuge werden noch nicht gemeinsam geplant."
@@ -234,6 +238,10 @@
         "keep_min_soc": {
           "name": "Min-SoC sichern",
           "description": "Hebt die Abfahrt auf den Min-SoC plus den Verbrauch der Fahrt. Fehlt das Feld, beim Anlegen an, beim Ändern wie bisher."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Optionale Bezeichnung des Termins, höchstens 40 Zeichen. Fehlt das Feld beim Ändern, bleibt der Name; leer löscht ihn."
         }
       }
     },
@@ -279,6 +287,10 @@
         "keep_min_soc": {
           "name": "Min-SoC sichern",
           "description": "Hebt die Abfahrt auf den Min-SoC plus den Verbrauch der Fahrt. Fehlt das Feld, beim Anlegen an, beim Ändern wie bisher."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Optionale Bezeichnung des Termins, höchstens 40 Zeichen. Fehlt das Feld beim Ändern, bleibt der Name; leer löscht ihn."
         }
       }
     },
@@ -379,6 +391,9 @@
     },
     "strecke_fehlt": {
       "message": "Strecke fehlt."
+    },
+    "name_zu_lang": {
+      "message": "Der Name darf höchstens 40 Zeichen haben."
     },
     "strecke_negativ": {
       "message": "Die Strecke kann nicht negativ sein."

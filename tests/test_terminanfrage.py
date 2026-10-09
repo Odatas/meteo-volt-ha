@@ -213,6 +213,12 @@ def _ziel(teil):
     return next((a for a in teil.get("constraints", []) if a["type"] == "target"), None)
 
 
+def test_der_name_geht_nicht_in_den_request():
+    """C12N-Spec Abschnitt 8.1: der Planer sieht ihn nicht."""
+    eintrag = {**_eintrag("e1", "2026-09-17T08:00:00", soc=80), "name": "Zur Arbeit"}
+    assert "Zur Arbeit" not in repr(_fragmente(eintrag))
+
+
 def test_der_haken_hebt_die_abfahrt_auf_min_soc_plus_fahrt():
     # 175 km kosten 58,8 Punkte, 15 + 58,8 aufgerundet sind 74
     teil = _fragmente(_eintrag("e1", "2026-09-17T08:00:00", sichern=True, km=175))["auto-1"]

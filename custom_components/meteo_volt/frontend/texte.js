@@ -14,6 +14,7 @@ export const TEXTE = {
     strecke_fehlt: 'Strecke fehlt.',
     strecke_negativ: 'Die Strecke kann nicht negativ sein.',
     ladestand_bereich: 'Der Ladestand liegt zwischen 0 und 100 %.',
+    name_zu_lang: 'Der Name darf höchstens 40 Zeichen haben.',
     ladestand_unter_min: 'Liegt unter dem Min-SoC von {min} % und wird ignoriert.',
     fahrt_zu_weit: 'Auch voll geladen reicht es nicht für {km} km — unterwegs laden.',
     fahrt_unter_min: 'Die Fahrt zieht den Ladestand unter den Min-SoC von {min} %.',
@@ -98,6 +99,7 @@ export const TEXTE = {
 
     // Status eines Fahrzeugs
     st_unterwegs_bis: 'Unterwegs bis {zeit}',
+    st_unterwegs_verlaengert: 'Unterwegs bis {zeit} (verlängert)',  // C13-Spec Abschnitt 6
     // C9R-Spec Abschnitt 5
     ist_zurueck: 'Ist zurück',
     beachten: 'Beachten',
@@ -122,6 +124,8 @@ export const TEXTE = {
     weniger: 'Weniger anzeigen',
     grund_ziel: 'für Abfahrt {abfahrt}, Ziel {soc}',
     grund_abfahrt: 'für Abfahrt {abfahrt}',
+    grund_name: 'für „{name}“, {abfahrt}',
+    grund_name_ziel: 'für „{name}“, {abfahrt}, Ziel {soc}',
     block_werte: '{kwh} · Ø {preis} · {eur}',
 
     // Termine
@@ -160,6 +164,7 @@ export const TEXTE = {
     f_strecke: 'Strecke hin und zurück (km)',
     f_fahrzeug: 'Fahrzeug',
     f_fahrer: 'Fahrer',
+    f_name: 'Name',
     f_kein_fahrer: 'Kein Fahrer',
     f_ladestand: 'Ladestand bei Abfahrt (%)',
     f_sichern: 'Min-SoC sichern',
@@ -237,6 +242,7 @@ export const TEXTE = {
     strecke_fehlt: 'Distance missing.',
     strecke_negativ: 'The distance cannot be negative.',
     ladestand_bereich: 'The state of charge is between 0 and 100 %.',
+    name_zu_lang: 'The name can have at most 40 characters.',
     ladestand_unter_min: 'Below the minimum state of charge of {min} % and ignored.',
     fahrt_zu_weit: 'Even fully charged it is not enough for {km} km — charge on the way.',
     fahrt_unter_min: 'The trip pulls the state of charge below the minimum of {min} %.',
@@ -316,6 +322,7 @@ export const TEXTE = {
     tip_unterwegs: 'Away',
 
     st_unterwegs_bis: 'Away until {zeit}',
+    st_unterwegs_verlaengert: 'Away until {zeit} (extended)',
     ist_zurueck: 'Back home',
     beachten: 'Restore',
     ignoriert: 'Ignored, not planned',
@@ -338,6 +345,8 @@ export const TEXTE = {
     weniger: 'Show less',
     grund_ziel: 'for departure {abfahrt}, target {soc}',
     grund_abfahrt: 'for departure {abfahrt}',
+    grund_name: 'for “{name}”, {abfahrt}',
+    grund_name_ziel: 'for “{name}”, {abfahrt}, target {soc}',
     block_werte: '{kwh} · Ø {preis} · {eur}',
 
     einzeln_geaendert: 'changed individually',
@@ -373,6 +382,7 @@ export const TEXTE = {
     f_strecke: 'Round-trip distance (km)',
     f_fahrzeug: 'Vehicle',
     f_fahrer: 'Driver',
+    f_name: 'Name',
     f_kein_fahrer: 'No driver',
     f_ladestand: 'State of charge at departure (%)',
     f_sichern: 'Keep minimum SoC',

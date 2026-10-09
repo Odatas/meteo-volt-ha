@@ -49,7 +49,8 @@
           "data": {
             "name": "Name",
             "max_power_kw": "Max. power (kW)",
-            "available": "Available"
+            "available": "Available",
+            "plugged_entity": "Plugged in"
           },
           "data_description": {
             "name": "Leave empty to get a name from the power, such as Wallbox 11 kW.",
@@ -62,7 +63,8 @@
           "data": {
             "name": "Name",
             "max_power_kw": "Max. power (kW)",
-            "available": "Available"
+            "available": "Available",
+            "plugged_entity": "Plugged in"
           },
           "data_description": {
             "name": "Leave empty to get a name from the power, such as Wallbox 11 kW.",
@@ -104,7 +106,8 @@
               "data": {
                 "soc_entity": "State of charge (%)",
                 "station_id": "Charge point",
-                "plugged_entity": "Plugged in"
+                "plugged_entity": "Plugged in",
+                "location_entity": "Location"
               },
               "data_description": {
                 "station_id": "Optional. If set, the vehicle charges only here, otherwise at the charge point created first. Several vehicles are not yet planned together."
@@ -134,7 +137,8 @@
               "data": {
                 "soc_entity": "State of charge (%)",
                 "station_id": "Charge point",
-                "plugged_entity": "Plugged in"
+                "plugged_entity": "Plugged in",
+                "location_entity": "Location"
               },
               "data_description": {
                 "station_id": "Optional. If set, the vehicle charges only here, otherwise at the charge point created first. Several vehicles are not yet planned together."
@@ -234,6 +238,10 @@
         "keep_min_soc": {
           "name": "Keep minimum SoC",
           "description": "Raises the departure to the minimum state of charge plus the trip. If the field is missing: on when creating, unchanged when editing."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Optional label of the appointment, at most 40 characters. If omitted when updating, the name stays; empty removes it."
         }
       }
     },
@@ -279,6 +287,10 @@
         "keep_min_soc": {
           "name": "Keep minimum SoC",
           "description": "Raises the departure to the minimum state of charge plus the trip. If the field is missing: on when creating, unchanged when editing."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Optional label of the appointment, at most 40 characters. If omitted when updating, the name stays; empty removes it."
         }
       }
     },
@@ -379,6 +391,9 @@
     },
     "strecke_fehlt": {
       "message": "Distance missing."
+    },
+    "name_zu_lang": {
+      "message": "The name can have at most 40 characters."
     },
     "strecke_negativ": {
       "message": "The distance cannot be negative."

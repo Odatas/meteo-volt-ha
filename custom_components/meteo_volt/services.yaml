@@ -39,6 +39,9 @@ create_appointment:
     keep_min_soc:
       selector:
         boolean:
+    name:
+      selector:
+        text:
 
 update_appointment:
   fields:
@@ -87,6 +90,9 @@ update_appointment:
     keep_min_soc:
       selector:
         boolean:
+    name:
+      selector:
+        text:
 
 delete_appointment:
   fields:
