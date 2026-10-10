@@ -1,11 +1,4 @@
 {
-  "x-meteo-volt-contract": {
-    "generated_by": "meteo-volt-brain/scripts/export_contract.py",
-    "do_not_edit": true,
-    "schema_version": 2,
-    "brain_commit": "9fd8963",
-    "sha256": "7f8bce6d568b56ea2d7443755eed44b15269e84645f50a64af8cdadee5d318ac"
-  },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$defs": {
     "Interval": {

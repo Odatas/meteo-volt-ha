@@ -84,7 +84,7 @@ def _auswerten(stand, jetzt, soc=None, gemeldet=None, zustand=LEER, fahrzeug_id=
 
 def test_es_gibt_response_fixtures():
     """Die Parametrisierung unten saehe ohne Fixtures null Faelle und bliebe gruen."""
-    assert _fixture_namen(), "keine Response-Fixtures; export_contract.py --to-ha ausfuehren"
+    assert _fixture_namen(), "keine Response-Fixtures gefunden"
 
 
 def test_es_sind_acht_entitaeten_und_fuenf_zustaende():
