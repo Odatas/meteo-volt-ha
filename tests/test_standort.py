@@ -233,7 +233,7 @@ def _stand(anfrage: dict, plan: dict, erhalten_um: datetime):
 
 def test_es_gibt_response_fixtures():
     """Die Parametrisierung unten saehe ohne Fixtures null Faelle und bliebe gruen."""
-    assert _fixture_namen(), "keine Response-Fixtures; export_contract.py --to-ha ausfuehren"
+    assert _fixture_namen(), "keine Response-Fixtures gefunden"
 
 
 @pytest.mark.parametrize("name", _fixture_namen())
