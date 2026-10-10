@@ -1,8 +1,6 @@
 """Prueft die vendorten Kontrakt-Fixtures gegen die vendorten Schemas.
 
-Faengt eine halbfertige Kopie, auch ohne Brain-Checkout. Der volle
-Drift-Vergleich gegen den Brain-Stand steht in
-meteo-volt-brain/scripts/check_contract_drift.py.
+Faengt eine halbfertige Kopie, ohne ein weiteres Repository.
 """
 
 import json
@@ -15,8 +13,7 @@ CONTRACT = Path(__file__).parent / "fixtures" / "contract"
 
 
 def _load(path: Path) -> dict:
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    return {k: v for k, v in payload.items() if k != "x-meteo-volt-contract"}
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 REQUEST_SCHEMA = _load(CONTRACT / "plan-request.schema.json")
@@ -33,7 +30,7 @@ def _error_paths() -> list[Path]:
 
 
 def test_fixtures_were_vendored():
-    assert _names(), "keine Fixtures gefunden; export_contract.py --to-ha ausfuehren"
+    assert _names(), "keine Fixtures gefunden"
 
 
 def test_error_fixtures_were_vendored():
