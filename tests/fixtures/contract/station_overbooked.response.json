@@ -7,7 +7,7 @@
   "prices_known_until": "2026-08-18T22:45:00+02:00",
   "slot_minutes": 15,
   "site": {
-    "peak_power_kw": 22.0,
+    "peak_power_kw": 11.0,
     "total_kwh": 11.0,
     "total_cost_eur": 0.46,
     "feasible": true

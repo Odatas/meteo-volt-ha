@@ -103,7 +103,7 @@
           "type": "string"
         },
         "peak_power_kw": {
-          "description": "Hoechste Leistung in kW, die der Plan gleichzeitig abruft.",
+          "description": "Hoechste Leistung in kW eines einzelnen Ladevorgangs. Summiert nicht ueber gleichzeitig ladende Fahrzeuge.",
           "title": "Peak Power Kw",
           "type": "number"
         },
@@ -132,7 +132,7 @@
       "description": "Die Summen ueber alle Fahrzeuge des Standorts.",
       "properties": {
         "peak_power_kw": {
-          "description": "Hoechste Leistung in kW, die der Plan am Standort gleichzeitig abruft.",
+          "description": "Hoechste Leistung in kW eines einzelnen Ladevorgangs am Standort. Summiert nicht ueber gleichzeitig ladende Fahrzeuge.",
           "title": "Peak Power Kw",
           "type": "number"
         },
@@ -574,7 +574,7 @@
       "type": "integer"
     },
     "computed_at": {
-      "description": "Zeitpunkt, zu dem der Server diesen Plan gerechnet hat.",
+      "description": "Zeitpunkt, zu dem die Prognose gerechnet wurde, auf der dieser Plan beruht. Nicht der Zeitpunkt der Planung.",
       "format": "date-time",
       "title": "Computed At",
       "type": "string"
