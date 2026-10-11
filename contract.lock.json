@@ -1,7 +1,7 @@
 {
   "generated_by": "meteo-volt-contract/tools/export.py",
   "do_not_edit": true,
-  "contract_commit": "52c9cf2",
+  "contract_commit": "e1a43a7",
   "wege": {
     "K1": {
       "version": 2,
@@ -114,7 +114,7 @@
       "kind": "text-lf"
     },
     "tests/fixtures/contract/plan-response.schema.json": {
-      "sha256": "4ba8117e0bebd73cb316c98c50d4217b54612f36972ccd4cf7d4e5c34fe4d594",
+      "sha256": "978f58e822b6661ddf28ef11e94868a301a8c8afd6942297a08b102a0c2e6ca8",
       "kind": "text-lf"
     },
     "tests/fixtures/contract/rounding.request.json": {
@@ -138,7 +138,7 @@
       "kind": "text-lf"
     },
     "tests/fixtures/contract/station_overbooked.response.json": {
-      "sha256": "09b1f51affb2341702ad045327ef96e2fe74edd5cacfa6edd09821a1e5ab02b2",
+      "sha256": "75a587ef42a34b801cdd5d1618c37ec755bdb1cd4105c157ed609aab30765dbe",
       "kind": "text-lf"
     },
     "tests/fixtures/contract/unavailable.request.json": {
