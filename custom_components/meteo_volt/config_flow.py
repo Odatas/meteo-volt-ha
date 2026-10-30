@@ -19,9 +19,14 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import selector
 
 from . import stammdaten
-from .const import DOMAIN, CONF_API_TOKEN, CONF_GRID_FEES, CONF_SITE_MAX_POWER, API_URL
+from .const import (
+    DOMAIN, CONF_API_TOKEN, CONF_GRID_FEES, CONF_SITE_MAX_POWER, API_URL, REAUTH_GRUND,
+)
 from .overrides import load_overrides
 from .api import MeteoVoltApiClient
+from .planabruf import (
+    FLOW_GESPERRT, FLOW_UNGUELTIG, KEY_GESPERRT, PrognoseFehler, flow_fehler,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -37,6 +42,8 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
     }
 )
 
+STEP_REAUTH_DATA_SCHEMA = vol.Schema({vol.Required(CONF_API_TOKEN): str})
+
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
     """Validate the user input allows us to connect."""
@@ -51,6 +58,15 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     
     try:
         await client.async_get_predictions(hass)
+    except PrognoseFehler as err:
+        # Mit bekannter Art entscheidet sie, nicht der Status.
+        _LOGGER.error("Meteo-Volt API hat abgewiesen: %s", err)
+        schluessel = flow_fehler(err.klasse)
+        if schluessel == FLOW_GESPERRT:
+            raise KeyLocked from err
+        if schluessel == FLOW_UNGUELTIG:
+            raise InvalidAuth from err
+        raise CannotConnect from err
     except (aiohttp.ClientError, TimeoutError, ValueError) as err:
         # Spec S2 Abschnitt 2: Netz, Timeout, HTTP-Fehler ausser 401/403 und
         # eine unlesbare Antwort sagen nichts ueber den Key. Nur 401 und 403
@@ -103,6 +119,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "cannot_connect"
             except InvalidAuth:
                 errors["base"] = "invalid_auth"
+            except KeyLocked:
+                errors["base"] = "key_locked"
             except Exception:  # pylint: disable=broad-except
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
@@ -138,6 +156,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "cannot_connect"
             except InvalidAuth:
                 errors["base"] = "invalid_auth"
+            except KeyLocked:
+                errors["base"] = "key_locked"
             except Exception:  # pylint: disable=broad-except
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
@@ -162,6 +182,54 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ),
             errors=errors,
         )
+
+    async def async_step_reauth(self, entry_data: dict[str, Any]) -> FlowResult:
+        """Der Key wurde abgewiesen. Nur der Key ist neu einzutragen."""
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Wie Neu konfigurieren, nur mit dem Key: Subentries und entry_id bleiben."""
+        entry = self._get_reauth_entry()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            neuer_key = user_input[CONF_API_TOKEN]
+            if neuer_key != entry.data[CONF_API_TOKEN]:
+                # Gehoert der Key schon einem anderen Eintrag, bricht das hier ab.
+                await self.async_set_unique_id(neuer_key)
+                self._abort_if_unique_id_configured()
+
+            try:
+                await validate_input(self.hass, {**entry.data, **user_input})
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except InvalidAuth:
+                errors["base"] = "invalid_auth"
+            except KeyLocked:
+                errors["base"] = "key_locked"
+            except Exception:  # pylint: disable=broad-except
+                _LOGGER.exception("Unexpected exception")
+                errors["base"] = "unknown"
+            else:
+                self.hass.data.get(REAUTH_GRUND, {}).pop(entry.entry_id, None)
+                self.hass.config_entries.async_update_entry(entry, unique_id=neuer_key)
+                return self.async_update_reload_and_abort(
+                    entry,
+                    data={**entry.data, CONF_API_TOKEN: neuer_key},
+                    reason="reauth_successful",
+                )
+
+        # Zwei Schritte, damit jeder Grund seinen eigenen, uebersetzten Text hat.
+        gesperrt = self.hass.data.get(REAUTH_GRUND, {}).get(entry.entry_id) == KEY_GESPERRT
+        return self.async_show_form(
+            step_id="reauth_locked" if gesperrt else "reauth_confirm",
+            data_schema=STEP_REAUTH_DATA_SCHEMA,
+            errors=errors,
+        )
+
+    # Das Formular bei gesperrtem Key schickt hierher zurueck.
+    async_step_reauth_locked = async_step_reauth_confirm
 
 
 def _formular(
@@ -477,3 +545,7 @@ class CannotConnect(HomeAssistantError):
 
 class InvalidAuth(HomeAssistantError):
     """Error to indicate there is invalid auth."""
+
+
+class KeyLocked(HomeAssistantError):
+    """Den Key gibt es, er ist gesperrt."""

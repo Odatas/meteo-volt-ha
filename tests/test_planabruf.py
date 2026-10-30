@@ -192,7 +192,9 @@ def test_nicht_ableitbare_url_ergibt_keine_plan_url():
 
 def test_alle_klassen_erben_von_planfehler():
     for klasse in (planabruf.PlanNichtAutorisiert, planabruf.PlanRateLimit,
-                   planabruf.PlanAbgelehnt, planabruf.PlanNichtVerfuegbar):
+                   planabruf.PlanAbgelehnt, planabruf.PlanNichtVerfuegbar,
+                   planabruf.PlanKeyAbgewiesen, planabruf.PlanKeyGesperrt,
+                   planabruf.PlanTarifErlaubtNicht):
         assert issubclass(klasse, planabruf.PlanFehler)
 
 

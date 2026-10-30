@@ -12,7 +12,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import API_URL
-from .planabruf import PlanAbruf, PlanNichtVerfuegbar
+from .planabruf import HEADER_ANFRAGE_ID, PlanAbruf, PlanNichtVerfuegbar, prognose_fehler
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,6 +49,17 @@ class MeteoVoltApiClient:
         }
 
         async with session.get(self._api_url, headers=headers) as response:
+            if response.status != 200:
+                # Mit bekannter Art entscheidet sie. Ohne Art bleibt alles wie
+                # bisher: Zuplo traegt keine.
+                try:
+                    koerper = await response.read()
+                except (aiohttp.ClientError, TimeoutError):
+                    koerper = b""
+                fehler = prognose_fehler(
+                    response.status, koerper, response.headers.get(HEADER_ANFRAGE_ID))
+                if fehler is not None:
+                    raise fehler
             if response.status == 401 or response.status == 403:
                 raise Exception("Unauthorized. Please check your API token.")
             
@@ -92,6 +103,7 @@ class MeteoVoltApiClient:
             ) as response:
                 status = response.status
                 retry_after = response.headers.get("Retry-After")
+                anfrage_id = response.headers.get(HEADER_ANFRAGE_ID)
                 try:
                     koerper = await response.read()
                 except (aiohttp.ClientError, TimeoutError):
@@ -107,4 +119,5 @@ class MeteoVoltApiClient:
             # halten lassen. Der Key reist im Header und steht nie im Log.
             _LOGGER.debug(
                 "Plan-Antwort %s: %s", status, koerper.decode("utf-8", "replace"))
-        return self._plan.nach_antwort(status, retry_after, koerper, time.monotonic())
+        return self._plan.nach_antwort(
+            status, retry_after, koerper, time.monotonic(), anfrage_id=anfrage_id)

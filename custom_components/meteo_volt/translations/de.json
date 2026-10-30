@@ -22,16 +22,30 @@
         "data_description": {
           "site_max_power_kw": "Wird erst mit der Planung mehrerer Fahrzeuge berücksichtigt."
         }
+      },
+      "reauth_confirm": {
+        "description": "Der Key wurde abgewiesen.",
+        "data": {
+          "api_token": "API Token"
+        }
+      },
+      "reauth_locked": {
+        "description": "Der Key ist gesperrt. Im Dashboard nachsehen oder einen anderen Key eintragen.",
+        "data": {
+          "api_token": "API Token"
+        }
       }
     },
     "error": {
       "cannot_connect": "Verbindung zur API fehlgeschlagen.",
       "invalid_auth": "Ungültiges API Token.",
-      "unknown": "Ein unbekannter Fehler ist aufgetreten."
+      "unknown": "Ein unbekannter Fehler ist aufgetreten.",
+      "key_locked": "Key gesperrt."
     },
     "abort": {
       "already_configured": "Dieses API Token ist bereits konfiguriert.",
-      "reconfigure_successful": "Die Einstellungen wurden gespeichert."
+      "reconfigure_successful": "Die Einstellungen wurden gespeichert.",
+      "reauth_successful": "Der Key wurde gespeichert."
     }
   },
   "config_subentries": {
@@ -204,6 +218,10 @@
     "ladung_langsamer": {
       "title": "{fahrzeug} lädt langsamer als geplant",
       "description": "Gemessen {gemessen} %/h, geplant {geplant} %/h, also {abweichung} % langsamer. Wahrscheinlich ist der Wirkungsgrad zu hoch, die Kapazität zu klein oder die Ladeleistung zu groß eingetragen. Es kann auch sein, dass die Wallbox weniger liefert, die Automation verspätet schaltet oder das Fahrzeug selbst begrenzt."
+    },
+    "tarif_erlaubt_nicht": {
+      "title": "Ladeplan nicht im Tarif",
+      "description": "Dein Tarif erlaubt diesen Ladeplan nicht. Prüfe im Dashboard Tarif und Zahl der Fahrzeuge."
     }
   },
   "services": {

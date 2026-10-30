@@ -1,11 +1,15 @@
 {
   "generated_by": "meteo-volt-contract/tools/export.py",
   "do_not_edit": true,
-  "contract_commit": "e1a43a7",
+  "contract_commit": "327c610",
   "wege": {
     "K1": {
       "version": 2,
       "status": "fest"
+    },
+    "Q1": {
+      "version": 1,
+      "status": "entwurf"
     }
   },
   "files": {
@@ -115,6 +119,74 @@
     },
     "tests/fixtures/contract/plan-response.schema.json": {
       "sha256": "978f58e822b6661ddf28ef11e94868a301a8c8afd6942297a08b102a0c2e6ca8",
+      "kind": "text-lf"
+    },
+    "tests/fixtures/contract/q1/email-unverified.problem.json": {
+      "sha256": "890466ca4b64c95fc70417d608866402a6a80b812e1fba04974a2bc708565ed4",
+      "kind": "text-lf"
+    },
+    "tests/fixtures/contract/q1/headers-too-large.problem.json": {
+      "sha256": "83bb27548c72c53ee2bcf3ea9246380bed0edc66cb784fd905f735fa8f8488c4",
+      "kind": "text-lf"
+    },
+    "tests/fixtures/contract/q1/internal-error.problem.json": {
+      "sha256": "0f1643925f1c2c325363edfb09bc2a4c9f2f822735aee97445ce20e6d74183a2",
+      "kind": "text-lf"
+    },
+    "tests/fixtures/contract/q1/invalid-request.problem.json": {
+      "sha256": "0ef49ec07b1e47eac64c9171f0dc4ac6ec1cf436ef1605d12be5f18bf5500ae1",
+      "kind": "text-lf"
+    },
+    "tests/fixtures/contract/q1/key-invalid.problem.json": {
+      "sha256": "39789b1b2be0db42a242411d532fa2ea64f5c4c5b36e6928fb90f4ba8c22fe7f",
+      "kind": "text-lf"
+    },
+    "tests/fixtures/contract/q1/key-locked.problem.json": {
+      "sha256": "b493d286ff5511a903d0f3a8d3e77082d779baeabfb105b86d0c6d677c12c864",
+      "kind": "text-lf"
+    },
+    "tests/fixtures/contract/q1/key-missing.problem.json": {
+      "sha256": "2a357811339e0f8346314e7f40e67874d2a7092da8344052222ad5090611e189",
+      "kind": "text-lf"
+    },
+    "tests/fixtures/contract/q1/limit-reached.problem.json": {
+      "sha256": "6e4f819cf1e571c0ed5ff63dc89443747238a7d7452247a777beefd061e88804",
+      "kind": "text-lf"
+    },
+    "tests/fixtures/contract/q1/not-found.problem.json": {
+      "sha256": "4702adbe60ac067a2a68fdf8bad501a525f2b7e97e191a31785d7f279bc75aab",
+      "kind": "text-lf"
+    },
+    "tests/fixtures/contract/q1/problem.schema.json": {
+      "sha256": "37005786c31e98fd313730088afebd1a873d410c00f865077806be40286faf92",
+      "kind": "text-lf"
+    },
+    "tests/fixtures/contract/q1/rate-limited.problem.json": {
+      "sha256": "92b37dd7031f08a9658598c49ad8080258b796ef49aa12101d728b048ef5d09c",
+      "kind": "text-lf"
+    },
+    "tests/fixtures/contract/q1/reauth-required.problem.json": {
+      "sha256": "d42612e821b058371ab7377cbb621dc8f933c1a5d88e0e97111cbcbd312d4a71",
+      "kind": "text-lf"
+    },
+    "tests/fixtures/contract/q1/tier-not-allowed.problem.json": {
+      "sha256": "2499f99fcaca39062a101b6c8eec8e8bf76695a595b0f9f404c5ee4ebbb03b03",
+      "kind": "text-lf"
+    },
+    "tests/fixtures/contract/q1/token-expired.problem.json": {
+      "sha256": "08ef355024336d658294d777bcf5babd74478e5da41637a99434ac355f4d282a",
+      "kind": "text-lf"
+    },
+    "tests/fixtures/contract/q1/token-invalid.problem.json": {
+      "sha256": "5f1057eb036b891629d3c3ccdeae502faecf0f84567d76b2264969d0e7e611ca",
+      "kind": "text-lf"
+    },
+    "tests/fixtures/contract/q1/token-missing.problem.json": {
+      "sha256": "5fb5eefb085e3819734730d9cefb711d929b2f9f5e785d6b1baf48dea59c9975",
+      "kind": "text-lf"
+    },
+    "tests/fixtures/contract/q1/unavailable.problem.json": {
+      "sha256": "40d6d721419bcd0be66acc4e49d06e60c71c41452f1897d038533a2e0aa760ee",
       "kind": "text-lf"
     },
     "tests/fixtures/contract/rounding.request.json": {

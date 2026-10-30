@@ -188,6 +188,38 @@ def test_das_repair_issue_ist_beschriftet(sprache):
     assert "{fehler}" in issue.get("description", ""), sprache
 
 
+# --- Abgewiesener Key und Tarif --------------------------------------------------
+
+_PLANABRUF = importlib.util.spec_from_file_location(
+    "meteo_volt_planabruf_texte", INTEGRATION / "planabruf.py")
+planabruf = importlib.util.module_from_spec(_PLANABRUF)
+_PLANABRUF.loader.exec_module(planabruf)
+
+
+@pytest.mark.parametrize("sprache", SPRACHEN)
+def test_jeder_fehlerschluessel_des_formulars_hat_einen_text(sprache):
+    fehler = _laden(sprache)["config"]["error"]
+    for schluessel in (planabruf.FLOW_UNGUELTIG, planabruf.FLOW_GESPERRT,
+                       planabruf.FLOW_VERBINDUNG):
+        assert fehler.get(schluessel), f"{sprache}: {schluessel}"
+
+
+@pytest.mark.parametrize("sprache", SPRACHEN)
+@pytest.mark.parametrize("schritt", ["reauth_confirm", "reauth_locked"])
+def test_der_reauth_dialog_ist_beschriftet(sprache, schritt):
+    config = _laden(sprache)["config"]
+    eintrag = config["step"].get(schritt, {})
+    assert eintrag.get("description"), f"{sprache}/{schritt}"
+    assert eintrag.get("data", {}).get("api_token"), f"{sprache}/{schritt}"
+    assert config["abort"].get("reauth_successful"), sprache
+
+
+@pytest.mark.parametrize("sprache", SPRACHEN)
+def test_der_tarif_hinweis_ist_beschriftet(sprache):
+    issue = _laden(sprache).get("issues", {}).get(const.ISSUE_TARIF, {})
+    assert issue.get("title") and issue.get("description"), sprache
+
+
 # --- Die Entitaeten und das Issue aus C6 ------------------------------------
 # ausgabe.py laedt standort.py relativ und kommt deshalb ueber ein Paket herein,
 # dessen __init__.py nicht laeuft -- wie in test_ausgabe.py.

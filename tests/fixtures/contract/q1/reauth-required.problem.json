@@ -1,0 +1,6 @@
+{
+  "type": "https://api.meteo-volt.de/problems/reauth-required",
+  "title": "Reauthentication required",
+  "status": 401,
+  "detail": "Fuer diese Aktion ist eine frische Anmeldung noetig"
+}

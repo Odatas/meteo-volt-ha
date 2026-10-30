@@ -1,0 +1,6 @@
+{
+  "type": "https://api.meteo-volt.de/problems/token-missing",
+  "title": "Token missing",
+  "status": 401,
+  "detail": "Die Anmeldung fehlt"
+}

@@ -30,7 +30,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     overrides = await hass.async_add_executor_job(load_overrides)
     client = MeteoVoltApiClient(api_token, api_url=overrides.get("api_url", API_URL))
 
-    coordinator = MeteoVoltDataUpdateCoordinator(hass, client)
+    coordinator = MeteoVoltDataUpdateCoordinator(hass, entry, client)
 
     # Fetch initial data so we have data when entities subscribe
     await coordinator.async_config_entry_first_refresh()

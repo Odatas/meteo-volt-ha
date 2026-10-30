@@ -1,0 +1,6 @@
+{
+  "type": "https://api.meteo-volt.de/problems/key-missing",
+  "title": "API key missing",
+  "status": 401,
+  "detail": "Der Key fehlt"
+}

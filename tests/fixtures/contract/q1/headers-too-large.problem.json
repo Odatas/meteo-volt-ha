@@ -1,0 +1,6 @@
+{
+  "type": "https://api.meteo-volt.de/problems/headers-too-large",
+  "title": "Request headers too large",
+  "status": 431,
+  "detail": "Die Kopfzeilen sind groesser als 16 KB"
+}

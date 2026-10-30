@@ -45,7 +45,7 @@ def test_repository_is_in_sync():
 
 
 def test_lock_names_every_vendored_file():
-    assert len(_lock(REPO_ROOT)["files"]) == 35
+    assert len(_lock(REPO_ROOT)["files"]) == 52
 
 
 def test_untouched_clone_is_in_sync(tmp_path):

@@ -1,0 +1,6 @@
+{
+  "type": "https://api.meteo-volt.de/problems/internal-error",
+  "title": "Internal error",
+  "status": 500,
+  "detail": "Die Anfrage konnte nicht bearbeitet werden. Das liegt an uns und wird bearbeitet; es ist nichts zu tun"
+}

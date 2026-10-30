@@ -203,7 +203,11 @@ def test_ein_geloeschter_gebundener_ladepunkt_laesst_das_fahrzeug_aus():
     (planabruf.PlanNichtVerfuegbar(status=503), (standort.NACHHOLEN, 300.0)),
     (planabruf.PlanAbgelehnt(status=404), (standort.PAUSE, None)),
     (planabruf.PlanNichtAutorisiert(status=401), (standort.STOPP, None)),
-], ids=["erfolg", "rate-limit", "nicht-verfuegbar", "abgelehnt", "nicht-autorisiert"])
+    (planabruf.PlanKeyAbgewiesen(status=401), (standort.STOPP, None)),
+    (planabruf.PlanKeyGesperrt(status=403), (standort.STOPP, None)),
+    (planabruf.PlanTarifErlaubtNicht(status=403), (standort.PAUSE, None)),
+], ids=["erfolg", "rate-limit", "nicht-verfuegbar", "abgelehnt", "nicht-autorisiert",
+        "key-abgewiesen", "key-gesperrt", "tarif"])
 def test_jede_fehlerklasse_hat_ihren_naechsten_versuch(fehler, erwartet):
     assert standort.naechster_versuch(fehler) == erwartet
 

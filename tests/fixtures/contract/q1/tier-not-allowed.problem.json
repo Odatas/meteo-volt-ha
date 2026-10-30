@@ -1,0 +1,6 @@
+{
+  "type": "https://api.meteo-volt.de/problems/tier-not-allowed",
+  "title": "Tier does not allow this",
+  "status": 403,
+  "detail": "Der Tarif erlaubt das nicht"
+}

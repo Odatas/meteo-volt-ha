@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "FieldError": {
+      "description": "Ein einzelner Verstoss gegen den Kontrakt, auf ein Feld bezogen.",
+      "properties": {
+        "field": {
+          "description": "Pfad des beanstandeten Feldes, etwa vehicles[0].constraints[1].deadline. Betrifft der Fehler das Objekt als Ganzes, steht hier (root).",
+          "title": "Field",
+          "type": "string"
+        },
+        "problem": {
+          "description": "Kurzer Token, der benennt, was an diesem Feld nicht stimmt.",
+          "title": "Problem",
+          "type": "string"
+        },
+        "expected": {
+          "description": "Was an dieser Stelle erwartet wird. Der eingesandte Wert wird nie genannt.",
+          "title": "Expected",
+          "type": "string"
+        }
+      },
+      "required": [
+        "field",
+        "problem",
+        "expected"
+      ],
+      "title": "FieldError",
+      "type": "object"
+    }
+  },
+  "description": "Ein Fehlerdokument. Es nennt nie den eingesandten Wert.",
+  "properties": {
+    "type": {
+      "description": "URI, die den Fehlertyp benennt und ihn ueber alle Vorkommen hinweg identifiziert.",
+      "pattern": "^https://api\\.meteo-volt\\.de/problems/[a-z0-9-]+$",
+      "title": "Type",
+      "type": "string"
+    },
+    "title": {
+      "description": "Kurze Bezeichnung des Fehlertyps, fuer jeden Fall desselben Typs gleich.",
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "status": {
+      "description": "Der HTTP-Statuscode dieser Antwort.",
+      "maximum": 599,
+      "minimum": 400,
+      "title": "Status",
+      "type": "integer"
+    },
+    "detail": {
+      "description": "Was in diesem einen Fall schiefging, im Klartext.",
+      "minLength": 1,
+      "title": "Detail",
+      "type": "string"
+    },
+    "errors": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/FieldError"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Die einzelnen Feldverstoesse. Fehlt ganz, wenn kein einzelnes Feld verantwortlich ist.",
+      "title": "Errors"
+    }
+  },
+  "required": [
+    "type",
+    "title",
+    "status",
+    "detail"
+  ],
+  "title": "Problem",
+  "type": "object"
+}

@@ -20,6 +20,13 @@ UPDATE_INTERVAL_SECONDS = 3600
 # max_power_kw -- das ist schon ein Feld des Ladepunkts.
 CONF_SITE_MAX_POWER = "site_max_power_kw"
 
+# Je Eintrag, warum der Key zuletzt abgewiesen wurde: Klasse aus planabruf.
+# Schluessel in hass.data, gelesen vom Reauth-Dialog.
+REAUTH_GRUND = "meteo_volt_reauth_grund"
+
+# Das Repair-Issue, wenn der Tarif den Ladeplan nicht erlaubt.
+ISSUE_TARIF = "tarif_erlaubt_nicht"
+
 # Spec C5 Abschnitt 8: das Repair-Issue nach 12 h ohne neuen Plan.
 ISSUE_PLAN_VERALTET = "plan_veraltet"
 

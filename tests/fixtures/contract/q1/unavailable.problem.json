@@ -1,0 +1,6 @@
+{
+  "type": "https://api.meteo-volt.de/problems/unavailable",
+  "title": "Temporarily unavailable",
+  "status": 503,
+  "detail": "Der Dienst ist gerade nicht verfuegbar; spaeter erneut versuchen"
+}

@@ -37,8 +37,16 @@ from homeassistant.util import dt as dt_util
 
 from . import stammdaten, standort
 from .api import MeteoVoltApiClient
-from .const import DOMAIN, ISSUE_PLAN_VERALTET, SIGNAL_PLANUNG
-from .planabruf import PlanFehler
+from .const import DOMAIN, ISSUE_PLAN_VERALTET, ISSUE_TARIF, SIGNAL_PLANUNG
+from .coordinator import reauth_grund_merken
+from .planabruf import (
+    KEY_ABGEWIESEN,
+    KEY_GESPERRT,
+    PlanFehler,
+    PlanKeyAbgewiesen,
+    PlanKeyGesperrt,
+    PlanTarifErlaubtNicht,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -121,6 +129,7 @@ class MeteoVoltPlanKoordinator(DataUpdateCoordinator[standort.Planstand]):
             self._issue_abbrechen = None
         self._entitaeten_abmelden()
         ir.async_delete_issue(self.hass, DOMAIN, self._issue_id)
+        ir.async_delete_issue(self.hass, DOMAIN, self._tarif_issue_id)
 
     # --- Ausloeser, Spec Abschnitt 6 ----------------------------------------
 
@@ -158,6 +167,7 @@ class MeteoVoltPlanKoordinator(DataUpdateCoordinator[standort.Planstand]):
         self._subentries = abbild
         if not self._hat_fahrzeuge(abbild):
             ir.async_delete_issue(self.hass, DOMAIN, self._issue_id)
+            ir.async_delete_issue(self.hass, DOMAIN, self._tarif_issue_id)
         elif not hatte_fahrzeuge:
             self._seit = dt_util.utcnow()
         self._issue_pruefung_planen()
@@ -313,9 +323,31 @@ class MeteoVoltPlanKoordinator(DataUpdateCoordinator[standort.Planstand]):
             )
         self._letzte_fehlerklasse = klasse
 
+        if isinstance(stand.fehler, PlanKeyAbgewiesen):
+            # Der Plan ist gestoppt. Laeuft schon ein Reauth, zeigt Home
+            # Assistant trotzdem nur eine Karte.
+            reauth_grund_merken(
+                self.hass,
+                self.config_entry.entry_id,
+                KEY_GESPERRT if isinstance(stand.fehler, PlanKeyGesperrt) else KEY_ABGEWIESEN,
+            )
+            self.config_entry.async_start_reauth(self.hass)
+
         if stand.fehler is None:
             ir.async_delete_issue(self.hass, DOMAIN, self._issue_id)
+            ir.async_delete_issue(self.hass, DOMAIN, self._tarif_issue_id)
             self._issue_pruefung_planen(stand)
+        elif isinstance(stand.fehler, PlanTarifErlaubtNicht):
+            # Eigener Hinweis statt "Plan veraltet". Er bleibt bis zum ersten Plan.
+            ir.async_delete_issue(self.hass, DOMAIN, self._issue_id)
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                self._tarif_issue_id,
+                is_fixable=False,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key=ISSUE_TARIF,
+            )
         else:
             # Spec Abschnitt 8: jeder weitere Fehlschlag schreibt den Text neu.
             self._issue_anlegen_wenn_faellig(stand, dt_util.utcnow())
@@ -331,6 +363,10 @@ class MeteoVoltPlanKoordinator(DataUpdateCoordinator[standort.Planstand]):
     @property
     def _issue_id(self) -> str:
         return f"{ISSUE_PLAN_VERALTET}_{self.config_entry.entry_id}"
+
+    @property
+    def _tarif_issue_id(self) -> str:
+        return f"{ISSUE_TARIF}_{self.config_entry.entry_id}"
 
     @callback
     def _issue_pruefung_planen(self, stand: standort.Planstand | None = None) -> None:
@@ -354,6 +390,8 @@ class MeteoVoltPlanKoordinator(DataUpdateCoordinator[standort.Planstand]):
     @callback
     def _issue_anlegen_wenn_faellig(self, stand: standort.Planstand, jetzt: datetime) -> None:
         """Legt das Issue an oder ersetzt seinen Text, wenn es faellig ist."""
+        if isinstance(stand.fehler, PlanTarifErlaubtNicht):
+            return
         hat_fahrzeuge = self._hat_fahrzeuge(self._subentries)
         if standort.issue_faellig(stand, self._seit, jetzt, hat_fahrzeuge):
             ir.async_create_issue(

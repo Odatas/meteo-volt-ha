@@ -1,0 +1,6 @@
+{
+  "type": "https://api.meteo-volt.de/problems/limit-reached",
+  "title": "Limit reached",
+  "status": 409,
+  "detail": "Die Grenze des Tarifs ist erreicht"
+}

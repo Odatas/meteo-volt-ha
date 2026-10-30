@@ -6,10 +6,13 @@ api.py schickt ab und reicht Status, Retry-After und Koerper herein; was
 davor und danach entschieden wird, steht hier und ist gegen die vendorten
 Fehlerfixtures pruefbar.
 
-Verzweigt wird nur auf den Statuscode, nie auf `type`. 401 und 429 kommen aus
-Zuplos Policies mit Typen aus httpproblems.com, der Rest aus dem Plan-Dienst
-oder dem Gateway-Handler. Fehlerkoerper werden deshalb tolerant gelesen:
-Zuplos Antworten verletzen plan-error.schema.json.
+Verzweigt wird nach der Fehlerart, dem letzten Teil von `type` unter
+PROBLEM_BASE. Ohne Art oder bei einer unbekannten zaehlt der Statuscode: Zuplo
+antwortet mit Typen aus httpproblems.com, und eine neue Art greift erst, wenn
+sie hier eingetragen ist. Fehlerkoerper werden deshalb tolerant gelesen.
+
+Dieselbe Einordnung gilt fuer die Prognose und den Config-Flow
+(prognose_fehler, flow_fehler).
 
 Die Klassen sagen, was zu tun ist, nicht warum. Ein 404 kann ein unbekanntes
 Modell sein oder eine Gateway-Umgebung ohne Plan-Route.
@@ -24,6 +27,36 @@ import math
 
 PROGNOSE_PFAD = "/v1/prediction"
 PLAN_PFAD = "/v1/plan"
+
+PROBLEM_BASE = "https://api.meteo-volt.de/problems/"
+HEADER_ANFRAGE_ID = "X-Request-Id"
+
+# Die Klassen der Einordnung. Was jede ausloest, steht bei ihren Nutzern:
+# PlanAbruf.nach_antwort, prognose_fehler, flow_fehler.
+KEY_ABGEWIESEN = "key_abgewiesen"
+KEY_GESPERRT = "key_gesperrt"
+# Nur nach Status: 401 oder 403 ohne bekannte Art.
+NICHT_AUTORISIERT = "nicht_autorisiert"
+TARIF = "tarif"
+ABGELEHNT = "abgelehnt"
+RATE_LIMIT = "rate_limit"
+NICHT_VERFUEGBAR = "nicht_verfuegbar"
+
+# Die Arten, die diese Integration kennt. Arten, die nur das Dashboard
+# bekommt (token-*, reauth-required, email-unverified, limit-reached), fehlen
+# mit Absicht: Erreicht eine davon die Integration, zaehlt der Status.
+ARTEN = {
+    "key-missing": KEY_ABGEWIESEN,
+    "key-invalid": KEY_ABGEWIESEN,
+    "key-locked": KEY_GESPERRT,
+    "tier-not-allowed": TARIF,
+    "not-found": ABGELEHNT,
+    "invalid-request": ABGELEHNT,
+    "headers-too-large": ABGELEHNT,
+    "rate-limited": RATE_LIMIT,
+    "unavailable": NICHT_VERFUEGBAR,
+    "internal-error": NICHT_VERFUEGBAR,
+}
 
 # Ohne brauchbaren Retry-After-Header (A0-Spec 3.9): 60 s, verdoppelt mit
 # jedem weiteren 429 seit der letzten 200, hoechstens 15 min.
@@ -46,15 +79,23 @@ class PlanFehler(Exception):
         titel: str | None = None,
         detail: str | None = None,
         feldfehler: tuple[dict, ...] = (),
+        art: str | None = None,
+        anfrage_id: str | None = None,
     ) -> None:
         self.status = status
         self.titel = titel
         self.detail = detail
         self.feldfehler = tuple(feldfehler)
+        self.art = art
+        self.anfrage_id = anfrage_id
         super().__init__(self._meldung())
 
     def _meldung(self) -> str:
         teile = [f"Status {self.status}" if self.status is not None else "kein Status"]
+        if self.art:
+            teile.append(f"Art {self.art}")
+        if self.anfrage_id:
+            teile.append(f"Anfrage-ID {self.anfrage_id}")
         teile += [text for text in (self.titel, self.detail) if text]
         teile += [
             f"{f.get('field', '?')}: {f.get('problem', '?')} "
@@ -66,6 +107,14 @@ class PlanFehler(Exception):
 
 class PlanNichtAutorisiert(PlanFehler):
     """401, 403. Der Key gilt nicht; ohne den Nutzer aendert sich nichts."""
+
+
+class PlanKeyAbgewiesen(PlanNichtAutorisiert):
+    """Das Gateway nennt den Key fehlend oder ungueltig. Der Nutzer traegt einen neuen ein."""
+
+
+class PlanKeyGesperrt(PlanKeyAbgewiesen):
+    """Den Key gibt es, er ist gesperrt."""
 
 
 class PlanRateLimit(PlanFehler):
@@ -88,6 +137,14 @@ class PlanRateLimit(PlanFehler):
 
 class PlanAbgelehnt(PlanFehler):
     """Jeder andere Status unter 500 ausser 200. Dieselbe Anfrage scheitert wieder."""
+
+
+class PlanTarifErlaubtNicht(PlanAbgelehnt):
+    """Der Tarif hat keinen Ladeplan, oder es sind mehr Fahrzeuge angelegt, als er erlaubt.
+
+    Ein Upgrade aendert den Key nicht. Der naechste Herzschlag holt den Plan dann
+    ohne Zutun.
+    """
 
 
 class PlanNichtVerfuegbar(PlanFehler):
@@ -159,6 +216,86 @@ def _retry_after(wert: str | None) -> float | None:
     return zahl if math.isfinite(zahl) else None
 
 
+def art_lesen(dokument: dict) -> str | None:
+    """Die Art aus `type`, oder None. Wirft nie.
+
+    Nur unter PROBLEM_BASE; Zuplos Typen aus httpproblems.com haben keine Art.
+    """
+    typ = _text(dokument, "type")
+    if typ is None or not typ.startswith(PROBLEM_BASE):
+        return None
+    art = typ[len(PROBLEM_BASE):]
+    return art if art and art.isascii() and all(
+        z.islower() or z.isdigit() or z == "-" for z in art) else None
+
+
+def nach_status(status: int) -> str:
+    """Die Klasse ohne bekannte Art."""
+    if status in (401, 403):
+        return NICHT_AUTORISIERT
+    if status == 429:
+        return RATE_LIMIT
+    if status >= 500:
+        return NICHT_VERFUEGBAR
+    return ABGELEHNT
+
+
+def einordnen(status: int, art: str | None) -> str:
+    """Die bekannte Art entscheidet, sonst der Status."""
+    return ARTEN.get(art or "") or nach_status(status)
+
+
+class PrognoseFehler(Exception):
+    """Die Prognose wurde mit einer bekannten Art abgewiesen.
+
+    Ohne bekannte Art wirft die Prognose wie bisher; diese Klasse gibt es nur,
+    wenn die Art etwas anderes verlangt als der Status allein.
+    """
+
+    def __init__(
+        self, *, klasse: str, status: int, art: str, anfrage_id: str | None = None
+    ) -> None:
+        self.klasse = klasse
+        self.status = status
+        self.art = art
+        self.anfrage_id = anfrage_id
+        teile = [f"Status {status}", f"Art {art}"]
+        if anfrage_id:
+            teile.append(f"Anfrage-ID {anfrage_id}")
+        super().__init__("; ".join(teile))
+
+    @property
+    def key_abgewiesen(self) -> bool:
+        """Home Assistant soll erneut authentifizieren lassen."""
+        return self.klasse in (KEY_ABGEWIESEN, KEY_GESPERRT)
+
+
+def prognose_fehler(
+    status: int, koerper: bytes, anfrage_id: str | None = None
+) -> PrognoseFehler | None:
+    """Der Fehler einer Prognose-Antwort mit bekannter Art, sonst None."""
+    art = art_lesen(_json_objekt(koerper) or {})
+    if art not in ARTEN:
+        return None
+    return PrognoseFehler(
+        klasse=ARTEN[art], status=status, art=art, anfrage_id=anfrage_id)
+
+
+# Einrichten, Neu konfigurieren, Reauth: der Fehlerschluessel im Formular.
+FLOW_UNGUELTIG = "invalid_auth"
+FLOW_GESPERRT = "key_locked"
+FLOW_VERBINDUNG = "cannot_connect"
+
+
+def flow_fehler(klasse: str) -> str:
+    """Der Fehlerschluessel des Formulars fuer eine Klasse."""
+    if klasse == KEY_GESPERRT:
+        return FLOW_GESPERRT
+    if klasse in (KEY_ABGEWIESEN, NICHT_AUTORISIERT, TARIF):
+        return FLOW_UNGUELTIG
+    return FLOW_VERBINDUNG
+
+
 class Sendepause:
     """R14: nach einem 429 geht nichts hinaus, bis die Pause abgelaufen ist.
 
@@ -218,7 +355,8 @@ class PlanAbruf:
             raise PlanRateLimit(retry_after=rest, detail="Sendepause nach R14, nicht gesendet")
 
     def nach_antwort(
-        self, status: int, retry_after: str | None, koerper: bytes, jetzt: float
+        self, status: int, retry_after: str | None, koerper: bytes, jetzt: float,
+        anfrage_id: str | None = None,
     ) -> dict:
         """Eine 200 mit JSON-Objekt kommt unveraendert zurueck, alles andere wirft."""
         if status == 200:
@@ -231,17 +369,27 @@ class PlanAbruf:
             return dokument
 
         problem = _json_objekt(koerper) or {}
+        art = art_lesen(problem)
         felder = {
             "status": status,
             "titel": _text(problem, "title"),
             "detail": _text(problem, "detail"),
             "feldfehler": _feldfehler(problem),
+            "art": art,
+            "anfrage_id": anfrage_id,
         }
-        if status == 429:
+        klasse = einordnen(status, art)
+        if klasse == RATE_LIMIT:
             dauer = self._pause.nach_429(_retry_after(retry_after), jetzt)
             raise PlanRateLimit(retry_after=dauer, **felder)
-        if status in (401, 403):
-            raise PlanNichtAutorisiert(**felder)
-        if status >= 500:
-            raise PlanNichtVerfuegbar(**felder)
-        raise PlanAbgelehnt(**felder)
+        raise _PLAN_KLASSEN[klasse](**felder)
+
+
+_PLAN_KLASSEN: dict[str, type[PlanFehler]] = {
+    KEY_ABGEWIESEN: PlanKeyAbgewiesen,
+    KEY_GESPERRT: PlanKeyGesperrt,
+    NICHT_AUTORISIERT: PlanNichtAutorisiert,
+    TARIF: PlanTarifErlaubtNicht,
+    ABGELEHNT: PlanAbgelehnt,
+    NICHT_VERFUEGBAR: PlanNichtVerfuegbar,
+}

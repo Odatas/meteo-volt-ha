@@ -22,16 +22,30 @@
         "data_description": {
           "site_max_power_kw": "Only taken into account once several vehicles are planned together."
         }
+      },
+      "reauth_confirm": {
+        "description": "The key was rejected.",
+        "data": {
+          "api_token": "API Token"
+        }
+      },
+      "reauth_locked": {
+        "description": "The key is locked. Check the dashboard or enter a different key.",
+        "data": {
+          "api_token": "API Token"
+        }
       }
     },
     "error": {
       "cannot_connect": "Failed to connect to the API.",
       "invalid_auth": "Invalid API token.",
-      "unknown": "An unknown error occurred."
+      "unknown": "An unknown error occurred.",
+      "key_locked": "Key locked."
     },
     "abort": {
       "already_configured": "This API token is already configured.",
-      "reconfigure_successful": "The settings were saved."
+      "reconfigure_successful": "The settings were saved.",
+      "reauth_successful": "The key has been saved."
     }
   },
   "config_subentries": {
@@ -204,6 +218,10 @@
     "ladung_langsamer": {
       "title": "{fahrzeug} charges slower than planned",
       "description": "Measured {gemessen} %/h, planned {geplant} %/h, {abweichung} % slower. The charging efficiency is probably set too high, the capacity too low or the charging power too high. The wallbox may also deliver less, the automation may switch late, or the vehicle may limit charging itself."
+    },
+    "tarif_erlaubt_nicht": {
+      "title": "Charging plan not in your plan tier",
+      "description": "Your tier does not allow this charging plan. Check your tier and the number of vehicles in the dashboard."
     }
   },
   "services": {
